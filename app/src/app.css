@@ -1,0 +1,71 @@
+/* Astra — тема «ночное небо сквозь матовое стекло» (§5).
+   Glassmorphism: глубокий космический градиент, звёзды, матовые панели. */
+
+:root {
+  --bg-0: #070a1c;
+  --bg-1: #0d1230;
+  --bg-2: #141a44;
+  --ink: #e8ecff;
+  --ink-dim: #aab0d8;
+  --ink-faint: #7b82ac;
+  --glass: rgba(28, 34, 78, 0.45);
+  --glass-brd: rgba(150, 160, 220, 0.18);
+  --silver: #cdd6ff;     /* лунное серебро */
+  --gold: #f3c969;       /* гармоничные аспекты */
+  --rose: #e8888f;       /* напряжённые аспекты */
+  --accent: #9b8cff;
+  --radius: 18px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+/* мягкий «рассвет» — светлая тема. App ставит data-theme (с учётом «авто»). */
+:root[data-theme='light'] {
+  --bg-0: #e9ecfb; --bg-1: #dfe4fb; --bg-2: #cdd6f7;
+  --ink: #1b2050; --ink-dim: #4a5183; --ink-faint: #7178a6;
+  --glass: rgba(255, 255, 255, 0.6);
+  --glass-brd: rgba(120, 130, 200, 0.28);
+  --silver: #5b63a8; --accent: #6a5cf0;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { height: 100%; margin: 0; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 700px at 70% -10%, var(--bg-2), transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, #20184d55, transparent 60%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-0));
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* тонкий звёздный фон */
+body::before {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; opacity: 0.5;
+  background-image:
+    radial-gradient(1px 1px at 20% 30%, #fff7, transparent),
+    radial-gradient(1px 1px at 80% 20%, #fff6, transparent),
+    radial-gradient(1px 1px at 55% 70%, #fff5, transparent),
+    radial-gradient(1.5px 1.5px at 35% 85%, #fff6, transparent),
+    radial-gradient(1px 1px at 90% 60%, #fff5, transparent);
+}
+
+.glass {
+  background: var(--glass);
+  border: 1px solid var(--glass-brd);
+  border-radius: var(--radius);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: var(--shadow);
+}
+
+.glyph { font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "DejaVu Sans", sans-serif; }
+
+button { font: inherit; color: inherit; cursor: pointer; }
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-thumb { background: #ffffff22; border-radius: 8px; }

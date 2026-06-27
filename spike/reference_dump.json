@@ -1,0 +1,1063 @@
+{
+  "swe_version": "2.10.03",
+  "ephe_path_set": false,
+  "dates": {
+    "2000-01-01": {
+      "jd_noon": 2451545.0,
+      "positions": {
+        "Солнце": {
+          "lon_swieph": 280.36891967534336,
+          "lon_moseph": 280.36891967534336,
+          "speed": 1.0194320944210782,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Луна": {
+          "lon_swieph": 223.32377543840954,
+          "lon_moseph": 223.32377543840954,
+          "speed": 12.021182719804214,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Меркурий": {
+          "lon_swieph": 271.8892750074874,
+          "lon_moseph": 271.8892750074874,
+          "speed": 1.5562540922634527,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Венера": {
+          "lon_swieph": 241.5657983261687,
+          "lon_moseph": 241.5657983261687,
+          "speed": 1.2090397204249068,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Марс": {
+          "lon_swieph": 327.9633133185202,
+          "lon_moseph": 327.9633133185202,
+          "speed": 0.7756727772750058,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Юпитер": {
+          "lon_swieph": 25.25303030942177,
+          "lon_moseph": 25.25303030942177,
+          "speed": 0.04076131765140367,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Сатурн": {
+          "lon_swieph": 40.39563895600193,
+          "lon_moseph": 40.39563895600193,
+          "speed": -0.01994475935472004,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Уран": {
+          "lon_swieph": 314.8092231658263,
+          "lon_moseph": 314.8092231658263,
+          "speed": 0.05034355441128553,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Нептун": {
+          "lon_swieph": 303.19298122364415,
+          "lon_moseph": 303.19298122364415,
+          "speed": 0.03557012441920768,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Раху": {
+          "lon_swieph": 123.95289541307294,
+          "lon_moseph": 123.95289541307294,
+          "speed": -0.05438220058726096,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Кету": {
+          "lon_swieph": 303.95289541307295,
+          "lon_moseph": 303.95289541307295,
+          "speed": -0.05438220058726096,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        }
+      },
+      "aspects": [
+        {
+          "bucket": "slow",
+          "p1": "Нептун",
+          "p2": "Раху",
+          "aspect": "оппозиция",
+          "exact_orb": 0.71,
+          "exact_time": null,
+          "begin_time": "1999-12-25T23:30:38+00:00",
+          "end_time": "2000-02-09T04:44:55+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "fast",
+          "p1": "Сатурн",
+          "p2": "Солнце",
+          "aspect": "трин",
+          "exact_orb": 0.02,
+          "exact_time": "2000-01-01T12:37:01+00:00",
+          "begin_time": "1999-12-31T13:32:37+00:00",
+          "end_time": "2000-01-02T11:43:38+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "fast",
+          "p1": "Нептун",
+          "p2": "Кету",
+          "aspect": "соединение",
+          "exact_orb": 0.71,
+          "exact_time": null,
+          "begin_time": "1999-12-25T23:30:38+00:00",
+          "end_time": "2000-02-09T04:44:55+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Солнце",
+          "aspect": "секстиль",
+          "exact_orb": 0.2,
+          "exact_time": "2000-01-01T05:33:58+00:00",
+          "begin_time": "2000-01-01T03:23:40+00:00",
+          "end_time": "2000-01-01T07:44:27+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Сатурн",
+          "aspect": "оппозиция",
+          "exact_orb": 0.09,
+          "exact_time": "2000-01-01T06:10:22+00:00",
+          "begin_time": "2000-01-01T04:11:14+00:00",
+          "end_time": "2000-01-01T08:09:39+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Уран",
+          "aspect": "квадрат",
+          "exact_orb": 0.01,
+          "exact_time": "2000-01-01T14:58:49+00:00",
+          "begin_time": "2000-01-01T12:58:25+00:00",
+          "end_time": "2000-01-01T16:59:21+00:00",
+          "applying": false
+        }
+      ],
+      "audit": []
+    },
+    "2010-09-09": {
+      "jd_noon": 2455449.0,
+      "positions": {
+        "Солнце": {
+          "lon_swieph": 166.71029085021303,
+          "lon_moseph": 166.71029085021303,
+          "speed": 0.971828152059624,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Луна": {
+          "lon_swieph": 181.89144188557185,
+          "lon_moseph": 181.89144188557185,
+          "speed": 15.174811936614791,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Меркурий": {
+          "lon_swieph": 156.25211391624862,
+          "lon_moseph": 156.25211391624862,
+          "speed": -0.49624733508408686,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Венера": {
+          "lon_swieph": 210.63992436939654,
+          "lon_moseph": 210.63992436939654,
+          "speed": 0.7520921988745962,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Марс": {
+          "lon_swieph": 206.38394404979633,
+          "lon_moseph": 206.38394404979633,
+          "speed": 0.6611193000271636,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Юпитер": {
+          "lon_swieph": 359.9621538091105,
+          "lon_moseph": 359.9621538091105,
+          "speed": -0.1267182035756227,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Сатурн": {
+          "lon_swieph": 185.11701435991472,
+          "lon_moseph": 185.11701435991472,
+          "speed": 0.11926385490223598,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Уран": {
+          "lon_swieph": 359.0920849073149,
+          "lon_moseph": 359.0920849073149,
+          "speed": -0.03893076710416971,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Нептун": {
+          "lon_swieph": 326.7633918883918,
+          "lon_moseph": 326.7633918883918,
+          "speed": -0.025310551613853614,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Раху": {
+          "lon_swieph": 279.5075472179056,
+          "lon_moseph": 279.5075472179056,
+          "speed": -0.16365468876133407,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Кету": {
+          "lon_swieph": 99.5075472179056,
+          "lon_moseph": 99.5075472179056,
+          "speed": -0.16365468876133407,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        }
+      },
+      "aspects": [
+        {
+          "bucket": "slow",
+          "p1": "Уран",
+          "p2": "Юпитер",
+          "aspect": "соединение",
+          "exact_orb": 0.83,
+          "exact_time": null,
+          "begin_time": "2010-09-08T00:10:12+00:00",
+          "end_time": "2010-09-29T20:06:41+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "fast",
+          "p1": "Нептун",
+          "p2": "Марс",
+          "aspect": "трин",
+          "exact_orb": 0.04,
+          "exact_time": null,
+          "begin_time": "2010-09-08T14:17:20+00:00",
+          "end_time": "2010-09-11T12:09:41+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Раху",
+          "aspect": "квадрат",
+          "exact_orb": 0.02,
+          "exact_time": null,
+          "begin_time": "2010-09-09T22:23:16+00:00",
+          "end_time": "2010-09-10T01:32:38+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Кету",
+          "aspect": "квадрат",
+          "exact_orb": 0.02,
+          "exact_time": null,
+          "begin_time": "2010-09-09T22:23:16+00:00",
+          "end_time": "2010-09-10T01:32:38+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Уран",
+          "aspect": "оппозиция",
+          "exact_orb": 0.26,
+          "exact_time": "2010-09-09T07:35:22+00:00",
+          "begin_time": "2010-09-09T06:01:00+00:00",
+          "end_time": "2010-09-09T09:09:50+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Юпитер",
+          "aspect": "оппозиция",
+          "exact_orb": 0.01,
+          "exact_time": "2010-09-09T08:58:36+00:00",
+          "begin_time": "2010-09-09T07:24:41+00:00",
+          "end_time": "2010-09-09T10:32:35+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Сатурн",
+          "aspect": "соединение",
+          "exact_orb": 0.09,
+          "exact_time": "2010-09-09T17:09:01+00:00",
+          "begin_time": "2010-09-09T15:33:06+00:00",
+          "end_time": "2010-09-09T18:45:03+00:00",
+          "applying": true
+        }
+      ],
+      "audit": []
+    },
+    "2020-12-21": {
+      "jd_noon": 2459205.0,
+      "positions": {
+        "Солнце": {
+          "lon_swieph": 270.0832237406887,
+          "lon_moseph": 270.0832237406887,
+          "speed": 1.0184611730560835,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Луна": {
+          "lon_swieph": 354.66198382553983,
+          "lon_moseph": 354.66198382553983,
+          "speed": 12.208892582459562,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Меркурий": {
+          "lon_swieph": 270.8504928222765,
+          "lon_moseph": 270.8504928222765,
+          "speed": 1.5859025408839338,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Венера": {
+          "lon_swieph": 247.27192498843996,
+          "lon_moseph": 247.27192498843996,
+          "speed": 1.2503872434639183,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Марс": {
+          "lon_swieph": 23.113131984261962,
+          "lon_moseph": 23.113131984261962,
+          "speed": 0.37380559843995537,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Юпитер": {
+          "lon_swieph": 300.42795589516254,
+          "lon_moseph": 300.42795589516254,
+          "speed": 0.21997566329138513,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Сатурн": {
+          "lon_swieph": 300.45753572201215,
+          "lon_moseph": 300.45753572201215,
+          "speed": 0.10809880524423145,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Уран": {
+          "lon_swieph": 36.96447113327105,
+          "lon_moseph": 36.96447113327105,
+          "speed": -0.019889272170877343,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Нептун": {
+          "lon_swieph": 348.30821261040353,
+          "lon_moseph": 348.30821261040353,
+          "speed": 0.012863998937576341,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Раху": {
+          "lon_swieph": 79.87004308790917,
+          "lon_moseph": 79.87004308790917,
+          "speed": -0.007531292408800458,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Кету": {
+          "lon_swieph": 259.87004308790915,
+          "lon_moseph": 259.87004308790915,
+          "speed": -0.007531292408800458,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        }
+      },
+      "aspects": [
+        {
+          "bucket": "slow",
+          "p1": "Сатурн",
+          "p2": "Юпитер",
+          "aspect": "соединение",
+          "exact_orb": 0.0,
+          "exact_time": "2020-12-21T18:20:37+00:00",
+          "begin_time": "2020-12-12T17:32:06+00:00",
+          "end_time": "2020-12-30T14:43:51+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "fast",
+          "p1": "Солнце",
+          "p2": "Меркурий",
+          "aspect": "соединение",
+          "exact_orb": 0.48,
+          "exact_time": null,
+          "begin_time": "2020-12-18T08:38:36+00:00",
+          "end_time": "2020-12-21T21:49:55+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Нептун",
+          "aspect": "соединение",
+          "exact_orb": 0.22,
+          "exact_time": null,
+          "begin_time": "2020-12-20T21:37:19+00:00",
+          "end_time": "2020-12-21T01:30:48+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Сатурн",
+          "aspect": "секстиль",
+          "exact_orb": 0.23,
+          "exact_time": null,
+          "begin_time": "2020-12-21T21:32:55+00:00",
+          "end_time": "2020-12-22T01:33:06+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Юпитер",
+          "aspect": "секстиль",
+          "exact_orb": 0.2,
+          "exact_time": null,
+          "begin_time": "2020-12-21T21:34:43+00:00",
+          "end_time": "2020-12-22T01:37:11+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Солнце",
+          "aspect": "квадрат",
+          "exact_orb": 0.14,
+          "exact_time": null,
+          "begin_time": "2020-12-21T21:31:20+00:00",
+          "end_time": "2020-12-22T01:51:17+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Меркурий",
+          "aspect": "квадрат",
+          "exact_orb": 0.91,
+          "exact_time": null,
+          "begin_time": "2020-12-21T23:47:13+00:00",
+          "end_time": "2020-12-22T04:21:47+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Раху",
+          "aspect": "квадрат",
+          "exact_orb": 0.19,
+          "exact_time": "2020-12-21T02:37:34+00:00",
+          "begin_time": "2020-12-21T00:40:50+00:00",
+          "end_time": "2020-12-21T04:34:32+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Кету",
+          "aspect": "квадрат",
+          "exact_orb": 0.19,
+          "exact_time": "2020-12-21T02:37:34+00:00",
+          "begin_time": "2020-12-21T00:40:50+00:00",
+          "end_time": "2020-12-21T04:34:32+00:00",
+          "applying": false
+        }
+      ],
+      "audit": []
+    },
+    "2023-03-02": {
+      "jd_noon": 2460006.0,
+      "positions": {
+        "Солнце": {
+          "lon_swieph": 341.6335298277361,
+          "lon_moseph": 341.6335298277361,
+          "speed": 1.0033093326859814,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Луна": {
+          "lon_swieph": 106.53901090397191,
+          "lon_moseph": 106.53901090397191,
+          "speed": 11.860213677516876,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Меркурий": {
+          "lon_swieph": 329.23120565955463,
+          "lon_moseph": 329.23120565955463,
+          "speed": 1.6940709654558976,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Венера": {
+          "lon_swieph": 12.47174560167373,
+          "lon_moseph": 12.47174560167373,
+          "speed": 1.2216014531927708,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Марс": {
+          "lon_swieph": 79.71216077770733,
+          "lon_moseph": 79.71216077770733,
+          "speed": 0.4049486593936628,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Юпитер": {
+          "lon_swieph": 12.205879110400069,
+          "lon_moseph": 12.205879110400069,
+          "speed": 0.22510433086230852,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Сатурн": {
+          "lon_swieph": 329.3999390799001,
+          "lon_moseph": 329.3999390799001,
+          "speed": 0.11921371828093791,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Уран": {
+          "lon_swieph": 45.57691545467952,
+          "lon_moseph": 45.57691545467952,
+          "speed": 0.03203402223438028,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Нептун": {
+          "lon_swieph": 354.60778292864524,
+          "lon_moseph": 354.60778292864524,
+          "speed": 0.037189580702118925,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Раху": {
+          "lon_swieph": 35.715665526076315,
+          "lon_moseph": 35.715665526076315,
+          "speed": -0.11017173184761406,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Кету": {
+          "lon_swieph": 215.71566552607632,
+          "lon_moseph": 215.71566552607632,
+          "speed": -0.11017173184761406,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        }
+      },
+      "aspects": [
+        {
+          "bucket": "fast",
+          "p1": "Юпитер",
+          "p2": "Венера",
+          "aspect": "соединение",
+          "exact_orb": 0.02,
+          "exact_time": "2023-03-02T05:35:54+00:00",
+          "begin_time": "2023-03-01T05:32:55+00:00",
+          "end_time": "2023-03-03T05:41:36+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "fast",
+          "p1": "Сатурн",
+          "p2": "Меркурий",
+          "aspect": "соединение",
+          "exact_orb": 0.03,
+          "exact_time": "2023-03-02T14:34:12+00:00",
+          "begin_time": "2023-03-01T23:17:40+00:00",
+          "end_time": "2023-03-03T05:44:15+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Солнце",
+          "aspect": "трин",
+          "exact_orb": 0.08,
+          "exact_time": "2023-03-02T01:10:01+00:00",
+          "begin_time": "2023-03-01T22:57:43+00:00",
+          "end_time": "2023-03-02T03:22:24+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Венера",
+          "aspect": "квадрат",
+          "exact_orb": 0.07,
+          "exact_time": "2023-03-02T02:49:56+00:00",
+          "begin_time": "2023-03-02T00:34:52+00:00",
+          "end_time": "2023-03-02T05:05:05+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Юпитер",
+          "aspect": "квадрат",
+          "exact_orb": 0.03,
+          "exact_time": "2023-03-02T03:04:08+00:00",
+          "begin_time": "2023-03-02T01:00:36+00:00",
+          "end_time": "2023-03-02T05:07:43+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Уран",
+          "aspect": "секстиль",
+          "exact_orb": 0.02,
+          "exact_time": "2023-03-02T10:02:53+00:00",
+          "begin_time": "2023-03-02T08:01:12+00:00",
+          "end_time": "2023-03-02T12:04:37+00:00",
+          "applying": false
+        }
+      ],
+      "audit": []
+    },
+    "2025-01-01": {
+      "jd_noon": 2460677.0,
+      "positions": {
+        "Солнце": {
+          "lon_swieph": 281.32343259755095,
+          "lon_moseph": 281.32343259755095,
+          "speed": 1.0196397653622917,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Луна": {
+          "lon_swieph": 300.6608946846648,
+          "lon_moseph": 300.6608946846648,
+          "speed": 13.544266158492967,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Меркурий": {
+          "lon_swieph": 260.516387862198,
+          "lon_moseph": 260.516387862198,
+          "speed": 1.2990572613818114,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Венера": {
+          "lon_swieph": 328.248297206552,
+          "lon_moseph": 328.248297206552,
+          "speed": 1.0711576223746226,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Марс": {
+          "lon_swieph": 121.75263131806263,
+          "lon_moseph": 121.75263131806263,
+          "speed": -0.3329019311392491,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Юпитер": {
+          "lon_swieph": 73.16261529714616,
+          "lon_moseph": 73.16261529714616,
+          "speed": -0.1052965166180191,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Сатурн": {
+          "lon_swieph": 344.5620839410822,
+          "lon_moseph": 344.5620839410822,
+          "speed": 0.07628975893308115,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Уран": {
+          "lon_swieph": 53.623735471120966,
+          "lon_moseph": 53.623735471120966,
+          "speed": -0.0240233221704789,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Нептун": {
+          "lon_swieph": 357.30469020914285,
+          "lon_moseph": 357.30469020914285,
+          "speed": 0.014076939250567083,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Раху": {
+          "lon_swieph": 0.7777946895564295,
+          "lon_moseph": 0.7777946895564295,
+          "speed": -0.18263829158139014,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Кету": {
+          "lon_swieph": 180.77779468955643,
+          "lon_moseph": 180.77779468955643,
+          "speed": -0.18263829158139014,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        }
+      },
+      "aspects": [
+        {
+          "bucket": "fast",
+          "p1": "Раху",
+          "p2": "Марс",
+          "aspect": "трин",
+          "exact_orb": 0.89,
+          "exact_time": null,
+          "begin_time": "2025-01-01T07:50:56+00:00",
+          "end_time": "2025-01-07T23:01:28+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "fast",
+          "p1": "Марс",
+          "p2": "Кету",
+          "aspect": "секстиль",
+          "exact_orb": 0.89,
+          "exact_time": null,
+          "begin_time": "2025-01-01T07:50:56+00:00",
+          "end_time": "2025-01-07T23:01:28+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Уран",
+          "aspect": "трин",
+          "exact_orb": 0.28,
+          "exact_time": null,
+          "begin_time": "2024-12-31T21:43:19+00:00",
+          "end_time": "2025-01-01T01:17:13+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Нептун",
+          "aspect": "секстиль",
+          "exact_orb": 0.02,
+          "exact_time": "2025-01-01T06:02:10+00:00",
+          "begin_time": "2025-01-01T04:15:18+00:00",
+          "end_time": "2025-01-01T07:48:55+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Раху",
+          "aspect": "секстиль",
+          "exact_orb": 0.12,
+          "exact_time": "2025-01-01T12:12:16+00:00",
+          "begin_time": "2025-01-01T10:27:20+00:00",
+          "end_time": "2025-01-01T13:57:07+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Кету",
+          "aspect": "трин",
+          "exact_orb": 0.12,
+          "exact_time": "2025-01-01T12:12:16+00:00",
+          "begin_time": "2025-01-01T10:27:20+00:00",
+          "end_time": "2025-01-01T13:57:07+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Марс",
+          "aspect": "оппозиция",
+          "exact_orb": 0.07,
+          "exact_time": "2025-01-01T13:53:13+00:00",
+          "begin_time": "2025-01-01T12:09:31+00:00",
+          "end_time": "2025-01-01T15:36:49+00:00",
+          "applying": false
+        }
+      ],
+      "audit": []
+    },
+    "2026-06-27": {
+      "jd_noon": 2461219.0,
+      "positions": {
+        "Солнце": {
+          "lon_swieph": 95.86610415280384,
+          "lon_moseph": 95.86610415280384,
+          "speed": 0.9534836971412805,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Луна": {
+          "lon_swieph": 248.5759915140731,
+          "lon_moseph": 248.5759915140731,
+          "speed": 11.874202943857771,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Меркурий": {
+          "lon_swieph": 116.06526523062844,
+          "lon_moseph": 116.06526523062844,
+          "speed": 0.17183689496031504,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Венера": {
+          "lon_swieph": 136.21161857359874,
+          "lon_moseph": 136.21161857359874,
+          "speed": 1.1411115232499278,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Марс": {
+          "lon_swieph": 59.06308097656888,
+          "lon_moseph": 59.06308097656888,
+          "speed": 0.7148195635128645,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Юпитер": {
+          "lon_swieph": 119.41533380778338,
+          "lon_moseph": 119.41533380778338,
+          "speed": 0.2122301168419458,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Сатурн": {
+          "lon_swieph": 14.02665982123968,
+          "lon_moseph": 14.02665982123968,
+          "speed": 0.04842309486905905,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Уран": {
+          "lon_swieph": 63.529917373469694,
+          "lon_moseph": 63.529917373469694,
+          "speed": 0.05143283045876569,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Нептун": {
+          "lon_swieph": 4.390762045948841,
+          "lon_moseph": 4.390762045948841,
+          "speed": 0.005452817346374732,
+          "retro": false,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Раху": {
+          "lon_swieph": 331.42212266990583,
+          "lon_moseph": 331.42212266990583,
+          "speed": -0.16657981259898544,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        },
+        "Кету": {
+          "lon_swieph": 151.42212266990583,
+          "lon_moseph": 151.42212266990583,
+          "speed": -0.16657981259898544,
+          "retro": true,
+          "swieph_fell_back_to_moshier": true
+        }
+      },
+      "aspects": [
+        {
+          "bucket": "slow",
+          "p1": "Нептун",
+          "p2": "Уран",
+          "aspect": "секстиль",
+          "exact_orb": 0.84,
+          "exact_time": null,
+          "begin_time": "2026-06-24T10:57:55+00:00",
+          "end_time": "2026-08-06T14:10:35+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "fast",
+          "p1": "Юпитер",
+          "p2": "Марс",
+          "aspect": "секстиль",
+          "exact_orb": 0.1,
+          "exact_time": null,
+          "begin_time": "2026-06-26T05:08:01+00:00",
+          "end_time": "2026-06-30T04:51:26+00:00",
+          "applying": true
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Уран",
+          "aspect": "оппозиция",
+          "exact_orb": 0.12,
+          "exact_time": "2026-06-27T01:45:41+00:00",
+          "begin_time": "2026-06-26T23:44:02+00:00",
+          "end_time": "2026-06-27T03:47:22+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Нептун",
+          "aspect": "трин",
+          "exact_orb": 0.23,
+          "exact_time": "2026-06-27T03:32:24+00:00",
+          "begin_time": "2026-06-27T01:31:12+00:00",
+          "end_time": "2026-06-27T05:33:39+00:00",
+          "applying": false
+        },
+        {
+          "bucket": "moon",
+          "p1": "Луна",
+          "p2": "Сатурн",
+          "aspect": "трин",
+          "exact_orb": 0.03,
+          "exact_time": "2026-06-27T23:03:54+00:00",
+          "begin_time": "2026-06-27T21:02:05+00:00",
+          "end_time": "2026-06-28T01:05:44+00:00",
+          "applying": false
+        }
+      ],
+      "audit": []
+    }
+  },
+  "swieph_is_moshier_fallback": true,
+  "eclipses": {
+    "solar": [
+      {
+        "start": "2024-01-01",
+        "jd_max": 2460409.262079681,
+        "time": "2024-04-08T18:17:24+00:00",
+        "retflag": 5,
+        "type": "полное",
+        "saros": 139,
+        "member": 30,
+        "mag": 1.0284634877498138
+      },
+      {
+        "start": "2024-06-01",
+        "jd_max": 2460586.281297341,
+        "time": "2024-10-02T18:45:04+00:00",
+        "retflag": 9,
+        "type": "кольцевое",
+        "saros": 144,
+        "member": 17,
+        "mag": 0.9665057623277215
+      },
+      {
+        "start": "2017-01-01",
+        "jd_max": 2457811.120428727,
+        "time": "2017-02-26T14:53:25+00:00",
+        "retflag": 9,
+        "type": "кольцевое",
+        "saros": 140,
+        "member": 29,
+        "mag": 0.9962325268835381
+      },
+      {
+        "start": "1999-01-01",
+        "jd_max": 2451225.773326372,
+        "time": "1999-02-16T06:33:35+00:00",
+        "retflag": 9,
+        "type": "кольцевое",
+        "saros": 140,
+        "member": 28,
+        "mag": 0.9963360975631625
+      },
+      {
+        "start": "2026-01-01",
+        "jd_max": 2461089.008263744,
+        "time": "2026-02-17T12:11:54+00:00",
+        "retflag": 9,
+        "type": "кольцевое",
+        "saros": 121,
+        "member": 61,
+        "mag": 0.9797393586547305
+      }
+    ],
+    "lunar": [
+      {
+        "start": "2025-01-01",
+        "jd_max": 2460748.7908266364,
+        "time": "2025-03-14T06:58:47+00:00",
+        "retflag": 4,
+        "type": "полное",
+        "saros": 123,
+        "member": 53,
+        "mag": 1.1778834953629862
+      },
+      {
+        "start": "2024-06-01",
+        "jd_max": 2460571.614090285,
+        "time": "2024-09-18T02:44:17+00:00",
+        "retflag": 16,
+        "type": "частное",
+        "saros": 118,
+        "member": 52,
+        "mag": 0.08488856032990931
+      },
+      {
+        "start": "2022-06-01",
+        "jd_max": 2459891.9577559503,
+        "time": "2022-11-08T10:59:10+00:00",
+        "retflag": 4,
+        "type": "полное",
+        "saros": 136,
+        "member": 20,
+        "mag": 1.3588756067175525
+      },
+      {
+        "start": "2018-01-01",
+        "jd_max": 2458150.062373698,
+        "time": "2018-01-31T13:29:49+00:00",
+        "retflag": 4,
+        "type": "полное",
+        "saros": 124,
+        "member": 49,
+        "mag": 1.3164908556102208
+      },
+      {
+        "start": "2026-01-01",
+        "jd_max": 2461102.981744393,
+        "time": "2026-03-03T11:33:43+00:00",
+        "retflag": 4,
+        "type": "полное",
+        "saros": 133,
+        "member": 27,
+        "mag": 1.1504552270414716
+      }
+    ]
+  }
+}

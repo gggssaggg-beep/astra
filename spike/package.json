@@ -1,0 +1,19 @@
+{
+  "name": "astra-engine-spike",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Engine spike: swisseph-wasm (Moshier) vs pysweph reference",
+  "scripts": {
+    "dump:ref": "../.venv/Scripts/python.exe dump_reference.py",
+    "verify": "node verify_wasm.mjs && node verify_aspects.mjs && node verify_eclipses.mjs",
+    "verify:pos": "node verify_wasm.mjs",
+    "verify:aspects": "node verify_aspects.mjs",
+    "verify:eclipses": "node verify_eclipses.mjs",
+    "verify:swieph": "node verify_swieph.mjs",
+    "probe:extra": "node probe_extra_objects.mjs"
+  },
+  "dependencies": {
+    "swisseph-wasm": "^0.0.5"
+  }
+}

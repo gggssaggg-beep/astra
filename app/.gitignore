@@ -1,0 +1,18 @@
+# зависимости и сборки
+node_modules/
+dist/
+dist-ssr/
+*.local
+*.log
+
+# Capacitor / Android — нативный проект android/ КОММИТИМ, но не его сборки:
+android/.gradle/
+android/build/
+android/app/build/
+android/capacitor-cordova-android-plugins/build/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/res/xml/config.xml
+
+.DS_Store

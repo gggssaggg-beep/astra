@@ -1,0 +1,47 @@
+name: Сборка Android APK (Astra)
+
+# Собирает debug-APK в облаке GitHub (бесплатно для публичного репозитория).
+# Запуск: автоматически при push в main, либо вручную (вкладка Actions → Run workflow).
+# Готовый файл — внизу страницы запуска, артефакт "astra-apk".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Java 21 (нужен для Capacitor/Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Сборка веб-части и синхронизация Capacitor
+        working-directory: app
+        run: |
+          npm install
+          npm run build
+          npx cap sync android
+
+      - name: Сборка APK (Gradle)
+        working-directory: app/android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Выложить APK как артефакт
+        uses: actions/upload-artifact@v4
+        with:
+          name: astra-apk
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

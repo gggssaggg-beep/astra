@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#20184d"/>
+      <stop offset="55%" stop-color="#141a44"/>
+      <stop offset="100%" stop-color="#070a1c"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- полумесяц по центру -->
+  <path d="M300 120a150 150 0 1 0 0 272 124 124 0 1 1 0-272z" fill="#cdd6ff"/>
+  <!-- звёзды -->
+  <circle cx="356" cy="158" r="11" fill="#f3c969"/>
+  <circle cx="388" cy="226" r="6" fill="#cdd6ff"/>
+  <circle cx="162" cy="372" r="7.5" fill="#9b8cff"/>
+  <circle cx="338" cy="356" r="5" fill="#cdd6ff"/>
+</svg>

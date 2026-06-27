@@ -12,6 +12,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # чтобы закоммитить готовый APK обратно в репо
     steps:
       - uses: actions/checkout@v4
 
@@ -45,3 +47,12 @@ jobs:
           name: astra-apk
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+
+      - name: Обновить APK в репо (та же ссылка для скачивания)
+        run: |
+          cp app/android/app/build/outputs/apk/debug/app-debug.apk apk/Astra.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add apk/Astra.apk
+          git commit -m "APK авто-сборка [skip ci]" || echo "без изменений"
+          git push

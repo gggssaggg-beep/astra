@@ -73,12 +73,14 @@
     }
   });
 
-  // свайп влево/вправо = соседний день
-  let x0 = 0;
-  const onStart = (e: TouchEvent) => { x0 = e.touches[0].clientX; };
+  // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.
+  let x0 = 0, y0 = 0;
+  const onStart = (e: TouchEvent) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; };
   const onEnd = (e: TouchEvent) => {
     const dx = e.changedTouches[0].clientX - x0;
-    if (Math.abs(dx) > 50) shift(dx < 0 ? 1 : -1);
+    const dy = e.changedTouches[0].clientY - y0;
+    // листаем только при почти горизонтальном свайпе (в пределах ~22° от горизонтали)
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2.5) shift(dx < 0 ? 1 : -1);
   };
   const onKey = (e: KeyboardEvent) => {
     if (e.key === 'ArrowLeft') shift(-1);

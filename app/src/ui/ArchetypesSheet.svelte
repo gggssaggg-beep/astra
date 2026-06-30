@@ -2,33 +2,56 @@
   import { db } from '../lib/db.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { getKey } from '../lib/secret.ts';
+  import { loadDeityMyth } from '../lib/chat.ts';
+  import { PLANET_LORE } from '../lib/lore.ts';
 
   let { onclose }: { onclose: () => void } = $props();
 
   const OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
-  // подсказки-греческие соответствия (можно переписать)
-  const HINT: Record<string, string> = {
-    'Солнце': 'Гелиос / Аполлон', 'Луна': 'Селена / Артемида', 'Меркурий': 'Гермес',
-    'Венера': 'Афродита', 'Марс': 'Арес', 'Юпитер': 'Зевс', 'Сатурн': 'Кронос',
-    'Уран': 'Уран', 'Нептун': 'Посейдон', 'Раху': 'Голова дракона', 'Кету': 'Хвост дракона',
-  };
+  // подсказки-греческие соответствия — из встроенного контента (lore.ts)
+  const HINT: Record<string, string> = Object.fromEntries(
+    OBJ.map((o) => [o, PLANET_LORE[o]?.deity ?? 'божество'])
+  );
 
   let items = $state(OBJ.map((o) => {
     const a = db.archetypes.get(o);
     return { object: o, deity: a?.deity ?? '', text: a?.text ?? '' };
   }));
 
+  let loadingObj = $state<string | null>(null);
+  let loadErr = $state<string | null>(null);
+
   function saveItem(i: number) {
     const it = items[i];
     db.archetypes.put({ object: it.object, deity: it.deity.trim(), text: it.text.trim(), updatedAt: new Date().toISOString() });
+  }
+
+  async function loadMyth(i: number) {
+    if (loadingObj) return;
+    const key = getKey();
+    if (!key) { loadErr = 'Сначала введите ключ Claude во вкладке «Чат».'; return; }
+    const it = items[i];
+    loadErr = null; loadingObj = it.object;
+    try {
+      const text = await loadDeityMyth(key, it.object, it.deity || HINT[it.object]);
+      items[i].text = text;
+      if (!items[i].deity) items[i].deity = HINT[it.object];
+      saveItem(i);
+    } catch (e) {
+      loadErr = e instanceof Error ? e.message : String(e);
+    } finally {
+      loadingObj = null;
+    }
   }
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }}>
   <header><h2>Архетипы божеств</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Грецкая мифология на каждую планету. Тексты твои — приложение их хранит и
-    показывает рядом с аспектом.</div>
+  <div class="hint">Греческая мифология на каждую планету. Базовые архетипы уже вшиты —
+    тексты можно править или подгрузить расширенный разбор у Claude (нужен ключ в «Чате»).</div>
+  {#if loadErr}<div class="lerr">⚠ {loadErr}</div>{/if}
 
   {#each items as it, i (it.object)}
     <div class="row">
@@ -37,7 +60,12 @@
         <b>{it.object}</b>
         <input class="deity" bind:value={it.deity} placeholder={HINT[it.object] ?? 'божество'} onchange={() => saveItem(i)} />
       </div>
-      <textarea bind:value={it.text} rows="2" placeholder="Архетип, миф, ключевые мотивы…" onchange={() => saveItem(i)}></textarea>
+      <textarea bind:value={it.text} rows="3" placeholder="Архетип, миф, ключевые мотивы…" onchange={() => saveItem(i)}></textarea>
+      <div class="rowbtns">
+        <button class="myth" disabled={loadingObj === it.object} onclick={() => loadMyth(i)}>
+          {loadingObj === it.object ? '…подгружаю…' : '✨ Подгрузить миф (Claude)'}
+        </button>
+      </div>
     </div>
   {/each}
 </section>
@@ -56,4 +84,8 @@
   .g { font-size: 1.2rem; color: var(--silver); width: 1.4rem; text-align: center; }
   .deity { flex: 1; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 10px; padding: 6px 10px; font: inherit; }
   textarea { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 12px; font: inherit; resize: vertical; }
+  .rowbtns { display: flex; justify-content: flex-end; margin-top: 6px; }
+  .myth { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 0.8rem; }
+  .myth:disabled { opacity: 0.6; }
+  .lerr { color: var(--rose); font-size: 0.84rem; margin-bottom: 8px; }
 </style>

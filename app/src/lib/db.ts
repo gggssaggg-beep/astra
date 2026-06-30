@@ -13,6 +13,14 @@ import type {
 import { DEFAULT_SETTINGS } from './models.ts';
 import { DATA_SCHEMA } from './version.ts';
 import * as fs from './fileStore.ts';
+import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
+import { defaultArchetypes } from './lore.ts';
+
+// На устройстве (Capacitor) durable-хранилище — нативный Preferences
+// (SharedPreferences/UserDefaults). Переживает перезапуск и OTA-обновление, в
+// отличие от localStorage в WebView (может очищаться / менять origin).
+const NATIVE = Capacitor.isNativePlatform();
 
 export interface AppData {
   schema: number;
@@ -70,9 +78,19 @@ function scheduleFileSave() {
   }, 600);
 }
 
+let prefTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleNativeSave() {
+  if (!NATIVE) return;
+  if (prefTimer) clearTimeout(prefTimer);
+  prefTimer = setTimeout(() => {
+    Preferences.set({ key: LS_KEY, value: serialize() }).catch(() => { /* нет места — данные всё равно в localStorage */ });
+  }, 300);
+}
+
 function persist() {
   try { localStorage.setItem(LS_KEY, serialize()); } catch { /* quota */ }
   scheduleFileSave();
+  scheduleNativeSave();
   notify();
 }
 
@@ -160,6 +178,36 @@ export const db = {
     set: (s: Settings) => { data.settings = s; persist(); },
   },
 };
+
+// --- встроенные архетипы + старт на устройстве ---
+/** Дозасеять вшитые архетипы для объектов, у которых их ещё нет (правки не трогаем). */
+function seedDefaults(): boolean {
+  let added = false;
+  for (const a of defaultArchetypes()) {
+    if (!data.archetypes.find((x) => x.object === a.object)) {
+      data.archetypes.push({ ...a, updatedAt: new Date().toISOString() });
+      added = true;
+    }
+  }
+  return added;
+}
+
+/** Вызвать один раз при старте (await перед чтением данных в UI). На устройстве
+ *  поднимает durable-копию из Preferences (localStorage в WebView ненадёжен), на
+ *  вебе — no-op для хранилища. Затем дозасев встроенных архетипов. */
+export async function hydrate(): Promise<void> {
+  if (NATIVE) {
+    try {
+      const { value } = await Preferences.get({ key: LS_KEY });
+      if (value && value.trim()) {
+        adopt(JSON.parse(value), 'replace');
+        try { localStorage.setItem(LS_KEY, serialize()); } catch { /* quota */ }
+      }
+    } catch { /* первый запуск / нет данных — стартуем с localStorage/пустого */ }
+  }
+  const seeded = seedDefaults();
+  if (seeded) persist(); else notify();
+}
 
 // --- экспорт / импорт (текстовый JSON) ---
 export function exportText(): string { return serialize(); }

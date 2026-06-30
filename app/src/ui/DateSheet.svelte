@@ -3,7 +3,8 @@
   import { parseDateInput } from '../lib/dateparse.ts';
   import { bottomSheet } from '../lib/sheet.ts';
 
-  let { date, onpick, onclose }: { date: Date; onpick: (d: Date) => void; onclose: () => void } = $props();
+  let { date, today, onpick, onclose }:
+    { date: Date; today?: Date; onpick: (d: Date) => void; onclose: () => void } = $props();
 
   const WD = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
   const MON = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -15,7 +16,12 @@
   let input = $state('');
   let err = $state(false);
 
-  const todayUTC = () => { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); };
+  // «сегодня» — по ВЫБРАННОМУ поясу (передаётся из App как UTC-полуночь-якорь),
+  // иначе запасной вариант по поясу устройства. Так календарь согласован с шапкой.
+  const todayMs = $derived(
+    today ? Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+          : (() => { const n = new Date(); return Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()); })()
+  );
   const selKey = $derived(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 
   // сетка месяца: 6 недель, понедельник первый
@@ -58,13 +64,13 @@
   <div class="wd">{#each WD as w}<span>{w}</span>{/each}</div>
   <div class="days">
     {#each grid as c}
-      <button class="day" class:dim={!c.inMonth} class:sel={c.ms === selKey} class:today={c.ms === todayUTC()}
+      <button class="day" class:dim={!c.inMonth} class:sel={c.ms === selKey} class:today={c.ms === todayMs}
         onclick={() => onpick(new Date(c.ms))}>{c.day}</button>
     {/each}
   </div>
 
   <div class="footer">
-    <button class="btn ghost" onclick={() => onpick(new Date(todayUTC()))}>Сегодня</button>
+    <button class="btn ghost" onclick={() => onpick(new Date(todayMs))}>Сегодня</button>
     <button class="btn ghost" onclick={onclose}>Закрыть</button>
   </div>
 </section>

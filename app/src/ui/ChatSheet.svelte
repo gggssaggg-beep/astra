@@ -1,11 +1,13 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { Engine } from '../engine/index.ts';
   import { getKey, setKey, clearKey } from '../lib/secret.ts';
   import { systemPrompt, askClaude, type ChatMsg } from '../lib/chat.ts';
   import { bottomSheet } from '../lib/sheet.ts';
 
-  let { engine, date, tz, orbOf, onclose }:
-    { engine: Engine; date: Date; tz: string; orbOf: (name: string) => number; onclose: () => void } = $props();
+  let { engine, date, tz, orbOf, seed, onclose }:
+    { engine: Engine; date: Date; tz: string; orbOf: (name: string) => number;
+      seed?: string | null; onclose: () => void } = $props();
 
   let key = $state(getKey());
   let keyInput = $state('');
@@ -20,8 +22,13 @@
     const k = keyInput.trim();
     if (!k) return;
     setKey(k); key = k; keyInput = ''; editingKey = false;
+    if (seed && !messages.length) send(seed);   // был ждущий вопрос — отправить
   }
   function forgetKey() { clearKey(); key = ''; editingKey = true; }
+
+  // открыт с затравкой (обсуждение аспекта/планеты): отправить сразу при наличии
+  // ключа, иначе оставить ждать — уйдёт после ввода ключа (см. saveKey).
+  onMount(() => { if (seed && key) send(seed); });
 
   async function send(text: string) {
     const q = text.trim();

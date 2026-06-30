@@ -6,8 +6,10 @@
   import Wheel from './Wheel.svelte';
 
   import type { SignStyle } from '../lib/models.ts';
-  let { engine, date, orbOf, tz, signStyle = 'gold', onAspect }:
-    { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string; signStyle?: SignStyle; onAspect?: (r: AspectRecord) => void } = $props();
+  import type { WheelInfo } from '../lib/lore.ts';
+  let { engine, date, orbOf, tz, signStyle = 'gold', onAspect, oninfo }:
+    { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string; signStyle?: SignStyle;
+      onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void } = $props();
 
   // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса. Снимок положений
   // (колесо, Луна, чипы планет) — на НАСТОЯЩИЙ момент: для сегодня = «сейчас»,
@@ -44,7 +46,7 @@
 
 <div class="day">
   <div class="wheel-wrap glass">
-    <Wheel {positions} aspects={allAspects} {signStyle} />
+    <Wheel {positions} aspects={allAspects} {signStyle} {oninfo} />
     <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)}`}</div>
   </div>
 

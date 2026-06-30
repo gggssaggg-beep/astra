@@ -37,6 +37,18 @@ export function systemPrompt(E: Engine, date: Date, tz: string,
 ${buildDayContext(E, date, tz, orb)}${arche ? `\n\n=== Архетипы (от астролога) ===\n${arche}` : ''}`;
 }
 
+/** Подгрузить архетип-миф объекта (раунд 4 #7): краткий пересказ + параллели из
+ *  других культур. Без отдельной «графы рассуждений» — кратко и по делу. */
+export async function loadDeityMyth(key: string, object: string, deity: string): Promise<string> {
+  const system = 'Ты — знаток мифологии и архетипов, помогаешь практикующему астрологу. '
+    + 'Дай КРАТКИЙ архетип-портрет объекта карты на основе греческой мифологии и короткие '
+    + 'параллели из других культур. По-русски, ясно и по делу, без рассуждений о процессе. '
+    + '2–3 коротких абзаца; уместен список ключевых мотивов.';
+  const user = `Объект карты: ${object}. Греческое соответствие: ${deity || '(подбери уместное)'}. `
+    + 'Дай: краткий пересказ архетипа/мифа; ключевые мотивы; параллели в других культурах.';
+  return askClaude(key, system, [{ role: 'user', content: user }]);
+}
+
 export async function askClaude(key: string, system: string, messages: ChatMsg[]): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',

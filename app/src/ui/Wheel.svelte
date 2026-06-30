@@ -9,11 +9,13 @@
    */
   import type { BodyPosition, AspectRecord } from '../engine/index.ts';
   import type { SignStyle } from '../lib/models.ts';
+  import type { WheelInfo } from '../lib/lore.ts';
   import { aspectTone } from '../lib/format.ts';
   import { SIGN_PATHS } from './signIcons.ts';
 
-  let { positions, aspects, signStyle = 'gold' }:
-    { positions: BodyPosition[]; aspects: AspectRecord[]; signStyle?: SignStyle } = $props();
+  let { positions, aspects, signStyle = 'gold', oninfo }:
+    { positions: BodyPosition[]; aspects: AspectRecord[]; signStyle?: SignStyle;
+      oninfo?: (info: WheelInfo) => void } = $props();
 
   // цвета стихий: огонь, земля, воздух, вода (по индексу знака % 4)
   const ELEM = ['#ff8a5b', '#7fd99a', '#7fd0ff', '#b39bff'];
@@ -59,7 +61,8 @@
         const l1 = lonByName.get(a.p1), l2 = lonByName.get(a.p2);
         if (l1 == null || l2 == null) return null;
         const A = pt(l1, rAspect), B = pt(l2, rAspect);
-        return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying };
+        return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying,
+          aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
@@ -114,6 +117,12 @@
   {#each lines as l}
     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
       stroke-width="1.2" opacity={l.dim ? 0.35 : 0.8} />
+    {#if oninfo}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+        onclick={() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol })}
+        role="button" tabindex="-1" aria-label="{l.p1} {l.aspect} {l.p2}" />
+    {/if}
   {/each}
 
   {#each placed as { p, r }}
@@ -121,6 +130,12 @@
     {@const tick = pt(p.lon, rZodiac)}
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />
     <text x={pos.x} y={pos.y} class="planet glyph" class:retro={p.retro}>{p.glyph}</text>
+    {#if oninfo}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <circle class="hit" cx={pos.x} cy={pos.y} r="14"
+        onclick={() => oninfo({ kind: 'planet', name: p.name })}
+        role="button" tabindex="-1" aria-label={p.name} />
+    {/if}
   {/each}
 </svg>
 
@@ -134,4 +149,6 @@
   .plink { stroke: var(--glass-brd); stroke-width: 0.5; opacity: 0.5; }
   .planet { fill: var(--ink); font-size: 15px; text-anchor: middle; dominant-baseline: central; }
   .planet.retro { fill: var(--gold); }
+  /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх */
+  .hit { fill: transparent; stroke: transparent; stroke-width: 14; pointer-events: all; cursor: pointer; }
 </style>

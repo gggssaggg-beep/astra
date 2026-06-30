@@ -8,7 +8,7 @@
   --ink: #e8ecff;
   --ink-dim: #aab0d8;
   --ink-faint: #7b82ac;
-  --glass: rgba(28, 34, 78, 0.45);
+  --glass: rgba(28, 34, 78, 0.62);
   --glass-brd: rgba(150, 160, 220, 0.18);
   --silver: #cdd6ff;     /* лунное серебро */
   --gold: #f3c969;       /* гармоничные аспекты */
@@ -23,7 +23,7 @@
 :root[data-theme='light'] {
   --bg-0: #e9ecfb; --bg-1: #dfe4fb; --bg-2: #cdd6f7;
   --ink: #1b2050; --ink-dim: #4a5183; --ink-faint: #7178a6;
-  --glass: rgba(255, 255, 255, 0.6);
+  --glass: rgba(255, 255, 255, 0.72);
   --glass-brd: rgba(120, 130, 200, 0.28);
   --silver: #5b63a8; --accent: #6a5cf0;
   color-scheme: light;
@@ -40,19 +40,20 @@ html[data-font='large'] { font-size: 18.5px; }
 body {
   font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
   color: var(--ink);
-  background:
-    radial-gradient(1200px 700px at 70% -10%, var(--bg-2), transparent 60%),
-    radial-gradient(900px 600px at 10% 110%, #20184d55, transparent 60%),
-    linear-gradient(160deg, var(--bg-1), var(--bg-0));
-  background-attachment: fixed;
+  background: var(--bg-0);
   -webkit-font-smoothing: antialiased;
 }
 
-/* тонкий звёздный фон */
+/* Космос + звёзды — ОДИН неподвижный композитный слой (position: fixed).
+   Так фон не перерисовывается при прокрутке (быстрее, чем background-attachment:
+   fixed, который на Android WebView вызывает дёрганье ленты). */
 body::before {
   content: "";
-  position: fixed; inset: 0; pointer-events: none; opacity: 0.5;
-  background-image:
+  position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(1200px 700px at 70% -10%, var(--bg-2), transparent 60%),
+    radial-gradient(900px 600px at 10% 110%, #20184d55, transparent 60%),
+    linear-gradient(160deg, var(--bg-1), var(--bg-0)),
     radial-gradient(1px 1px at 20% 30%, #fff7, transparent),
     radial-gradient(1px 1px at 80% 20%, #fff6, transparent),
     radial-gradient(1px 1px at 55% 70%, #fff5, transparent),
@@ -60,13 +61,22 @@ body::before {
     radial-gradient(1px 1px at 90% 60%, #fff5, transparent);
 }
 
+/* Матовая панель. БЕЗ backdrop-filter — он висел на каждой карточке ленты
+   (колесо, Луна, планеты, события, КАЖДЫЙ аспект) и пересчитывал размытие на
+   каждом кадре прокрутки → лаги на телефоне. Плотность фона поднята, чтобы
+   панель читалась без размытия. Блюр оставлен только на оверлеях (.frost). */
 .glass {
   background: var(--glass);
   border: 1px solid var(--glass-brd);
   border-radius: var(--radius);
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
   box-shadow: var(--shadow);
+}
+
+/* Дорогой backdrop-blur — только на немногих почти статичных оверлеях:
+   липкая шапка, таб-бар, выезжающие шторки (их максимум одна на экране). */
+.frost, section.sheet {
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
 .glyph { font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "DejaVu Sans", sans-serif; }

@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import type { Engine, AspectRecord } from './engine/index.ts';
   import { getEngine } from './lib/engineStore.ts';
-  import { db, file as dataFile } from './lib/db.ts';
+  import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { fmtDayMid, todayCivil } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
   import DayScreen from './ui/DayScreen.svelte';
@@ -15,6 +15,10 @@
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
+  import Welcome from './ui/Welcome.svelte';
+  import InfoSheet from './ui/InfoSheet.svelte';
+  import type { WheelInfo } from './lib/lore.ts';
+  import { syncNotifications } from './lib/notifications.ts';
 
   let settings = $state(db.settings.get());
   let engine = $state<Engine | null>(null);
@@ -29,6 +33,21 @@
   let showInterp = $state(false);
   let selRec = $state<AspectRecord | null>(null);
   let needReconnect = $state(false);
+  let showWelcome = $state(false);
+  let wheelInfo = $state<WheelInfo | null>(null);
+  let chatSeed = $state<string | null>(null);
+
+  function dismissWelcome() {
+    showWelcome = false;
+    db.settings.set({ ...db.settings.get(), seenWelcome: true });
+    settings = db.settings.get();
+  }
+  // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
+  function openChat(seed: string) {
+    chatSeed = seed;
+    selRec = null; wheelInfo = null;
+    showChat = true;
+  }
 
   // резолвер орбиса (индивидуально по объекту, пара — больший из двух)
   const orbOf = $derived(orbResolver(settings));
@@ -44,9 +63,18 @@
   }
 
   onMount(async () => {
-    try { engine = await getEngine('swieph'); }
+    // durable-данные устройства (Preferences) + встроенные архетипы — ДО UI,
+    // чтобы заметки/архетипы/пояс/время уведомлений не «терялись» после перезапуска.
+    try {
+      await hydrate();
+      settings = db.settings.get();
+      date = todayCivil(settings.tz);   // дата по сохранённому поясу
+      showWelcome = !settings.seenWelcome;
+    } catch { /* стартуем с дефолтов */ }
+
+    try { engine = await getEngine('swieph'); reschedule(); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
-    // подхватить файл данных с диска (если доступ уже разрешён — тихо)
+    // подхватить файл данных с диска (если доступ уже разрешён — тихо; только веб)
     try {
       const ok = await dataFile.reconnectSilently();
       if (ok) settings = db.settings.get();
@@ -60,7 +88,8 @@
     } catch { /* отказ — оставим как есть */ }
   }
 
-  function onPanelChanged() { settings = { ...db.settings.get() }; }
+  function reschedule() { if (engine) void syncNotifications(engine, db.settings.get(), db.settings.get().tz); }
+  function onPanelChanged() { settings = { ...db.settings.get() }; reschedule(); }
 
   // тема: ставим data-theme на корень; «авто» — по системной, со слежением
   $effect(() => {
@@ -101,7 +130,7 @@
 <svelte:window onkeydown={onKey} />
 
 <main ontouchstart={onStart} ontouchend={onEnd}>
-  <header class="glass">
+  <header class="glass frost">
     <button class="nav" onclick={() => shift(-1)} aria-label="Предыдущий день">‹</button>
     <div class="title">
       <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">{fmtDayMid(date)}</button>
@@ -123,13 +152,14 @@
   {:else}
     {#key date.getTime()}
       <div class="page">
-        <DayScreen {engine} {date} {orbOf} tz={settings.tz} signStyle={settings.signStyle} onAspect={(r) => (selRec = r)} />
+        <DayScreen {engine} {date} {orbOf} tz={settings.tz} signStyle={settings.signStyle}
+          onAspect={(r) => (selRec = r)} oninfo={(i) => (wheelInfo = i)} />
       </div>
     {/key}
   {/if}
 </main>
 
-<nav class="tabbar glass" aria-label="Меню">
+<nav class="tabbar glass frost" aria-label="Меню">
   <button onclick={() => (showCal = true)} aria-label="Календарь"><span class="ti glyph">📅</span><span class="tl">Дата</span></button>
   <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
@@ -138,7 +168,8 @@
 </nav>
 
 {#if showData}
-  <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged} />
+  <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged}
+    onhelp={() => { showData = false; showWelcome = true; }} />
 {/if}
 
 {#if showLibrary}
@@ -162,7 +193,7 @@
 {/if}
 
 {#if showCal}
-  <DateSheet {date} onpick={(d) => { date = d; showCal = false; }} onclose={() => (showCal = false)} />
+  <DateSheet {date} today={todayCivil(settings.tz)} onpick={(d) => { date = d; showCal = false; }} onclose={() => (showCal = false)} />
 {/if}
 
 {#if showJournal}
@@ -170,11 +201,22 @@
 {/if}
 
 {#if selRec}
-  <InterpretationSheet rec={selRec} {date} tz={settings.tz} onclose={() => (selRec = null)} />
+  <InterpretationSheet rec={selRec} {date} tz={settings.tz} onclose={() => (selRec = null)}
+    ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
+      + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`)} />
+{/if}
+
+{#if wheelInfo}
+  <InfoSheet info={wheelInfo} onclose={() => (wheelInfo = null)} ondiscuss={openChat} />
+{/if}
+
+{#if showWelcome}
+  <Welcome onclose={dismissWelcome} />
 {/if}
 
 {#if showChat && engine}
-  <ChatSheet {engine} {date} tz={settings.tz} {orbOf} onclose={() => (showChat = false)} />
+  <ChatSheet {engine} {date} tz={settings.tz} {orbOf} seed={chatSeed}
+    onclose={() => { showChat = false; chatSeed = null; }} />
 {/if}
 
 <style>

@@ -26,7 +26,9 @@ export interface Settings {
   signStyle: SignStyle;       // стиль символов знаков в колесе
   notifyDaily: boolean;       // ежедневное уведомление-сводка
   dailyNotifyTime: string;    // 'HH:MM' для ежедневного уведомления
+  notifyAspects: boolean;     // уведомления в момент точного аспекта
   largeFont: boolean;         // крупный шрифт (доступность)
+  seenWelcome: boolean;       // приветствие первого запуска уже показано
 }
 
 /** Запись бортового журнала = наблюдение (§3.5 + раунд 3). */
@@ -90,5 +92,7 @@ export const DEFAULT_SETTINGS: Settings = {
   signStyle: 'gold',
   notifyDaily: false,
   dailyNotifyTime: '09:00',
+  notifyAspects: false,
   largeFont: false,
+  seenWelcome: false,
 };

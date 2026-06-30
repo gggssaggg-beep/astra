@@ -8,7 +8,8 @@
   import { fmtTime } from '../lib/format.ts';
   import { bottomSheet } from '../lib/sheet.ts';
 
-  let { rec, date, tz, onclose }: { rec: AspectRecord; date: Date; tz: string; onclose: () => void } = $props();
+  let { rec, date, tz, onclose, ondiscuss }:
+    { rec: AspectRecord; date: Date; tz: string; onclose: () => void; ondiscuss?: (r: AspectRecord) => void } = $props();
 
   const sig = untrack(() => aspectSignature(rec.p1, rec.p2, rec.aspect));
 
@@ -18,13 +19,6 @@
     if (ex) db.tracked.remove(ex.id);
     else db.tracked.put({ id: uid(), p1: rec.p1, p2: rec.p2, aspect: rec.aspect, signature: sig });
     tracked = !ex;
-  }
-
-  let interp = $state(db.interpretations.get(sig)?.text ?? '');
-  let saved = $state(false);
-  function saveInterp() {
-    db.interpretations.put({ signature: sig, text: interp.trim(), updatedAt: new Date().toISOString() });
-    saved = true; setTimeout(() => (saved = false), 1500);
   }
 
   // новый массив (slice) — иначе Svelte не заметит мутацию db.notes на месте
@@ -60,11 +54,10 @@
 
   {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}°</div>{/if}
 
-  <div class="block">
-    <div class="lbl">Трактовка (для этой пары и аспекта)</div>
-    <textarea bind:value={interp} rows="4" placeholder="Своя трактовка со ссылками на мифологию…"></textarea>
-    <div class="row"><span class="hint">{saved ? '✓ сохранено' : ''}</span><button class="btn primary" onclick={saveInterp}>Сохранить трактовку</button></div>
-  </div>
+  <button class="discuss" onclick={() => ondiscuss?.(rec)}>
+    <span class="dg glyph">💬</span>
+    <span>Обсудить аспект с Claude<small>по заложенным архетипам участников</small></span>
+  </button>
 
   {#if arch(rec.p1) || arch(rec.p2)}
     <div class="block">
@@ -112,8 +105,12 @@
   .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
   .hint { color: var(--ink-faint); font-size: 0.8rem; }
   .btn { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 16px; font-size: 0.9rem; }
-  .btn.primary { background: var(--accent); border-color: transparent; color: #0b0f24; font-weight: 600; }
   .btn:disabled { opacity: 0.5; }
+  .discuss { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px;
+    background: var(--accent); border: none; color: #0b0f24; border-radius: 14px; padding: 12px 14px; text-align: left; }
+  .discuss .dg { font-size: 1.3rem; }
+  .discuss span { font-weight: 600; }
+  .discuss small { display: block; font-weight: 400; opacity: 0.8; font-size: 0.76rem; }
   .arch { margin-bottom: 8px; }
   .atext { font-size: 0.9rem; color: var(--ink-dim); white-space: pre-wrap; }
   .past { padding: 6px 0; border-top: 1px solid var(--glass-brd); font-size: 0.9rem; }

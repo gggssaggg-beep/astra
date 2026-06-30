@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { db, file as dataFile, exportText, importText, onChange } from '../lib/db.ts';
+  import { db, file as dataFile, importText, onChange } from '../lib/db.ts';
+  import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
   import { testNotify } from '../lib/notifications.ts';
@@ -10,8 +11,8 @@
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
 
-  let { onclose, onchanged }:
-    { onclose: () => void; onchanged: () => void } = $props();
+  let { onclose, onchanged, onhelp }:
+    { onclose: () => void; onchanged: () => void; onhelp?: () => void } = $props();
 
   let cfg = $state<Settings>(db.settings.get());
   function save(patch: Partial<Settings>) {
@@ -62,15 +63,11 @@
   const connectExisting = () => run(() => dataFile.connectExisting(), 'Файл подключён, данные загружены.');
   const disconnect = () => run(() => dataFile.disconnect(), 'Файл отключён (данные остались в приложении).');
 
-  function downloadExport() {
-    const blob = new Blob([exportText()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `astra-data-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    msg = 'Экспортировано (скачан файл).';
+  async function downloadExport() {
+    busy = true; msg = null;
+    try { msg = await exportBackup(); }
+    catch (e) { msg = '⚠ ' + (e instanceof Error ? e.message : String(e)); }
+    finally { busy = false; }
   }
 
   async function onImportFile(e: Event) {
@@ -140,6 +137,11 @@
       <input type="time" value={cfg.dailyNotifyTime}
         onchange={(e) => save({ dailyNotifyTime: (e.target as HTMLInputElement).value })} />
     </div>
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.notifyAspects}
+        onchange={(e) => save({ notifyAspects: (e.target as HTMLInputElement).checked })} />
+      В момент точного аспекта (планеты)
+    </label>
     <div class="row" style="margin-top:10px">
       <button class="btn" onclick={checkNotify}>Проверить уведомление</button>
     </div>
@@ -195,7 +197,7 @@
   <div class="block">
     <div class="lbl">Экспорт / Импорт (читаемый JSON)</div>
     <div class="row">
-      <button class="btn" onclick={downloadExport}>Экспорт в файл</button>
+      <button class="btn" disabled={busy} onclick={downloadExport}>Экспорт в файл</button>
       <label class="btn file">
         Импорт из файла
         <input type="file" accept=".json,application/json" onchange={onImportFile} hidden />
@@ -209,6 +211,14 @@
   </div>
 
   {#if msg}<div class="msg">{msg}</div>{/if}
+
+  <div class="group">Обучение</div>
+  <div class="block">
+    <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
+    <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
+      Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
+      и получить разбор.</div>
+  </div>
 
   <footer>Astra · версия {APP_VERSION}</footer>
 </section>

@@ -2,11 +2,12 @@
   import type { AspectRecord } from '../engine/index.ts';
   import { PLANET_GLYPH, ASPECTS } from '../engine/index.ts';
   import { db, onChange } from '../lib/db.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
 
   let { onclose, onopen }: { onclose: () => void; onopen: (r: AspectRecord) => void } = $props();
 
-  let items = $state(db.tracked.all());
-  $effect(() => onChange(() => (items = db.tracked.all())));
+  let items = $state(db.tracked.all().slice());
+  $effect(() => onChange(() => (items = db.tracked.all().slice())));
 
   const interpOf = (sig: string) => db.interpretations.get(sig)?.text ?? '';
 
@@ -17,11 +18,11 @@
       applying: false, pos1: 0, pos2: 0, bucket: 'fast',
     });
   }
-  function unpin(id: string) { db.tracked.remove(id); items = db.tracked.all(); }
+  function unpin(id: string) { db.tracked.remove(id); items = db.tracked.all().slice(); }
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Отслеживаемые аспекты">
+<section class="sheet glass" aria-label="Отслеживаемые аспекты" use:bottomSheet={{ onclose }}>
   <header><h2>Отслеживаю</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   {#if !items.length}

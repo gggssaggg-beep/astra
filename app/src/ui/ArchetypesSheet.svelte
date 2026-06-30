@@ -1,6 +1,7 @@
 <script lang="ts">
   import { db } from '../lib/db.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
 
   let { onclose }: { onclose: () => void } = $props();
 
@@ -24,7 +25,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Архетипы божеств">
+<section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }}>
   <header><h2>Архетипы божеств</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Грецкая мифология на каждую планету. Тексты твои — приложение их хранит и
     показывает рядом с аспектом.</div>

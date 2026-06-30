@@ -2,14 +2,17 @@
   import { db, uid, onChange } from '../lib/db.ts';
   import { noteDateStr, filterNotes, type Period } from '../lib/journal.ts';
   import type { JournalNote } from '../lib/models.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
 
   let { date, onclose }: { date: Date; onclose: () => void } = $props();
 
   const OBJ = ['Луна', 'Солнце', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
   const PERIODS: [Period, string][] = [['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц'], ['all', 'Всё']];
 
-  let notes = $state<JournalNote[]>(db.notes.all());
-  const refresh = () => (notes = db.notes.all());
+  // db.notes.all() возвращает ТУ ЖЕ ссылку на массив; put() мутирует её на месте.
+  // Чтобы Svelte 5 ($state/$derived) увидел изменение — отдаём НОВЫЙ массив (slice).
+  let notes = $state<JournalNote[]>(db.notes.all().slice());
+  const refresh = () => (notes = db.notes.all().slice());
   $effect(() => onChange(refresh));
 
   let text = $state('');
@@ -33,7 +36,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Журнал">
+<section class="sheet glass" aria-label="Журнал" use:bottomSheet={{ onclose }}>
   <header><h2>Бортовой журнал</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   <div class="add">

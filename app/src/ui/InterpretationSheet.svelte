@@ -6,6 +6,7 @@
   import { aspectSignature } from '../lib/signature.ts';
   import { noteDateStr } from '../lib/journal.ts';
   import { fmtTime } from '../lib/format.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
 
   let { rec, date, tz, onclose }: { rec: AspectRecord; date: Date; tz: string; onclose: () => void } = $props();
 
@@ -26,8 +27,9 @@
     saved = true; setTimeout(() => (saved = false), 1500);
   }
 
-  let notes = $state(db.notes.all());
-  $effect(() => onChange(() => (notes = db.notes.all())));
+  // новый массив (slice) — иначе Svelte не заметит мутацию db.notes на месте
+  let notes = $state(db.notes.all().slice());
+  $effect(() => onChange(() => (notes = db.notes.all().slice())));
   const similar = $derived(
     notes.filter((n) => n.aspectSignature === sig).sort((a, b) => b.date.localeCompare(a.date))
   );
@@ -36,7 +38,7 @@
   function addNote() {
     const t = noteText.trim(); if (!t) return;
     db.notes.put({ id: uid(), createdAt: new Date().toISOString(), date: noteDateStr(date), text: t, objects: [rec.p1, rec.p2], aspectSignature: sig });
-    noteText = ''; notes = db.notes.all();
+    noteText = ''; notes = db.notes.all().slice();
   }
 
   const arch = (o: string) => db.archetypes.get(o);
@@ -44,7 +46,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Трактовка аспекта">
+<section class="sheet glass" aria-label="Трактовка аспекта" use:bottomSheet={{ onclose }}>
   <header>
     <div class="title glyph">
       {PLANET_GLYPH[rec.p1] ?? rec.p1}<span class="asp">{rec.symbol}</span>{PLANET_GLYPH[rec.p2] ?? rec.p2}

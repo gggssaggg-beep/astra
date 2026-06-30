@@ -6,16 +6,18 @@
  */
 import type { Engine } from '../engine/index.ts';
 import { aspectsOn, eventsOn } from '../engine/index.ts';
-import { fmtPos, fmtTime } from './format.ts';
+import { fmtPos, fmtTime, zonedDayStartUTC } from './format.ts';
 import { db } from './db.ts';
 
 export interface ChatMsg { role: 'user' | 'assistant'; content: string; }
 
 /** Текстовая сводка дня для контекста модели. */
-export function buildDayContext(E: Engine, date: Date, tz: string, orb = 1.0): string {
-  const day = aspectsOn(E, date, orb, true);
-  const evs = eventsOn(E, date);
-  const pos = E.positions(date).map((p) => `${p.name} ${fmtPos(p.lon)}${p.retro ? ' ℞' : ''}`).join('; ');
+export function buildDayContext(E: Engine, date: Date, tz: string,
+  orb: number | ((name: string) => number) = 1.0): string {
+  const dayStart = zonedDayStartUTC(date, tz); // сутки и позиции — в выбранном поясе
+  const day = aspectsOn(E, dayStart, orb, true);
+  const evs = eventsOn(E, dayStart);
+  const pos = E.positions(dayStart).map((p) => `${p.name} ${fmtPos(p.lon)}${p.retro ? ' ℞' : ''}`).join('; ');
   const asp = [...day.moon, ...day.fast, ...day.slow]
     .map((a) => `${a.p1} ${a.aspect} ${a.p2} (орбис ${a.exactOrb.toFixed(2)}°${a.exactTime ? `, точно ${fmtTime(a.exactTime, tz)}` : ''}, ${a.applying ? 'сходится' : 'расходится'})`)
     .join('; ');
@@ -26,7 +28,8 @@ export function buildDayContext(E: Engine, date: Date, tz: string, orb = 1.0): s
 События: ${ev || 'нет'}.`;
 }
 
-export function systemPrompt(E: Engine, date: Date, tz: string, orb = 1.0): string {
+export function systemPrompt(E: Engine, date: Date, tz: string,
+  orb: number | ((name: string) => number) = 1.0): string {
   const arche = db.archetypes.all().filter((a) => a.text).map((a) => `${a.object} — ${a.deity}: ${a.text}`).join('\n');
   return `Ты — вдумчивый помощник практикующего астролога. Тебе даны УЖЕ ПОСЧИТАННЫЕ данные неба на день (позиции в знаках/градусах, мажорные аспекты с точными временами, события). Не пересчитывай астрономию — доверяй этим числам и ТРАКТУЙ их. Где уместно — опирайся на архетипы греческой мифологии. Пиши по-русски, ясно и по делу.
 

@@ -2,9 +2,10 @@
   import type { Engine } from '../engine/index.ts';
   import { getKey, setKey, clearKey } from '../lib/secret.ts';
   import { systemPrompt, askClaude, type ChatMsg } from '../lib/chat.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
 
-  let { engine, date, tz, orb = 1.0, onclose }:
-    { engine: Engine; date: Date; tz: string; orb?: number; onclose: () => void } = $props();
+  let { engine, date, tz, orbOf, onclose }:
+    { engine: Engine; date: Date; tz: string; orbOf: (name: string) => number; onclose: () => void } = $props();
 
   let key = $state(getKey());
   let keyInput = $state('');
@@ -30,7 +31,7 @@
     input = '';
     busy = true;
     try {
-      const reply = await askClaude(key, systemPrompt(engine, date, tz, orb), messages);
+      const reply = await askClaude(key, systemPrompt(engine, date, tz, orbOf), messages);
       messages = [...messages, { role: 'assistant', content: reply || '(пустой ответ)' }];
     } catch (e) {
       err = e instanceof Error ? e.message : String(e);
@@ -40,7 +41,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Чат трактовок">
+<section class="sheet glass" aria-label="Чат трактовок" use:bottomSheet={{ onclose }}>
   <header>
     <h2>Чат трактовок · Claude</h2>
     <div class="hbtns">

@@ -20,8 +20,10 @@ function eclType(rf: number): string {
   return '—';
 }
 
-export function eventsOn(E: Engine, dayUtc: Date): DayEvent[] {
-  const day0 = new Date(Date.UTC(dayUtc.getUTCFullYear(), dayUtc.getUTCMonth(), dayUtc.getUTCDate()));
+/** dayStart — точный инстант начала суток (UTC-полночь ИЛИ 00:00 выбранного
+ *  пояса в UTC; см. zonedDayStartUTC). Окно событий — 24 часа от него. */
+export function eventsOn(E: Engine, dayStart: Date): DayEvent[] {
+  const day0 = dayStart;
   const jd0 = E.toJD(day0), jd1 = jd0 + 1;
   const out: DayEvent[] = [];
 

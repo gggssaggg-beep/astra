@@ -3,9 +3,15 @@
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
   import { testNotify } from '../lib/notifications.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
+  import { PLANET_GLYPH } from '../engine/index.ts';
 
-  let { onclose, onchanged, onArchetypes, onTracked }:
-    { onclose: () => void; onchanged: () => void; onArchetypes: () => void; onTracked: () => void } = $props();
+  // объекты для индивидуального орбиса (светила + планеты + узлы)
+  const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
+    'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
+
+  let { onclose, onchanged }:
+    { onclose: () => void; onchanged: () => void } = $props();
 
   let cfg = $state<Settings>(db.settings.get());
   function save(patch: Partial<Settings>) {
@@ -15,6 +21,15 @@
   }
   const setSign = (id: SignStyle) => save({ signStyle: id });
   const setTheme = (t: ThemeMode) => save({ theme: t });
+
+  // индивидуальный орбис: пусто = убрать переопределение (тогда берётся «по умолчанию»)
+  function setOrb(o: string, raw: string) {
+    const next = { ...cfg.orbs };
+    const v = parseFloat(raw);
+    if (!raw.trim() || isNaN(v)) delete next[o];
+    else next[o] = Math.max(0.5, Math.min(12, v));
+    save({ orbs: next });
+  }
 
   // список часовых поясов (IANA) — из движка Intl, иначе короткий запасной
   const ZONES: string[] = (() => {
@@ -72,12 +87,13 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Данные и настройки">
+<section class="sheet glass" aria-label="Данные и настройки" use:bottomSheet={{ onclose }}>
   <header>
     <h2>Данные</h2>
     <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
   </header>
 
+  <div class="group">Внешний вид</div>
   <div class="block">
     <div class="lbl">Символы знаков</div>
     <div class="styles">
@@ -87,42 +103,29 @@
         </button>
       {/each}
     </div>
-  </div>
-
-  <div class="block">
-    <div class="lbl">Библиотека и отслеживание</div>
-    <div class="row">
-      <button class="btn" onclick={onTracked}>Отслеживаю ★</button>
-      <button class="btn" onclick={onArchetypes}>Архетипы божеств →</button>
-    </div>
-    <div class="hint small">Трактовки аспектов — тапом по карточке аспекта; там же ☆ «отслеживать».</div>
-  </div>
-
-  <div class="block">
-    <div class="lbl">Часовой пояс</div>
-    <select class="select" value={cfg.tz} onchange={(e) => save({ tz: (e.target as HTMLSelectElement).value })}>
-      {#each ZONES as z}<option value={z}>{z}</option>{/each}
-    </select>
-    <div class="hint small">Все времена (точные аспекты, события) показываются в этом поясе.</div>
-  </div>
-
-  <div class="block row2">
-    <div>
-      <div class="lbl">Орбис по умолчанию</div>
-      <div class="orb">
-        <input type="number" min="0.5" max="12" step="0.5" value={cfg.defaultOrb}
-          onchange={(e) => save({ defaultOrb: Math.max(0.5, Math.min(12, +(e.target as HTMLInputElement).value || 1)) })} />
-        <span>°</span>
-      </div>
-    </div>
-    <div>
-      <div class="lbl">Тема</div>
+    <div class="two">
+      <label class="toggle">
+        <input type="checkbox" checked={cfg.largeFont}
+          onchange={(e) => save({ largeFont: (e.target as HTMLInputElement).checked })} />
+        Крупный шрифт
+      </label>
       <div class="seg">
         {#each [['auto', 'Авто'], ['cosmos', 'Космос'], ['dawn', 'Рассвет']] as [id, label]}
           <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
         {/each}
       </div>
     </div>
+  </div>
+
+  <div class="group">Часовой пояс и уведомления</div>
+  <div class="block">
+    <div class="lbl">Часовой пояс</div>
+    <select class="select" value={cfg.tz} onchange={(e) => save({ tz: (e.target as HTMLSelectElement).value })}>
+      {#each ZONES as z}<option value={z}>{z}</option>{/each}
+    </select>
+    <div class="hint small">Все времена и положения (колесо, планеты, точные аспекты, события)
+      показываются в этом поясе. Пояс при первом запуске взят из настроек самого телефона —
+      офлайн, без интернета и GPS; можно изменить вручную здесь.</div>
   </div>
 
   <div class="block">
@@ -145,6 +148,29 @@
       в приложении на телефоне; здесь — проверка.</div>
   </div>
 
+  <div class="group">Орбис</div>
+  <div class="block">
+    <div class="orb">
+      <span class="small">по умолчанию</span>
+      <input type="number" min="0.5" max="12" step="0.5" value={cfg.defaultOrb}
+        onchange={(e) => save({ defaultOrb: Math.max(0.5, Math.min(12, +(e.target as HTMLInputElement).value || 1)) })} />
+      <span>°</span>
+    </div>
+    <div class="hint small">Можно задать орбис отдельно по светилам и планетам (пусто = по умолчанию).
+      Для пары берётся больший из двух орбисов.</div>
+    <div class="orbgrid">
+      {#each ORB_OBJ as o}
+        <label class="orbcell">
+          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>
+          <input type="number" min="0.5" max="12" step="0.5" placeholder={String(cfg.defaultOrb)}
+            value={cfg.orbs[o] ?? ''} onchange={(e) => setOrb(o, (e.target as HTMLInputElement).value)} />
+          <span class="u">°</span>
+        </label>
+      {/each}
+    </div>
+  </div>
+
+  <div class="group">Данные</div>
   <div class="block">
     <div class="lbl">Файл данных на компьютере</div>
     {#if !apiOk}
@@ -212,8 +238,14 @@
   .st-rainbow .sw { background: linear-gradient(90deg, #ff6b6b, #f3c969, #7fd99a, #7fd0ff, #b39bff); }
   .select { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 12px; font: inherit; }
   .small { font-size: 0.78rem; color: var(--ink-faint); }
-  .row2 { display: flex; gap: 16px; }
-  .row2 > div { flex: 1; }
+  .group { margin: 16px 2px 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
+  .group:first-of-type { margin-top: 4px; }
+  .two { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .orbgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .orbcell { display: flex; align-items: center; gap: 6px; background: #ffffff0c; border: 1px solid var(--glass-brd); border-radius: 10px; padding: 6px 8px; }
+  .orbcell .g { font-size: 1.05rem; color: var(--silver); width: 1.3rem; text-align: center; }
+  .orbcell input { width: 100%; min-width: 0; background: transparent; border: none; color: var(--ink); font: inherit; padding: 2px 0; }
+  .orbcell .u { color: var(--ink-faint); }
   .orb { display: inline-flex; align-items: center; gap: 6px; }
   .orb input { width: 78px; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; }
   .seg { display: inline-flex; border: 1px solid var(--glass-brd); border-radius: 10px; overflow: hidden; }

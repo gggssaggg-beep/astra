@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { parseDateInput } from '../lib/dateparse.ts';
+  import { bottomSheet } from '../lib/sheet.ts';
 
   let { date, onpick, onclose }: { date: Date; onpick: (d: Date) => void; onclose: () => void } = $props();
 
@@ -41,7 +42,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Выбор даты">
+<section class="sheet glass" aria-label="Выбор даты" use:bottomSheet={{ onclose }}>
   <div class="inputrow">
     <input class="dinput" class:err placeholder="дата: 12.03.2026" bind:value={input}
       oninput={() => (err = false)} onkeydown={(e) => e.key === 'Enter' && submitInput()} />

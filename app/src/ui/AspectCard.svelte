@@ -1,11 +1,13 @@
 <script lang="ts">
   import type { AspectRecord } from '../engine/index.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
-  import { fmtTime, applyingArrow, aspectTone, sameDay } from '../lib/format.ts';
+  import { fmtTime, fmtDateShort, applyingArrow, aspectTone, sameDay } from '../lib/format.ts';
 
   let { rec, tz, onpick }: { rec: AspectRecord; tz: string; onpick?: (r: AspectRecord) => void } = $props();
   const tone = $derived(aspectTone(rec.aspect));
   const t = (d: Date | null) => (d ? fmtTime(d, tz) : '—');
+  // дата начала/конца — аспект может растянуться на несколько дней (требование астролога)
+  const dd = (d: Date | null) => (d ? fmtDateShort(d, tz) : '');
   // подпись «через полночь», если выход орбиса в другой день, чем точный
   const crosses = $derived(
     rec.exactTime && rec.endTime && !sameDay(rec.exactTime, rec.endTime, tz)
@@ -25,11 +27,11 @@
   </div>
 
   <div class="row times">
-    <span class="seg"><b>{t(rec.beginTime)}</b><small>вход</small></span>
+    <span class="seg"><small class="d">{dd(rec.beginTime)}</small><b>{t(rec.beginTime)}</b><small>вход</small></span>
     <span class="dash">→</span>
-    <span class="seg exact"><b>{t(rec.exactTime)}</b><small>точно</small></span>
+    <span class="seg exact"><small class="d">{dd(rec.exactTime)}</small><b>{t(rec.exactTime)}</b><small>точно</small></span>
     <span class="dash">→</span>
-    <span class="seg"><b>{t(rec.endTime)}</b><small>выход{crosses ? ' ⤵' : ''}</small></span>
+    <span class="seg"><small class="d">{dd(rec.endTime)}</small><b>{t(rec.endTime)}</b><small>выход{crosses ? ' ⤵' : ''}</small></span>
   </div>
 </div>
 
@@ -48,9 +50,10 @@
   .orb { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--silver); }
   .arr { margin-left: 4px; opacity: 0.8; }
   .times { margin-top: 8px; justify-content: space-between; color: var(--ink-dim); }
-  .seg { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
+  .seg { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
   .seg b { font-variant-numeric: tabular-nums; color: var(--ink); }
   .seg.exact b { color: var(--gold); }
   .seg small { font-size: 0.66rem; color: var(--ink-faint); }
+  .seg .d { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .dash { color: var(--ink-faint); }
 </style>

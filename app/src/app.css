@@ -32,6 +32,11 @@
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
 
+/* масштаб шрифта (настройка «Крупный шрифт»): почти все размеры в rem, т.е.
+   относительно корня — меняя font-size у html, увеличиваем весь текст разом. */
+html { font-size: 16px; }
+html[data-font='large'] { font-size: 18.5px; }
+
 body {
   font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
   color: var(--ink);
@@ -65,6 +70,13 @@ body::before {
 }
 
 .glyph { font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "DejaVu Sans", sans-serif; }
+
+/* «грабер» сверху каждой шторки — подсказка, что её можно свайпнуть вниз (#10) */
+section.sheet::before {
+  content: ""; position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+  width: 42px; height: 4px; border-radius: 999px; background: var(--ink-faint);
+  opacity: 0.55; pointer-events: none;
+}
 
 button { font: inherit; color: inherit; cursor: pointer; }
 ::-webkit-scrollbar { width: 8px; }

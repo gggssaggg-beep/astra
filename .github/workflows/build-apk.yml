@@ -48,11 +48,23 @@ jobs:
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Обновить APK в репо (та же ссылка для скачивания)
+      - name: OTA-бандл веб-части + манифест (для живых обновлений)
+        run: |
+          mkdir -p apk
+          # bundle.zip = содержимое dist (index.html в корне zip — так ждёт Capgo)
+          (cd app/dist && zip -r -q ../../apk/bundle.zip .)
+          BASE=$(grep -oP "APP_VERSION = '\K[0-9.]+" app/src/lib/version.ts)
+          VER="${BASE}.${{ github.run_number }}"
+          URL="https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/bundle.zip"
+          printf '{\n  "version": "%s",\n  "url": "%s",\n  "notes": "build %s (%s)"\n}\n' \
+            "$VER" "$URL" "$VER" "${GITHUB_SHA::7}" > apk/latest.json
+          echo "OTA версия: $VER"
+
+      - name: Обновить APK + OTA-бандл в репо (та же ссылка для скачивания)
         run: |
           cp app/android/app/build/outputs/apk/debug/app-debug.apk apk/Astra.apk
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add apk/Astra.apk
-          git commit -m "APK авто-сборка [skip ci]" || echo "без изменений"
+          git add apk/Astra.apk apk/bundle.zip apk/latest.json
+          git commit -m "APK + OTA авто-сборка [skip ci]" || echo "без изменений"
           git push

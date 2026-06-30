@@ -1,15 +1,32 @@
 <script lang="ts">
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
   import { aspectsOn, eventsOn } from '../engine/index.ts';
-  import { fmtPos, fmtTime } from '../lib/format.ts';
+  import { fmtPos, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
   import Wheel from './Wheel.svelte';
 
   import type { SignStyle } from '../lib/models.ts';
-  let { engine, date, orb = 1.0, tz, signStyle = 'gold', onAspect }:
-    { engine: Engine; date: Date; orb?: number; tz: string; signStyle?: SignStyle; onAspect?: (r: AspectRecord) => void } = $props();
+  let { engine, date, orbOf, tz, signStyle = 'gold', onAspect }:
+    { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string; signStyle?: SignStyle; onAspect?: (r: AspectRecord) => void } = $props();
 
-  const positions = $derived(engine.positions(date));
+  // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса. Снимок положений
+  // (колесо, Луна, чипы планет) — на НАСТОЯЩИЙ момент: для сегодня = «сейчас»,
+  // для другого дня = тот же час суток (требование астролога), а не 00:00.
+  const dayStart = $derived(zonedDayStartUTC(date, tz));
+  const isToday = $derived(date.getTime() === todayCivil(tz).getTime());
+
+  let nowMs = $state(Date.now());
+  $effect(() => {
+    const id = setInterval(() => (nowMs = Date.now()), 60_000); // живое «сейчас», без перегруза
+    return () => clearInterval(id);
+  });
+  const snapshot = $derived.by(() => {
+    const todayStart = zonedDayStartUTC(todayCivil(tz), tz).getTime();
+    const tod = Math.min(Math.max(nowMs - todayStart, 0), 86_400_000 - 1); // мс от местной полуночи
+    return new Date(dayStart.getTime() + tod);
+  });
+
+  const positions = $derived(engine.positions(snapshot));
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
   // Порядок по колонкам (требование астролога): левая сверху-вниз, потом правая.
   // Сетка заполняется по столбцам (grid-auto-flow: column, 5 строк).
@@ -18,9 +35,9 @@
   const planets = $derived(
     ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p)
   );
-  const day = $derived(aspectsOn(engine, date, orb, true));
+  const day = $derived(aspectsOn(engine, dayStart, orbOf, true));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
-  const events = $derived(eventsOn(engine, date));
+  const events = $derived(eventsOn(engine, dayStart));
 
   const section = (title: string, list: AspectRecord[]) => ({ title, list });
 </script>
@@ -28,6 +45,7 @@
 <div class="day">
   <div class="wheel-wrap glass">
     <Wheel {positions} aspects={allAspects} {signStyle} />
+    <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)}`}</div>
   </div>
 
   {#if day.audit.length}
@@ -83,6 +101,7 @@
 <style>
   .day { padding: 6px 2px 40px; }
   .wheel-wrap { padding: 14px; margin: 8px 0; }
+  .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; }
   .audit { padding: 10px 12px; margin: 8px 0; color: var(--rose); font-size: 0.85rem; }
   .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }
   .moon .g { font-size: 1.8rem; color: var(--silver); }

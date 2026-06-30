@@ -3,7 +3,8 @@
   import type { Engine, AspectRecord } from './engine/index.ts';
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile } from './lib/db.ts';
-  import { fmtDayFull } from './lib/format.ts';
+  import { fmtDayMid, todayCivil } from './lib/format.ts';
+  import { orbResolver } from './lib/models.ts';
   import DayScreen from './ui/DayScreen.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
@@ -12,6 +13,8 @@
   import ArchetypesSheet from './ui/ArchetypesSheet.svelte';
   import TrackedSheet from './ui/TrackedSheet.svelte';
   import ChatSheet from './ui/ChatSheet.svelte';
+  import LibrarySheet from './ui/LibrarySheet.svelte';
+  import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
 
   let settings = $state(db.settings.get());
   let engine = $state<Engine | null>(null);
@@ -22,15 +25,17 @@
   let showArch = $state(false);
   let showTracked = $state(false);
   let showChat = $state(false);
+  let showLibrary = $state(false);
+  let showInterp = $state(false);
   let selRec = $state<AspectRecord | null>(null);
   let needReconnect = $state(false);
 
-  function startOfTodayUTC(): Date {
-    const n = new Date();
-    return new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
-  }
-  let date = $state(startOfTodayUTC());
-  const isToday = $derived(date.getTime() === startOfTodayUTC().getTime());
+  // резолвер орбиса (индивидуально по объекту, пара — больший из двух)
+  const orbOf = $derived(orbResolver(settings));
+
+  // «Сегодня» — гражданская дата в ВЫБРАННОМ поясе (а не в поясе устройства).
+  let date = $state(todayCivil(db.settings.get().tz));
+  const isToday = $derived(date.getTime() === todayCivil(settings.tz).getTime());
 
   function shift(days: number) {
     const d = new Date(date);
@@ -73,6 +78,11 @@
     }
   });
 
+  // крупный шрифт — масштаб корня (см. app.css html[data-font='large'])
+  $effect(() => {
+    document.documentElement.dataset.font = settings.largeFont ? 'large' : 'normal';
+  });
+
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.
   let x0 = 0, y0 = 0;
   const onStart = (e: TouchEvent) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; };
@@ -94,13 +104,10 @@
   <header class="glass">
     <button class="nav" onclick={() => shift(-1)} aria-label="Предыдущий день">‹</button>
     <div class="title">
-      <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">{fmtDayFull(date, settings.tz)}</button>
-      <button class="today" class:hidden={isToday} onclick={() => (date = startOfTodayUTC())}>сегодня</button>
+      <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">{fmtDayMid(date)}</button>
+      <button class="today" class:hidden={isToday} onclick={() => (date = todayCivil(settings.tz))}>сегодня</button>
     </div>
     <button class="nav" onclick={() => shift(1)} aria-label="Следующий день">›</button>
-    <button class="gear" onclick={() => (showChat = true)} aria-label="Чат трактовок">💬</button>
-    <button class="gear" onclick={() => (showJournal = true)} aria-label="Журнал">📓</button>
-    <button class="gear" onclick={() => (showData = true)} aria-label="Данные и настройки">⚙</button>
   </header>
 
   {#if needReconnect}
@@ -116,16 +123,34 @@
   {:else}
     {#key date.getTime()}
       <div class="page">
-        <DayScreen {engine} {date} orb={settings.defaultOrb} tz={settings.tz} signStyle={settings.signStyle} onAspect={(r) => (selRec = r)} />
+        <DayScreen {engine} {date} {orbOf} tz={settings.tz} signStyle={settings.signStyle} onAspect={(r) => (selRec = r)} />
       </div>
     {/key}
   {/if}
 </main>
 
+<nav class="tabbar glass" aria-label="Меню">
+  <button onclick={() => (showCal = true)} aria-label="Календарь"><span class="ti glyph">📅</span><span class="tl">Дата</span></button>
+  <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
+  <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
+  <button onclick={() => (showChat = true)} aria-label="Чат"><span class="ti glyph">💬</span><span class="tl">Чат</span></button>
+  <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
+</nav>
+
 {#if showData}
-  <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged}
-    onArchetypes={() => { showData = false; showArch = true; }}
-    onTracked={() => { showData = false; showTracked = true; }} />
+  <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged} />
+{/if}
+
+{#if showLibrary}
+  <LibrarySheet onclose={() => (showLibrary = false)}
+    onInterpretations={() => { showLibrary = false; showInterp = true; }}
+    onArchetypes={() => { showLibrary = false; showArch = true; }}
+    onTracked={() => { showLibrary = false; showTracked = true; }} />
+{/if}
+
+{#if showInterp}
+  <InterpretationsSheet onclose={() => (showInterp = false)}
+    onopen={(r) => { showInterp = false; selRec = r; }} />
 {/if}
 
 {#if showArch}
@@ -149,11 +174,11 @@
 {/if}
 
 {#if showChat && engine}
-  <ChatSheet {engine} {date} tz={settings.tz} orb={settings.defaultOrb} onclose={() => (showChat = false)} />
+  <ChatSheet {engine} {date} tz={settings.tz} {orbOf} onclose={() => (showChat = false)} />
 {/if}
 
 <style>
-  main { max-width: 560px; margin: 0 auto; padding: 12px 12px env(safe-area-inset-bottom); min-height: 100%; }
+  main { max-width: 560px; margin: 0 auto; padding: 12px 12px calc(74px + env(safe-area-inset-bottom)); min-height: 100%; }
   header {
     position: sticky; top: 8px; z-index: 5;
     display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 6px;
@@ -165,8 +190,16 @@
   .date:hover { background: #ffffff14; }
   .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 2px 12px; font-size: 0.72rem; margin-top: 4px; }
   .today.hidden { visibility: hidden; }
-  .gear { background: transparent; border: none; font-size: 1.2rem; width: 40px; height: 44px; border-radius: 12px; color: var(--ink-dim); }
-  .gear:hover { background: #ffffff14; color: var(--ink); }
+  .tabbar {
+    position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
+    width: min(560px, 100%); z-index: 10; display: flex; justify-content: space-around;
+    gap: 4px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0;
+  }
+  .tabbar button { flex: 1; background: transparent; border: none; color: var(--ink-dim);
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }
+  .tabbar button:hover { background: #ffffff14; color: var(--ink); }
+  .tabbar .ti { font-size: 1.25rem; line-height: 1; }
+  .tabbar .tl { font-size: 0.6rem; letter-spacing: 0.2px; }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }
   .state { padding: 24px; text-align: center; color: var(--ink-dim); margin-top: 20px; }
   .state.err { color: var(--rose); }

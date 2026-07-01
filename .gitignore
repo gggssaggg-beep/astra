@@ -6,4 +6,8 @@ node_modules/
 dist/
 android/app/build/
 *.keystore
+# исключение: фиксированный debug/sideload-ключ подписи APK — он ДОЛЖЕН быть в репо,
+# чтобы подпись не менялась между сборками и обновление ставилось без потери данных.
+# Это не секрет (обычный debug-ключ вне Play Store), в отличие от релизных ключей.
+!app/android/app/astra-debug.keystore
 api_key*

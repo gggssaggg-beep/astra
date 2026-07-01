@@ -30,15 +30,31 @@ export interface SheetParams { onclose: () => void; }
 /** use:bottomSheet={{ onclose }} на корневом <section> шторки (он же скролл-контейнер). */
 export function bottomSheet(node: HTMLElement, params: SheetParams) {
   let onclose = params.onclose;
-  const CLOSE_PX = 90;      // дальше потянул — закрываем
-  const DECIDE_PX = 8;      // порог распознавания направления жеста
+  const CLOSE_PX = 130;     // дальше потянул — закрываем (было 90: закрывалось слишком легко)
+  const DECIDE_PX = 10;     // порог распознавания направления жеста
   let startY = 0, startX = 0, dy = 0;
   let dragging = false, decided = false, vertical = false;
+  let scroller: HTMLElement | null = null;   // внутренний скролл-контейнер под пальцем
+
+  // Ближайший прокручиваемый предок между целью касания и корнем шторки. Нужен,
+  // чтобы «потянуть вниз = закрыть» срабатывало ТОЛЬКО когда контент домотан
+  // наверх. Иначе в чате (список сообщений скроллится внутри) шторка закрывалась
+  // от любого движения вниз — жалоба «слишком резко свопается».
+  function nearestScroller(from: EventTarget | null): HTMLElement | null {
+    let el = from as HTMLElement | null;
+    while (el && el !== node) {
+      const oy = getComputedStyle(el).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight + 1) return el;
+      el = el.parentElement;
+    }
+    return null;
+  }
 
   const onStart = (e: TouchEvent) => {
     if (e.touches.length !== 1) return;
     startY = e.touches[0].clientY; startX = e.touches[0].clientX;
     dragging = true; decided = false; vertical = false; dy = 0;
+    scroller = nearestScroller(e.target);
   };
   const onMove = (e: TouchEvent) => {
     if (!dragging) return;
@@ -49,8 +65,9 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
       decided = true;
       vertical = Math.abs(cy) >= Math.abs(cx);
     }
-    // тянем вниз только когда внутренний скролл листа наверху — иначе это обычная прокрутка
-    if (vertical && cy > 0 && node.scrollTop <= 0) {
+    // тянем вниз только когда прокрутка (внутренняя ИЛИ самой шторки) наверху —
+    // иначе это обычный скролл содержимого, а не жест закрытия
+    if (vertical && cy > 0 && (scroller ? scroller.scrollTop <= 0 : node.scrollTop <= 0)) {
       dy = cy;
       node.style.transition = 'none';
       node.style.transform = `translate(-50%, ${dy}px)`;

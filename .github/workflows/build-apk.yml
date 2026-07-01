@@ -35,6 +35,19 @@ jobs:
           npm run build
           npx cap sync android
 
+      - name: Фиксированный keystore подписи (создать один раз при первом запуске)
+        working-directory: app/android/app
+        run: |
+          if [ ! -f astra-debug.keystore ]; then
+            keytool -genkeypair -v -keystore astra-debug.keystore \
+              -storepass astrasky -keypass astrasky -alias astra \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Astra, OU=Astra, O=Astra, L=City, ST=State, C=RU"
+            echo "СОЗДАН новый keystore — будет закоммичен и переиспользован далее"
+          else
+            echo "keystore уже есть — переиспользуем (подпись стабильна)"
+          fi
+
       - name: Сборка APK (Gradle)
         working-directory: app/android
         run: |
@@ -65,6 +78,9 @@ jobs:
           cp app/android/app/build/outputs/apk/debug/app-debug.apk apk/Astra.apk
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          # -f: keystore подпадает под *.keystore в .gitignore, но нам нужно закоммитить
+          # именно этот фиксированный ключ (первый запуск), дальше он уже в репо.
+          git add -f app/android/app/astra-debug.keystore
           git add apk/Astra.apk apk/bundle.zip apk/latest.json
           git commit -m "APK + OTA авто-сборка [skip ci]" || echo "без изменений"
           git push

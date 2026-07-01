@@ -4,10 +4,14 @@
   import { getKey, setKey, clearKey } from '../lib/secret.ts';
   import { systemPrompt, askClaude, type ChatMsg } from '../lib/chat.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { db, uid } from '../lib/db.ts';
+  import { noteDateStr } from '../lib/journal.ts';
 
-  let { engine, date, tz, orbOf, seed, onclose }:
+  let { engine, date, tz, orbOf, seed, source, onclose }:
     { engine: Engine; date: Date; tz: string; orbOf: (name: string) => number;
-      seed?: string | null; onclose: () => void } = $props();
+      seed?: string | null;
+      source?: { objects: string[]; aspectSignature?: string; title?: string } | null;
+      onclose: () => void } = $props();
 
   let key = $state(getKey());
   let keyInput = $state('');
@@ -17,6 +21,27 @@
   let input = $state('');
   let busy = $state(false);
   let err = $state<string | null>(null);
+  let saved = $state(false);   // разговор уже записан в журнал (показываем подпись)
+
+  // Автосохранение: вся переписка с Claude пишется в бортовой журнал сама — ОДНА
+  // запись на разговор (upsert по noteId), обновляется после каждого ответа. Если
+  // чат открыт из карточки аспекта — тегируется объектами и сигнатурой, поэтому
+  // попадает в «Похожие прошлые» этого аспекта и в фильтр по планете.
+  let noteId: string | null = null;
+  let noteCreatedAt = '';
+  function persistChat() {
+    if (!messages.length) return;
+    if (!noteId) { noteId = uid(); noteCreatedAt = new Date().toISOString(); }
+    const body = messages
+      .map((m) => (m.role === 'user' ? 'Вопрос: ' : 'Claude: ') + m.content)
+      .join('\n\n');
+    const head = source?.title ? `Обсуждение аспекта ${source.title} с Claude\n\n` : 'Чат с Claude\n\n';
+    db.notes.put({
+      id: noteId, createdAt: noteCreatedAt, date: noteDateStr(date),
+      text: head + body, objects: source?.objects ?? [], aspectSignature: source?.aspectSignature,
+    });
+    saved = true;
+  }
 
   function saveKey() {
     const k = keyInput.trim();
@@ -40,6 +65,7 @@
     try {
       const reply = await askClaude(key, systemPrompt(engine, date, tz, orbOf), messages);
       messages = [...messages, { role: 'assistant', content: reply || '(пустой ответ)' }];
+      persistChat();   // авто-запись разговора в журнал после каждого ответа
     } catch (e) {
       err = e instanceof Error ? e.message : String(e);
     } finally { busy = false; }
@@ -80,6 +106,9 @@
       {#if busy}<div class="m assistant busy">…думает…</div>{/if}
       {#if err}<div class="m err">⚠ {err}</div>{/if}
     </div>
+    {#if saved}
+      <div class="autosave">✓ Разговор сохраняется в журнал автоматически</div>
+    {/if}
     <div class="inputrow">
       <textarea bind:value={input} rows="1" placeholder="Спросить о дне…"
         onkeydown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input); } }}></textarea>
@@ -113,4 +142,5 @@
   .m.assistant { align-self: flex-start; background: #ffffff12; border: 1px solid var(--glass-brd); }
   .m.busy { color: var(--ink-faint); }
   .m.err { align-self: stretch; color: var(--rose); background: transparent; }
+  .autosave { color: var(--gold); font-size: 0.78rem; margin: 0 0 8px; text-align: center; opacity: 0.85; }
 </style>

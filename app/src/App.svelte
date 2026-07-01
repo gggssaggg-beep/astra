@@ -5,6 +5,7 @@
   import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { fmtDayMid, todayCivil } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
+  import { aspectSignature } from './lib/signature.ts';
   import DayScreen from './ui/DayScreen.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
@@ -36,6 +37,9 @@
   let showWelcome = $state(false);
   let wheelInfo = $state<WheelInfo | null>(null);
   let chatSeed = $state<string | null>(null);
+  // контекст, к которому привязан чат (аспект/объекты) — чтобы сохранить переписку
+  // в журнал «в соответствующее место»: с тегами объектов и сигнатурой аспекта.
+  let chatSource = $state<{ objects: string[]; aspectSignature?: string; title?: string } | null>(null);
 
   function dismissWelcome() {
     showWelcome = false;
@@ -43,8 +47,9 @@
     settings = db.settings.get();
   }
   // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
-  function openChat(seed: string) {
+  function openChat(seed: string, source: typeof chatSource = null) {
     chatSeed = seed;
+    chatSource = source;
     selRec = null; wheelInfo = null;
     showChat = true;
   }
@@ -203,7 +208,8 @@
 {#if selRec}
   <InterpretationSheet rec={selRec} {date} tz={settings.tz} onclose={() => (selRec = null)}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
-      + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`)} />
+      + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,
+      { objects: [r.p1, r.p2], aspectSignature: aspectSignature(r.p1, r.p2, r.aspect), title: `${r.p1} ${r.aspect} ${r.p2}` })} />
 {/if}
 
 {#if wheelInfo}
@@ -215,8 +221,8 @@
 {/if}
 
 {#if showChat && engine}
-  <ChatSheet {engine} {date} tz={settings.tz} {orbOf} seed={chatSeed}
-    onclose={() => { showChat = false; chatSeed = null; }} />
+  <ChatSheet {engine} {date} tz={settings.tz} {orbOf} seed={chatSeed} source={chatSource}
+    onclose={() => { showChat = false; chatSeed = null; chatSource = null; }} />
 {/if}
 
 <style>

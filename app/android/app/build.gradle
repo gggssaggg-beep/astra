@@ -16,10 +16,30 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        // Фиксированный ключ подписи для sideload-обновлений. Один и тот же keystore
+        // (закоммичен в репо; в CI генерится один раз при первом запуске) => подпись
+        // APK НЕ меняется от сборки к сборке => Android ставит новый APK ПОВЕРХ
+        // старого без удаления, данные приложения (Preferences) сохраняются.
+        // Если файла нет (локальная сборка без него) — остаётся дефолтный
+        // ~/.android/debug.keystore, т.е. поведение как раньше.
+        debug {
+            def ks = file("astra-debug.keystore")
+            if (ks.exists()) {
+                storeFile ks
+                storePassword "astrasky"
+                keyAlias "astra"
+                keyPassword "astrasky"
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            signingConfig signingConfigs.debug
         }
     }
 }

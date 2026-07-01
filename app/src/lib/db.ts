@@ -41,10 +41,18 @@ function emptyData(): AppData {
   };
 }
 
+/** Достать полезную нагрузку из сохранённого JSON. serialize() пишет ОБЁРТКУ
+ *  { app, schema, savedAt, data:{…} }, поэтому реальные коллекции лежат в .data —
+ *  а не на верхнем уровне. Раньше loadLS брал верхний уровень и всегда получал
+ *  ПУСТЫЕ notes/settings (данные «не сохранялись» между запусками). */
+function payload(parsed: any): Partial<AppData> {
+  return (parsed && typeof parsed === 'object' && parsed.data) ? parsed.data : (parsed ?? {});
+}
+
 function loadLS(): AppData {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return { ...emptyData(), ...JSON.parse(raw) };
+    if (raw) return { ...emptyData(), ...payload(JSON.parse(raw)) };
   } catch { /* ignore */ }
   return emptyData();
 }
@@ -99,7 +107,7 @@ export function serialize(): string {
 }
 
 function adopt(parsed: any, mode: 'merge' | 'replace') {
-  const incoming: Partial<AppData> = parsed?.data ?? parsed ?? {};
+  const incoming: Partial<AppData> = payload(parsed);
   if (mode === 'replace') {
     data = { ...emptyData(), ...incoming };
   } else {

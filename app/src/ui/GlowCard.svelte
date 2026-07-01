@@ -1,10 +1,15 @@
 <script lang="ts">
   /**
    * Обводка выбранного блока (тема neon-stardust, п.6 DESIGN_BRIEF): когда
-   * `selected` становится true — рамка ОДИН РАЗ обводится градиентом
-   * фиолет→циан (stroke-dashoffset), затем обводка остаётся статично + мягкий
-   * glow. pathLength нормализует длину контура, чтобы dash-анимация не зависела
+   * блок выбран — рамка ОДИН РАЗ обводится градиентом фиолет→циан
+   * (stroke-dashoffset), затем обводка остаётся статично + мягкий glow.
+   * pathLength нормализует длину контура, чтобы dash-анимация не зависела
    * от реального размера карточки.
+   *
+   * Выбор = `selected` (готовое состояние экрана, напр. «сравнение» в
+   * журнале) ИЛИ тап по самому блоку (`manual` — локальный тоггл). Тап
+   * работает всегда, даже если у блока нет своего onclick — событие просто
+   * всплывает до этого div, не мешая другим обработчикам внутри children.
    */
   import type { Snippet } from 'svelte';
 
@@ -12,11 +17,13 @@
     { selected?: boolean; radius?: number; children: Snippet } = $props();
 
   const gid = `glowcard-${Math.random().toString(36).slice(2, 9)}`;
+  let manual = $state(false);
+  const active = $derived(selected || manual);
   let play = $state(false);
   let show = $state(false);
 
   $effect(() => {
-    if (selected) {
+    if (active) {
       show = true;
       play = false;
       const raf = requestAnimationFrame(() => (play = true));
@@ -28,7 +35,7 @@
   });
 </script>
 
-<div class="glowcard">
+<div class="glowcard" onclick={() => (manual = !manual)} role="presentation">
   {@render children()}
   {#if show}
     <svg class="glow-overlay" class:play aria-hidden="true">

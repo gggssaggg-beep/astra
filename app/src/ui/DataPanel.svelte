@@ -173,26 +173,27 @@
   </div>
 
   <div class="group">Данные</div>
-  <div class="block">
-    <div class="lbl">Файл данных на компьютере</div>
-    {#if !apiOk}
-      <p class="hint">Браузер не поддерживает прямую запись в файл. Пользуйся
-        «Экспорт/Импорт» ниже (Chrome или Edge дают авто-сохранение в файл).</p>
-    {:else if status.connected}
-      <p class="ok">✓ Сохраняется в <b>{status.name}</b>{status.saving ? ' (запись…)' : ''}</p>
-      <div class="row">
-        <button class="btn" disabled={busy} onclick={connectExisting}>Открыть другой…</button>
-        <button class="btn ghost" disabled={busy} onclick={disconnect}>Отключить</button>
-      </div>
-    {:else}
-      <p class="hint">Сейчас данные в браузере (могут пропасть при чистке кэша).
-        Подключи файл — и всё будет авто-сохраняться на диск читаемым текстом.</p>
-      <div class="row">
-        <button class="btn primary" disabled={busy} onclick={connectNew}>Создать файл…</button>
-        <button class="btn" disabled={busy} onclick={connectExisting}>Открыть файл…</button>
-      </div>
-    {/if}
-  </div>
+  {#if apiOk}
+    <!-- Только настоящий десктоп-браузер (Chrome/Edge). На телефоне блок скрыт:
+         там данные durable в Preferences, а бэкап — через Экспорт/Импорт ниже. -->
+    <div class="block">
+      <div class="lbl">Файл данных на компьютере</div>
+      {#if status.connected}
+        <p class="ok">✓ Сохраняется в <b>{status.name}</b>{status.saving ? ' (запись…)' : ''}</p>
+        <div class="row">
+          <button class="btn" disabled={busy} onclick={connectExisting}>Открыть другой…</button>
+          <button class="btn ghost" disabled={busy} onclick={disconnect}>Отключить</button>
+        </div>
+      {:else}
+        <p class="hint">Сейчас данные в браузере (могут пропасть при чистке кэша).
+          Подключи файл — и всё будет авто-сохраняться на диск читаемым текстом.</p>
+        <div class="row">
+          <button class="btn primary" disabled={busy} onclick={connectNew}>Создать файл…</button>
+          <button class="btn" disabled={busy} onclick={connectExisting}>Открыть файл…</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <div class="block">
     <div class="lbl">Экспорт / Импорт (читаемый JSON)</div>

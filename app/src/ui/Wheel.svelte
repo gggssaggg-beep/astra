@@ -102,7 +102,7 @@
   </defs>
 
   <circle {cx} {cy} r={rOuter} class="ring" />
-  <circle {cx} {cy} r={rZodiac} class="ring" />
+  <circle {cx} {cy} r={rZodiac} class="ring zodiac" />
   <circle {cx} {cy} r={rAspect} class="ring faint" />
 
   {#each signs as s}
@@ -116,7 +116,8 @@
 
   {#each lines as l}
     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
-      stroke-width="1.2" opacity={l.dim ? 0.35 : 0.8} />
+      stroke-width="1.2" opacity={l.dim ? 0.35 : 0.8}
+      style="filter: drop-shadow(0 0 {l.dim ? 2 : 3}px {l.color}) drop-shadow(0 0 {l.dim ? 4 : 7}px {l.color})" />
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
@@ -143,12 +144,22 @@
   .wheel { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
   .ring { fill: none; stroke: var(--glass-brd); stroke-width: 1; }
   .ring.faint { stroke: color-mix(in srgb, var(--glass-brd) 50%, transparent); }
+  .ring.zodiac {
+    stroke: color-mix(in srgb, var(--neon-violet) 45%, var(--glass-brd));
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--neon-violet) 55%, transparent));
+  }
   .spoke { stroke: var(--glass-brd); stroke-width: 0.6; opacity: 0.5; }
   .signicon { opacity: 0.95; overflow: visible; }
   .signicon.glow { filter: url(#sgGlow); }
   .plink { stroke: var(--glass-brd); stroke-width: 0.5; opacity: 0.5; }
-  .planet { fill: var(--ink); font-size: 15px; text-anchor: middle; dominant-baseline: central; }
-  .planet.retro { fill: var(--gold); }
+  .planet {
+    fill: var(--ink); font-size: 15px; text-anchor: middle; dominant-baseline: central;
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--neon-cyan) 35%, transparent));
+  }
+  .planet.retro {
+    fill: var(--gold);
+    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) 55%, transparent));
+  }
   /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх */
   .hit { fill: transparent; stroke: transparent; stroke-width: 14; pointer-events: all; cursor: pointer; }
 </style>

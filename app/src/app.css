@@ -16,6 +16,14 @@
   --accent: #9b8cff;
   --radius: 18px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  /* неоновый акцент (§1 темы neon-stardust): циан/маджента/фиолет, для glow-эффектов */
+  --neon-cyan: #4deaff;
+  --neon-magenta: #ff4dd8;
+  --neon-violet: #9b6bff;
+  /* Space Grotesk не содержит кириллицы — русский текст сам упадёт на фолбэк
+     стек, латиница/цифры/пунктуация возьмутся из Space Grotesk. */
+  --font-body: 'Space Grotesk', "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   color-scheme: dark;
 }
 
@@ -26,6 +34,7 @@
   --glass: rgba(255, 255, 255, 0.72);
   --glass-brd: rgba(120, 130, 200, 0.28);
   --silver: #5b63a8; --accent: #6a5cf0;
+  --neon-cyan: #1fb8d6; --neon-magenta: #d1379f; --neon-violet: #6a5cf0;
   color-scheme: light;
 }
 
@@ -38,7 +47,7 @@ html { font-size: 16px; }
 html[data-font='large'] { font-size: 18.5px; }
 
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  font-family: var(--font-body);
   color: var(--ink);
   background: var(--bg-0);
   -webkit-font-smoothing: antialiased;
@@ -87,6 +96,14 @@ section.sheet::before {
   width: 42px; height: 4px; border-radius: 999px; background: var(--ink-faint);
   opacity: 0.55; pointer-events: none;
 }
+
+/* use:reveal (lib/reveal.ts, п.5 темы) — мягкое всплытие карточек при скролле */
+.reveal {
+  opacity: 0; transform: translateY(18px);
+  transition: opacity 0.52s cubic-bezier(0.215, 0.61, 0.355, 1),
+    transform 0.52s cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+.reveal.revealed { opacity: 1; transform: translateY(0); }
 
 button { font: inherit; color: inherit; cursor: pointer; }
 ::-webkit-scrollbar { width: 8px; }

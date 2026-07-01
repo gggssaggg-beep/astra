@@ -1,26 +1,30 @@
 <script lang="ts">
   import { bottomSheet } from '../lib/sheet.ts';
+  import { reveal } from '../lib/reveal.ts';
+  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onInterpretations, onArchetypes, onTracked }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void; onTracked: () => void } = $props();
+  let sheetEl = $state<HTMLElement | null>(null);
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }}>
+<ScrollThread target={sheetEl} zIndex={22} />
+<section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
   <header><h2>Библиотека</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Трактовки, архетипы божеств и отслеживаемые аспекты — в одном месте.</div>
 
-  <button class="row" onclick={onInterpretations}>
+  <button class="row reveal" use:reveal onclick={onInterpretations}>
     <span class="ic glyph">📖</span>
     <div class="txt"><b>Трактовки</b><small>свои тексты по парам и аспектам</small></div>
     <span class="arr">→</span>
   </button>
-  <button class="row" onclick={onArchetypes}>
+  <button class="row reveal" use:reveal onclick={onArchetypes}>
     <span class="ic glyph">🏛</span>
     <div class="txt"><b>Архетипы божеств</b><small>миф и архетип на каждую планету</small></div>
     <span class="arr">→</span>
   </button>
-  <button class="row" onclick={onTracked}>
+  <button class="row reveal" use:reveal onclick={onTracked}>
     <span class="ic glyph">★</span>
     <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
     <span class="arr">→</span>

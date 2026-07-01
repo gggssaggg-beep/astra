@@ -5,8 +5,11 @@
   import { getKey } from '../lib/secret.ts';
   import { loadDeityMyth } from '../lib/chat.ts';
   import { PLANET_LORE } from '../lib/lore.ts';
+  import { reveal } from '../lib/reveal.ts';
+  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
+  let sheetEl = $state<HTMLElement | null>(null);
 
   const OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
   // подсказки-греческие соответствия — из встроенного контента (lore.ts)
@@ -47,14 +50,15 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }}>
+<ScrollThread target={sheetEl} zIndex={26} />
+<section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
   <header><h2>Архетипы божеств</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Греческая мифология на каждую планету. Базовые архетипы уже вшиты —
     тексты можно править или подгрузить расширенный разбор у Claude (нужен ключ в «Чате»).</div>
   {#if loadErr}<div class="lerr">⚠ {loadErr}</div>{/if}
 
   {#each items as it, i (it.object)}
-    <div class="row">
+    <div class="row reveal" use:reveal>
       <div class="head">
         <span class="g glyph">{PLANET_GLYPH[it.object] ?? '•'}</span>
         <b>{it.object}</b>

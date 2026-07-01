@@ -4,8 +4,11 @@
   import { db, onChange } from '../lib/db.ts';
   import { parseSignature } from '../lib/signature.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { reveal } from '../lib/reveal.ts';
+  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onopen }: { onclose: () => void; onopen: (r: AspectRecord) => void } = $props();
+  let sheetEl = $state<HTMLElement | null>(null);
 
   // slice — иначе Svelte не заметит мутацию db на месте (см. lib/db.ts)
   let items = $state(db.interpretations.all().slice());
@@ -24,7 +27,8 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Трактовки" use:bottomSheet={{ onclose }}>
+<ScrollThread target={sheetEl} zIndex={24} />
+<section class="sheet glass" aria-label="Трактовки" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
   <header><h2>Трактовки</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   {#if !list.length}
@@ -33,7 +37,7 @@
 
   {#each list as it (it.signature)}
     {@const p = parseSignature(it.signature)}
-    <button class="item" onclick={() => open(it.signature)}>
+    <button class="item reveal" use:reveal onclick={() => open(it.signature)}>
       <span class="pair glyph">{PLANET_GLYPH[p.p1] ?? p.p1}<span class="a">{ASPECTS[p.aspect]?.symbol}</span>{PLANET_GLYPH[p.p2] ?? p.p2}</span>
       <div class="body">
         <span class="nm">{p.p1} {p.aspect} {p.p2}</span>

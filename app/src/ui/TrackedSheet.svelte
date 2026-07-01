@@ -3,8 +3,12 @@
   import { PLANET_GLYPH, ASPECTS } from '../engine/index.ts';
   import { db, onChange } from '../lib/db.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { reveal } from '../lib/reveal.ts';
+  import GlowCard from './GlowCard.svelte';
+  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onopen }: { onclose: () => void; onopen: (r: AspectRecord) => void } = $props();
+  let sheetEl = $state<HTMLElement | null>(null);
 
   let items = $state(db.tracked.all().slice());
   $effect(() => onChange(() => (items = db.tracked.all().slice())));
@@ -22,7 +26,8 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Отслеживаемые аспекты" use:bottomSheet={{ onclose }}>
+<ScrollThread target={sheetEl} zIndex={24} />
+<section class="sheet glass" aria-label="Отслеживаемые аспекты" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
   <header><h2>Отслеживаю</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   {#if !items.length}
@@ -30,14 +35,16 @@
   {/if}
 
   {#each items as t (t.id)}
-    <div class="item">
-      <button class="open" onclick={() => open(t.p1, t.p2, t.aspect)}>
-        <span class="glyph pair">{PLANET_GLYPH[t.p1] ?? t.p1}<span class="a">{ASPECTS[t.aspect]?.symbol}</span>{PLANET_GLYPH[t.p2] ?? t.p2}</span>
-        <span class="nm">{t.p1} {t.aspect} {t.p2}</span>
-        {#if interpOf(t.signature)}<span class="prev">{interpOf(t.signature)}</span>{/if}
-      </button>
-      <button class="mini" title="Открепить" onclick={() => unpin(t.id)}>★</button>
-    </div>
+    <GlowCard selected radius={12}>
+      <div class="item reveal" use:reveal>
+        <button class="open" onclick={() => open(t.p1, t.p2, t.aspect)}>
+          <span class="glyph pair">{PLANET_GLYPH[t.p1] ?? t.p1}<span class="a">{ASPECTS[t.aspect]?.symbol}</span>{PLANET_GLYPH[t.p2] ?? t.p2}</span>
+          <span class="nm">{t.p1} {t.aspect} {t.p2}</span>
+          {#if interpOf(t.signature)}<span class="prev">{interpOf(t.signature)}</span>{/if}
+        </button>
+        <button class="mini" title="Открепить" onclick={() => unpin(t.id)}>★</button>
+      </div>
+    </GlowCard>
   {/each}
 </section>
 

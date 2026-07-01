@@ -3,8 +3,12 @@
   import { noteDateStr, filterNotes, type Period } from '../lib/journal.ts';
   import type { JournalNote } from '../lib/models.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { reveal } from '../lib/reveal.ts';
+  import GlowCard from './GlowCard.svelte';
+  import ScrollThread from './ScrollThread.svelte';
 
   let { date, onclose }: { date: Date; onclose: () => void } = $props();
+  let sheetEl = $state<HTMLElement | null>(null);
 
   const OBJ = ['Луна', 'Солнце', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
   const PERIODS: [Period, string][] = [['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц'], ['all', 'Всё']];
@@ -36,7 +40,8 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Журнал" use:bottomSheet={{ onclose }}>
+<ScrollThread target={sheetEl} zIndex={22} />
+<section class="sheet glass" aria-label="Журнал" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
   <header><h2>Бортовой журнал</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   <div class="add">
@@ -76,16 +81,18 @@
   <div class="list">
     {#if !list.length}<div class="empty">Записей нет</div>{/if}
     {#each list as n (n.id)}
-      <div class="note" class:picked={cmp.has(n.id)}>
-        <div class="nhead">
-          <b>{dmy(n.date)}</b>
-          {#if n.objects.length}<span class="tags">{n.objects.join(' · ')}</span>{/if}
-          <span class="spacer"></span>
-          <button class="mini" class:on={cmp.has(n.id)} title="Для сравнения" onclick={() => toggleCmp(n.id)}>⇄</button>
-          <button class="mini" title="Удалить" onclick={() => del(n.id)}>🗑</button>
+      <GlowCard selected={cmp.has(n.id)} radius={12}>
+        <div class="note reveal" class:picked={cmp.has(n.id)} use:reveal>
+          <div class="nhead">
+            <b>{dmy(n.date)}</b>
+            {#if n.objects.length}<span class="tags">{n.objects.join(' · ')}</span>{/if}
+            <span class="spacer"></span>
+            <button class="mini" class:on={cmp.has(n.id)} title="Для сравнения" onclick={() => toggleCmp(n.id)}>⇄</button>
+            <button class="mini" title="Удалить" onclick={() => del(n.id)}>🗑</button>
+          </div>
+          <div class="ntext">{n.text}</div>
         </div>
-        <div class="ntext">{n.text}</div>
-      </div>
+      </GlowCard>
     {/each}
   </div>
 </section>

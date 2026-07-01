@@ -4,11 +4,14 @@
   import { fmtPos, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
   import Wheel from './Wheel.svelte';
+  import { reveal } from '../lib/reveal.ts';
+  import { aspectSignature } from '../lib/signature.ts';
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
-  let { engine, date, orbOf, tz, signStyle = 'gold', onAspect, oninfo }:
+  let { engine, date, orbOf, tz, signStyle = 'gold', selectedSignature = null, onAspect, oninfo }:
     { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string; signStyle?: SignStyle;
+      selectedSignature?: string | null;
       onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void } = $props();
 
   // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса. Снимок положений
@@ -66,7 +69,7 @@
 
   <div class="positions glass">
     {#each planets as p}
-      <div class="chip" class:retro={p.retro}>
+      <div class="chip reveal" class:retro={p.retro} use:reveal>
         <span class="g glyph">{p.glyph}</span>
         <span class="pp">{fmtPos(p.lon)}</span>
       </div>
@@ -90,7 +93,8 @@
     {#if s.list.length}
       <h3 class="sec">{s.title}</h3>
       {#each s.list as rec (rec.p1 + rec.p2 + rec.aspect)}
-        <AspectCard {rec} {tz} onpick={onAspect} />
+        <AspectCard {rec} {tz} onpick={onAspect}
+          selected={!!selectedSignature && selectedSignature === aspectSignature(rec.p1, rec.p2, rec.aspect)} />
       {/each}
     {/if}
   {/each}
@@ -103,7 +107,7 @@
 <style>
   .day { padding: 6px 2px 40px; }
   .wheel-wrap { padding: 14px; margin: 8px 0; }
-  .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   .audit { padding: 10px 12px; margin: 8px 0; color: var(--rose); font-size: 0.85rem; }
   .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }
   .moon .g { font-size: 1.8rem; color: var(--silver); }
@@ -113,14 +117,14 @@
   .chip { display: flex; align-items: center; gap: 8px; }
   .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }
   .chip.retro .pp { color: var(--gold); }
-  .pp { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
-  .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); }
+  .pp { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.92rem; }
+  .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); font-family: var(--font-mono); }
   .events { padding: 6px 12px; margin: 8px 0; }
   .ev { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--glass-brd); }
   .ev:last-child { border-bottom: none; }
   .evg { width: 1.4rem; text-align: center; font-size: 1.1rem; color: var(--silver); }
   .evt { flex: 1; font-size: 0.9rem; }
-  .evtime { font-variant-numeric: tabular-nums; color: var(--ink-dim); font-size: 0.85rem; }
+  .evtime { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink-dim); font-size: 0.85rem; }
   .k-eclipse { color: var(--gold); }
   .k-eclipse .evg { color: var(--gold); }
   .k-station .evg { color: var(--rose); }

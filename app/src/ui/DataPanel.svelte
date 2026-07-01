@@ -6,6 +6,7 @@
   import { testNotify } from '../lib/notifications.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
+  import { getOtaStatus, checkOtaUpdate } from '../lib/ota.ts';
 
   // объекты для индивидуального орбиса (светила + планеты + узлы)
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
@@ -57,6 +58,16 @@
     try { await fn(); status = dataFile.status(); onchanged(); msg = ok; }
     catch (e) { msg = '⚠ ' + (e instanceof Error ? e.message : String(e)); }
     finally { busy = false; }
+  }
+
+  // OTA-обновление веб-части: показываем реальный статус (версия не в footer,
+  // а из манифеста) и даём ручную проверку — иначе понять, работает ли, нельзя.
+  let ota = $state(getOtaStatus());
+  let otaBusy = $state(false);
+  async function checkOta() {
+    otaBusy = true;
+    try { ota = await checkOtaUpdate(); }
+    finally { otaBusy = false; }
   }
 
   const connectNew = () => run(() => dataFile.connectNew(), 'Файл создан, данные сохраняются в него.');
@@ -173,26 +184,27 @@
   </div>
 
   <div class="group">Данные</div>
-  <div class="block">
-    <div class="lbl">Файл данных на компьютере</div>
-    {#if !apiOk}
-      <p class="hint">Браузер не поддерживает прямую запись в файл. Пользуйся
-        «Экспорт/Импорт» ниже (Chrome или Edge дают авто-сохранение в файл).</p>
-    {:else if status.connected}
-      <p class="ok">✓ Сохраняется в <b>{status.name}</b>{status.saving ? ' (запись…)' : ''}</p>
-      <div class="row">
-        <button class="btn" disabled={busy} onclick={connectExisting}>Открыть другой…</button>
-        <button class="btn ghost" disabled={busy} onclick={disconnect}>Отключить</button>
-      </div>
-    {:else}
-      <p class="hint">Сейчас данные в браузере (могут пропасть при чистке кэша).
-        Подключи файл — и всё будет авто-сохраняться на диск читаемым текстом.</p>
-      <div class="row">
-        <button class="btn primary" disabled={busy} onclick={connectNew}>Создать файл…</button>
-        <button class="btn" disabled={busy} onclick={connectExisting}>Открыть файл…</button>
-      </div>
-    {/if}
-  </div>
+  {#if apiOk}
+    <!-- Только настоящий десктоп-браузер (Chrome/Edge). На телефоне блок скрыт:
+         там данные durable в Preferences, а бэкап — через Экспорт/Импорт ниже. -->
+    <div class="block">
+      <div class="lbl">Файл данных на компьютере</div>
+      {#if status.connected}
+        <p class="ok">✓ Сохраняется в <b>{status.name}</b>{status.saving ? ' (запись…)' : ''}</p>
+        <div class="row">
+          <button class="btn" disabled={busy} onclick={connectExisting}>Открыть другой…</button>
+          <button class="btn ghost" disabled={busy} onclick={disconnect}>Отключить</button>
+        </div>
+      {:else}
+        <p class="hint">Сейчас данные в браузере (могут пропасть при чистке кэша).
+          Подключи файл — и всё будет авто-сохраняться на диск читаемым текстом.</p>
+        <div class="row">
+          <button class="btn primary" disabled={busy} onclick={connectNew}>Создать файл…</button>
+          <button class="btn" disabled={busy} onclick={connectExisting}>Открыть файл…</button>
+        </div>
+      {/if}
+    </div>
+  {/if}
 
   <div class="block">
     <div class="lbl">Экспорт / Импорт (читаемый JSON)</div>
@@ -212,6 +224,25 @@
 
   {#if msg}<div class="msg">{msg}</div>{/if}
 
+  <div class="group">Обновление приложения</div>
+  <div class="block">
+    <div class="lbl">Живое обновление (OTA)</div>
+    <p class="hint small">Веб-часть обновляется без переустановки APK. Кнопка ниже
+      проверит обновление и покажет, что произошло. Новый бандл применяется при
+      следующем полном запуске приложения (закрыть и открыть заново).</p>
+    <div class="row" style="margin-top:8px">
+      <button class="btn primary" disabled={otaBusy} onclick={checkOta}>
+        {otaBusy ? 'Проверяю…' : 'Проверить обновление'}</button>
+    </div>
+    {#if ota.state !== 'idle'}
+      <div class="msg" class:err={ota.state === 'error'}>{ota.message}</div>
+    {/if}
+    <div class="hint small" style="margin-top:6px">
+      Установлено: <b>{ota.applied}</b>{#if ota.latest} · в манифесте: {ota.latest}{/if}
+      {#if ota.native && !ota.pluginOk} · <b>плагин OTA отсутствует</b> (нужен свежий APK){/if}
+    </div>
+  </div>
+
   <div class="group">Обучение</div>
   <div class="block">
     <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
@@ -220,7 +251,7 @@
       и получить разбор.</div>
   </div>
 
-  <footer>Astra · версия {APP_VERSION}</footer>
+  <footer>Astra · версия {APP_VERSION}{#if ota.applied !== APP_VERSION} · бандл {ota.applied}{/if}</footer>
 </section>
 
 <style>
@@ -272,5 +303,6 @@
   .btn.file { display: inline-flex; align-items: center; cursor: pointer; }
   .mode { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ink-dim); font-size: 0.82rem; }
   .msg { margin-top: 10px; padding: 8px 12px; background: #ffffff10; border-radius: 10px; font-size: 0.86rem; color: var(--ink-dim); }
+  .msg.err { background: #ff5a5a1e; color: #ffb3b3; }
   footer { margin-top: 14px; text-align: center; color: var(--ink-faint); font-size: 0.74rem; }
 </style>

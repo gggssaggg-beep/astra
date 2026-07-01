@@ -1,7 +1,7 @@
 /**
  * Чат трактовок (§3.6). В модель кладём УЖЕ посчитанные движком данные дня —
  * она их ТРАКТУЕТ, не пересчитывает (токен-экономия, §0). Модель — Claude
- * (claude-opus-4-8). В вебе зовём напрямую с заголовком direct-browser-access;
+ * (claude-sonnet-5). В вебе зовём напрямую с заголовком direct-browser-access;
  * на устройстве (Capacitor) лучше нативный HTTP (CapacitorHttp) — обойти CORS.
  */
 import type { Engine } from '../engine/index.ts';
@@ -31,7 +31,7 @@ export function buildDayContext(E: Engine, date: Date, tz: string,
 export function systemPrompt(E: Engine, date: Date, tz: string,
   orb: number | ((name: string) => number) = 1.0): string {
   const arche = db.archetypes.all().filter((a) => a.text).map((a) => `${a.object} — ${a.deity}: ${a.text}`).join('\n');
-  return `Ты — вдумчивый помощник практикующего астролога. Тебе даны УЖЕ ПОСЧИТАННЫЕ данные неба на день (позиции в знаках/градусах, мажорные аспекты с точными временами, события). Не пересчитывай астрономию — доверяй этим числам и ТРАКТУЙ их. Где уместно — опирайся на архетипы греческой мифологии. Пиши по-русски, ясно и по делу.
+  return `Ты — вдумчивый помощник практикующего астролога. Тебе даны УЖЕ ПОСЧИТАННЫЕ данные неба на день (позиции в знаках/градусах, мажорные аспекты с точными временами, события). Не пересчитывай астрономию — доверяй этим числам и ТРАКТУЙ их и переводи на современный язык. Где уместно — опирайся на архетипы греческой мифологии, заложенные в программе по конкретным планетам. Не используй другие архетипы, которые не затрагивают аспект. Если нужно, используй метафоры. Стиль возвышенный, философский, но без отрыва от реальности. Пиши по-русски, ясно и по делу, структурируй ответ. Не пиши большие абзацы. Лучше короче, но яснее.
 
 === Данные дня ===
 ${buildDayContext(E, date, tz, orb)}${arche ? `\n\n=== Архетипы (от астролога) ===\n${arche}` : ''}`;
@@ -58,7 +58,7 @@ export async function askClaude(key: string, system: string, messages: ChatMsg[]
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
-    body: JSON.stringify({ model: 'claude-opus-4-8', max_tokens: 2000, system, messages }),
+    body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 2000, system, messages }),
   });
   if (!res.ok) {
     const t = await res.text().catch(() => '');

@@ -8,7 +8,13 @@
  * в выбранной папке (§10.6) — этот модуль подменяется, остальной код не меняется.
  */
 
+import { Capacitor } from '@capacitor/core';
+
+// Только настоящий десктоп-браузер. В Android WebView `showSaveFilePicker`
+// бывает объявлен, но привязка к файлу на диске там не работает — на нативе
+// источник правды Preferences, а бэкап делается через Экспорт/Импорт.
 export const fsApiAvailable = (): boolean =>
+  !Capacitor.isNativePlatform() &&
   typeof (globalThis as any).showSaveFilePicker === 'function';
 
 // --- запоминание хэндла в IndexedDB ---

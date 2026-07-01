@@ -10,6 +10,13 @@ const config: CapacitorConfig = {
     CapacitorUpdater: {
       autoUpdate: false,
     },
+    // Локальные уведомления: монохромная иконка статус-бара (res/drawable/
+    // ic_stat_astra) + фиолетовый акцент. Каналы (звук/heads-up) создаём в
+    // lib/notifications.ts (createChannel).
+    LocalNotifications: {
+      smallIcon: 'ic_stat_astra',
+      iconColor: '#9b6bff',
+    },
   },
 };
 

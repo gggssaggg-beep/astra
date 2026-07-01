@@ -38,4 +38,16 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Уведомления: показ (Android 13+ — runtime-разрешение) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Точные будильники (момент точного аспекта). USE_EXACT_ALARM — для 33+
+         (авто-выдаётся, приложение sideload вне Play Store); SCHEDULE_EXACT_ALARM
+         — для Android 12 (31/32). -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Перепланировать уведомления после перезагрузки телефона -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Вибрация уведомления -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 </manifest>

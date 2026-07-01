@@ -18,6 +18,8 @@
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
+  import Starfield from './ui/Starfield.svelte';
+  import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
   import { syncNotifications } from './lib/notifications.ts';
 
@@ -134,6 +136,9 @@
 
 <svelte:window onkeydown={onKey} />
 
+<Starfield />
+{#if engine && !error}<ScrollThread />{/if}
+
 <main ontouchstart={onStart} ontouchend={onEnd}>
   <header class="glass frost">
     <button class="nav" onclick={() => shift(-1)} aria-label="Предыдущий день">‹</button>
@@ -158,6 +163,7 @@
     {#key date.getTime()}
       <div class="page">
         <DayScreen {engine} {date} {orbOf} tz={settings.tz} signStyle={settings.signStyle}
+          selectedSignature={selRec ? aspectSignature(selRec.p1, selRec.p2, selRec.aspect) : null}
           onAspect={(r) => (selRec = r)} oninfo={(i) => (wheelInfo = i)} />
       </div>
     {/key}
@@ -226,9 +232,12 @@
 {/if}
 
 <style>
-  main { max-width: 560px; margin: 0 auto; padding: 12px 12px calc(74px + env(safe-area-inset-bottom)); min-height: 100%; }
+  main {
+    max-width: 560px; margin: 0 auto; min-height: 100%;
+    padding: calc(12px + env(safe-area-inset-top)) 12px calc(74px + env(safe-area-inset-bottom));
+  }
   header {
-    position: sticky; top: 8px; z-index: 5;
+    position: sticky; top: calc(8px + env(safe-area-inset-top)); z-index: 5;
     display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 6px;
   }
   .nav { background: transparent; border: none; font-size: 1.8rem; line-height: 1; width: 40px; height: 44px; border-radius: 12px; color: var(--ink-dim); }
@@ -247,7 +256,7 @@
     display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }
   .tabbar button:hover { background: #ffffff14; color: var(--ink); }
   .tabbar .ti { font-size: 1.25rem; line-height: 1; }
-  .tabbar .tl { font-size: 0.6rem; letter-spacing: 0.2px; }
+  .tabbar .tl { font-size: 0.6rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }
   .state { padding: 24px; text-align: center; color: var(--ink-dim); margin-top: 20px; }
   .state.err { color: var(--rose); }

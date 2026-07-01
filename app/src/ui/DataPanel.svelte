@@ -70,6 +70,12 @@
     finally { otaBusy = false; }
   }
 
+  // Обратная связь на этапе теста: письмо разработчику с предзаполненной версией.
+  const DEV_EMAIL = 'ggg.ssa.ggg@gmail.com';
+  const feedbackHref = `mailto:${DEV_EMAIL}?subject=${encodeURIComponent('Astra — обратная связь')}`
+    + `&body=${encodeURIComponent(`Версия: ${APP_VERSION}\n\nЧто понравилось / что улучшить `
+      + `(особенно трактовки через архетипы):\n`)}`;
+
   const connectNew = () => run(() => dataFile.connectNew(), 'Файл создан, данные сохраняются в него.');
   const connectExisting = () => run(() => dataFile.connectExisting(), 'Файл подключён, данные загружены.');
   const disconnect = () => run(() => dataFile.disconnect(), 'Файл отключён (данные остались в приложении).');
@@ -243,6 +249,15 @@
     </div>
   </div>
 
+  <div class="group">Обратная связь</div>
+  <div class="block">
+    <div class="lbl">Связаться с разработчиком</div>
+    <p class="hint small">Нравятся ли трактовки через архетипы? Что улучшить? Напишите —
+      на этапе теста это особенно важно.</p>
+    <a class="btn primary maillink" href={feedbackHref}>✉ Написать разработчику</a>
+    <p class="hint small" style="margin-top:8px">Или на почту: <b>{DEV_EMAIL}</b></p>
+  </div>
+
   <div class="group">Обучение</div>
   <div class="block">
     <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
@@ -304,5 +319,6 @@
   .mode { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ink-dim); font-size: 0.82rem; }
   .msg { margin-top: 10px; padding: 8px 12px; background: #ffffff10; border-radius: 10px; font-size: 0.86rem; color: var(--ink-dim); }
   .msg.err { background: #ff5a5a1e; color: #ffb3b3; }
+  .maillink { display: inline-block; text-decoration: none; text-align: center; }
   footer { margin-top: 14px; text-align: center; color: var(--ink-faint); font-size: 0.74rem; }
 </style>

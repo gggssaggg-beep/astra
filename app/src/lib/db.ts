@@ -11,7 +11,7 @@ import type {
   Settings, JournalNote, TrackedAspect, Interpretation, DeityArchetype, Reminder,
 } from './models.ts';
 import { DEFAULT_SETTINGS } from './models.ts';
-import { DATA_SCHEMA } from './version.ts';
+import { DATA_SCHEMA, LORE_VERSION } from './version.ts';
 import * as fs from './fileStore.ts';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
@@ -30,6 +30,7 @@ export interface AppData {
   interpretations: Interpretation[];
   archetypes: DeityArchetype[];
   settings: Settings;
+  loreVersion?: number;   // версия вшитых архетипов (см. migrateLore)
 }
 
 const LS_KEY = 'astra:data';
@@ -38,6 +39,8 @@ function emptyData(): AppData {
   return {
     schema: DATA_SCHEMA, notes: [], tracked: [], reminders: [],
     interpretations: [], archetypes: [], settings: { ...DEFAULT_SETTINGS },
+    // loreVersion НЕ ставим здесь: в adopt('replace') = {...emptyData(), ...incoming}
+    // он должен браться из сохранённых данных (у старых — undefined → миграция сработает).
   };
 }
 
@@ -129,6 +132,7 @@ function adopt(parsed: any, mode: 'merge' | 'replace') {
       interpretations: byKey(data.interpretations, incoming.interpretations, (x) => x.signature),
       archetypes: byKey(data.archetypes, incoming.archetypes, (x) => x.object),
       settings: { ...data.settings, ...(incoming.settings ?? {}) },
+      loreVersion: data.loreVersion ?? incoming.loreVersion,
     };
   }
 }
@@ -200,6 +204,20 @@ function seedDefaults(): boolean {
   return added;
 }
 
+/** Одноразово ПЕРЕустановить базовые архетипы (lore.ts) при повышении LORE_VERSION —
+ *  чтобы новая раскладка богов дошла и до уже-запущенных устройств. Объекты, которых
+ *  нет в дефолтах (карлики/TNO астролога), не трогаем. Срабатывает один раз на версию. */
+function migrateLore(): boolean {
+  if ((data.loreVersion ?? 0) >= LORE_VERSION) return false;
+  for (const a of defaultArchetypes()) {
+    const rec = { ...a, updatedAt: new Date().toISOString() };
+    const i = data.archetypes.findIndex((x) => x.object === a.object);
+    if (i >= 0) data.archetypes[i] = rec; else data.archetypes.push(rec);
+  }
+  data.loreVersion = LORE_VERSION;
+  return true;
+}
+
 /** Вызвать один раз при старте (await перед чтением данных в UI). На устройстве
  *  поднимает durable-копию из Preferences (localStorage в WebView ненадёжен), на
  *  вебе — no-op для хранилища. Затем дозасев встроенных архетипов. */
@@ -214,7 +232,8 @@ export async function hydrate(): Promise<void> {
     } catch { /* первый запуск / нет данных — стартуем с localStorage/пустого */ }
   }
   const seeded = seedDefaults();
-  if (seeded) persist(); else notify();
+  const migrated = migrateLore();
+  if (seeded || migrated) persist(); else notify();
 }
 
 // --- экспорт / импорт (текстовый JSON) ---

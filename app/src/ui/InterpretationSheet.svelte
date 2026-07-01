@@ -1,15 +1,16 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import type { AspectRecord } from '../engine/index.ts';
-  import { PLANET_GLYPH } from '../engine/index.ts';
+  import type { AspectRecord, Engine, AspectOccurrence } from '../engine/index.ts';
+  import { PLANET_GLYPH, findAspectOccurrences } from '../engine/index.ts';
   import { db, uid, onChange } from '../lib/db.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { noteDateStr } from '../lib/journal.ts';
-  import { fmtTime } from '../lib/format.ts';
+  import { fmtTime, civilOf } from '../lib/format.ts';
   import { bottomSheet } from '../lib/sheet.ts';
 
-  let { rec, date, tz, onclose, ondiscuss }:
-    { rec: AspectRecord; date: Date; tz: string; onclose: () => void; ondiscuss?: (r: AspectRecord) => void } = $props();
+  let { rec, engine, date, tz, onclose, ondiscuss, ongoto }:
+    { rec: AspectRecord; engine: Engine; date: Date; tz: string; onclose: () => void;
+      ondiscuss?: (r: AspectRecord) => void; ongoto?: (d: Date) => void } = $props();
 
   const sig = untrack(() => aspectSignature(rec.p1, rec.p2, rec.aspect));
 
@@ -37,6 +38,35 @@
 
   const arch = (o: string) => db.archetypes.get(o);
   const dmy = (s: string) => { const p = s.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; };
+
+  // --- Поиск «когда ещё случался этот аспект» в диапазоне лет ---
+  const curYear = untrack(() => date.getUTCFullYear());
+  let fromYear = $state(curYear - 10);
+  let toYear = $state(curYear + 10);
+  let searching = $state(false);
+  let searched = $state(false);
+  let occ = $state<AspectOccurrence[]>([]);
+  let truncated = $state(false);
+
+  const fmtOcc = (d: Date) =>
+    new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+
+  async function runSearch() {
+    if (searching) return;
+    const y0 = Math.min(fromYear, toYear), y1 = Math.max(fromYear, toYear);
+    fromYear = y0; toYear = y1;
+    searching = true; searched = false; occ = []; truncated = false;
+    try {
+      const from = new Date(Date.UTC(y0, 0, 1));
+      const to = new Date(Date.UTC(y1 + 1, 0, 1)); // конец года y1 включительно
+      const res = await findAspectOccurrences(engine, rec.p1, rec.p2, rec.aspect, from, to);
+      occ = res.list; truncated = res.truncated;
+    } catch { occ = []; }
+    finally { searching = false; searched = true; }
+  }
+
+  // переход к полной картинке дня, в который состоится выбранный аспект
+  function goto(o: AspectOccurrence) { ongoto?.(civilOf(o.exact, tz)); }
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -83,6 +113,35 @@
       <div class="past"><b>{dmy(n.date)}</b><div>{n.text}</div></div>
     {/each}
   </div>
+
+  <div class="block">
+    <div class="lbl">Когда ещё этот аспект</div>
+    <div class="rangerow">
+      <span class="hint">с</span>
+      <input class="year" type="number" bind:value={fromYear} min="1800" max="2200" />
+      <span class="hint">по</span>
+      <input class="year" type="number" bind:value={toYear} min="1800" max="2200" />
+      <button class="btn" onclick={runSearch} disabled={searching}>{searching ? 'Ищу…' : 'Найти'}</button>
+    </div>
+    {#if searched}
+      {#if occ.length}
+        <div class="hint" style="margin:10px 0 6px">
+          Найдено: {occ.length}{truncated ? '+ (первые)' : ''} — нажми дату, чтобы открыть тот день.</div>
+        <div class="occ">
+          {#each occ as o}
+            <button class="occrow" onclick={() => goto(o)}>
+              <b>{fmtOcc(o.exact)}</b><span class="t">{fmtTime(o.exact, tz)}</span><span class="go">→</span>
+            </button>
+          {/each}
+        </div>
+      {:else}
+        <div class="hint" style="margin-top:8px">В диапазоне {fromYear}–{toYear} этот аспект не находится.</div>
+      {/if}
+    {:else}
+      <div class="hint" style="margin-top:6px">Точные даты, когда <b>{rec.p1} {rec.aspect} {rec.p2}</b>
+        повторяется в выбранном диапазоне. Даты кликабельны — откроют картинку того дня.</div>
+    {/if}
+  </div>
 </section>
 
 <style>
@@ -115,4 +174,15 @@
   .atext { font-size: 0.9rem; color: var(--ink-dim); white-space: pre-wrap; }
   .past { padding: 6px 0; border-top: 1px solid var(--glass-brd); font-size: 0.9rem; }
   .past:first-of-type { border-top: none; }
+  .rangerow { display: flex; align-items: center; gap: 8px; }
+  .year { width: 5rem; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 10px; padding: 8px 10px; font: inherit; font-family: var(--font-mono); text-align: center; }
+  .occ { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+  .occrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: #ffffff0d; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 12px; padding: 10px 12px; font-size: 0.92rem; }
+  .occrow:hover { background: #ffffff18; }
+  .occrow b { font-family: var(--font-display); }
+  .occrow .t { color: var(--ink-dim); font-family: var(--font-mono); font-size: 0.82rem; }
+  .occrow .go { margin-left: auto; color: var(--accent); font-size: 1.1rem; }
 </style>

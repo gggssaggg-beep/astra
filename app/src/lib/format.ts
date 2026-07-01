@@ -57,12 +57,18 @@ export function zonedDayStartUTC(civil: Date, tz: string): Date {
   return new Date(utc);
 }
 
-/** Гражданская «сегодняшняя» дата в поясе tz как якорь дня (UTC-полночь Y-M-D). */
-export function todayCivil(tz: string): Date {
+/** Гражданская дата-якорь (UTC-полночь Y-M-D) для произвольного момента в поясе tz.
+ *  Нужна, чтобы из точного времени аспекта получить «день», к которому листать. */
+export function civilOf(instant: Date, tz: string): Date {
   const dtf = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' });
   const p: Record<string, number> = {};
-  for (const part of dtf.formatToParts(new Date())) if (part.type !== 'literal') p[part.type] = +part.value;
+  for (const part of dtf.formatToParts(instant)) if (part.type !== 'literal') p[part.type] = +part.value;
   return new Date(Date.UTC(p.year, p.month - 1, p.day));
+}
+
+/** Гражданская «сегодняшняя» дата в поясе tz как якорь дня (UTC-полночь Y-M-D). */
+export function todayCivil(tz: string): Date {
+  return civilOf(new Date(), tz);
 }
 
 /** Точка в окне орбиса в пределах ли тех же суток (для подписи «через полночь»). */

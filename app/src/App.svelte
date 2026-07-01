@@ -211,8 +211,9 @@
   <Journal {date} onclose={() => (showJournal = false)} />
 {/if}
 
-{#if selRec}
-  <InterpretationSheet rec={selRec} {date} tz={settings.tz} onclose={() => (selRec = null)}
+{#if selRec && engine}
+  <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} onclose={() => (selRec = null)}
+    ongoto={(d) => { date = d; selRec = null; }}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
       + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,
       { objects: [r.p1, r.p2], aspectSignature: aspectSignature(r.p1, r.p2, r.aspect), title: `${r.p1} ${r.aspect} ${r.p2}` })} />

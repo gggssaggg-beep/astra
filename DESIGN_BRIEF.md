@@ -4,6 +4,18 @@
 `design/neon-stardust`, поверх актуального `main`. Это ТОЛЬКО оформление —
 функциональность и расчёты не трогать.
 
+## Репозиторий (отдать сюда)
+- GitHub: **https://github.com/gggssaggg-beep/astra**
+- Ветка для дизайна: **`design/neon-stardust`**
+  → https://github.com/gggssaggg-beep/astra/tree/design/neon-stardust
+- Клонировать и переключиться:
+  ```
+  git clone https://github.com/gggssaggg-beep/astra.git
+  cd astra && git checkout design/neon-stardust
+  ```
+- Приложение — в подпапке `app/` (Vite+Svelte+TS). Файлы темы см. ниже, запуск —
+  в разделе «Как запускать».
+
 ## Цель темы (в трёх словах)
 **Тёмная база + неоновые светящиеся линии + летающие светлые пылинки-звёздочки.**
 

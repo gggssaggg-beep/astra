@@ -291,14 +291,14 @@
   .orb input { width: 78px; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; }
   .seg { display: inline-flex; border: 1px solid var(--glass-brd); border-radius: 10px; overflow: hidden; }
   .seg button { background: transparent; border: none; color: var(--ink-dim); padding: 8px 12px; font-size: 0.84rem; }
-  .seg button.on { background: var(--accent); color: #0b0f24; }
+  .seg button.on { background: var(--accent); color: var(--on-accent); }
   .toggle { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.9rem; }
   .hint { color: var(--ink-dim); font-size: 0.86rem; margin: 0 0 10px; }
   .ok { color: var(--gold); margin: 0 0 10px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; }
   .btn { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 14px; font-size: 0.9rem; }
   .btn:hover { background: #ffffff22; }
-  .btn.primary { background: var(--accent); border-color: transparent; color: #0b0f24; font-weight: 600; }
+  .btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }
   .btn.ghost { color: var(--ink-dim); }
   .btn.file { display: inline-flex; align-items: center; cursor: pointer; }
   .mode { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ink-dim); font-size: 0.82rem; }

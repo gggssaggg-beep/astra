@@ -88,6 +88,6 @@
   .part { display: flex; gap: 10px; align-items: baseline; margin-bottom: 8px; font-size: 0.88rem; color: var(--ink-dim); }
   .part .g { color: var(--silver); width: 1.3rem; text-align: center; }
   .discuss { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-    background: var(--accent); border: none; color: #0b0f24; font-weight: 600; border-radius: 14px; padding: 12px; }
+    background: var(--accent); border: none; color: var(--on-accent); font-weight: 600; border-radius: 14px; padding: 12px; }
   .dg { font-size: 1.1rem; }
 </style>

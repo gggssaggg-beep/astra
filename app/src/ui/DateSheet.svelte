@@ -83,7 +83,7 @@
   .inputrow { display: flex; gap: 8px; margin-bottom: 12px; }
   .dinput { flex: 1; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }
   .dinput.err { border-color: var(--rose); }
-  .btn { background: var(--accent); border: none; color: #0b0f24; font-weight: 600; border-radius: 12px; padding: 10px 14px; }
+  .btn { background: var(--accent); border: none; color: var(--on-accent); font-weight: 600; border-radius: 12px; padding: 10px 14px; }
   .btn.ghost { background: #ffffff14; color: var(--ink-dim); font-weight: 400; }
   .cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
   .nav { background: transparent; border: none; font-size: 1.6rem; color: var(--ink-dim); width: 40px; height: 40px; border-radius: 10px; }
@@ -95,6 +95,6 @@
   .day:hover { background: #ffffff14; }
   .day.dim { color: var(--ink-faint); opacity: 0.6; }
   .day.today { border-color: var(--glass-brd); }
-  .day.sel { background: var(--accent); color: #0b0f24; font-weight: 600; }
+  .day.sel { background: var(--accent); color: var(--on-accent); font-weight: 600; }
   .footer { display: flex; justify-content: space-between; margin-top: 12px; }
 </style>

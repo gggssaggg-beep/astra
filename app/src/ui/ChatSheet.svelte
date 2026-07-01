@@ -131,14 +131,14 @@
   .krow, .inputrow { display: flex; gap: 8px; }
   .kin, textarea { flex: 1; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; resize: none; }
   .btn { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 14px; }
-  .btn.primary { background: var(--accent); border-color: transparent; color: #0b0f24; font-weight: 600; }
+  .btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }
   .btn:disabled { opacity: 0.5; }
   .msgs { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 0 10px; min-height: 200px; }
   .empty { color: var(--ink-faint); font-size: 0.88rem; }
   .quick { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   .quick button { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 7px 13px; font-size: 0.82rem; }
   .m { padding: 9px 12px; border-radius: 12px; font-size: 0.92rem; white-space: pre-wrap; max-width: 92%; }
-  .m.user { align-self: flex-end; background: var(--accent); color: #0b0f24; }
+  .m.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); }
   .m.assistant { align-self: flex-start; background: #ffffff12; border: 1px solid var(--glass-brd); }
   .m.busy { color: var(--ink-faint); }
   .m.err { align-self: stretch; color: var(--rose); background: transparent; }

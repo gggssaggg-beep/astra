@@ -243,7 +243,7 @@
   .nav { background: transparent; border: none; font-size: 1.8rem; line-height: 1; width: 40px; height: 44px; border-radius: 12px; color: var(--ink-dim); }
   .nav:hover { background: #ffffff14; color: var(--ink); }
   .title { flex: 1; text-align: center; }
-  .date { font-size: 1.0rem; font-weight: 600; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 2px 6px; border-radius: 8px; }
+  .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.2px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 2px 6px; border-radius: 8px; }
   .date:hover { background: #ffffff14; }
   .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 2px 12px; font-size: 0.72rem; margin-top: 4px; }
   .today.hidden { visibility: hidden; }

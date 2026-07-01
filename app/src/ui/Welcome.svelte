@@ -35,6 +35,6 @@
     font-weight: 600; margin-bottom: 8px; }
   ul { margin: 0 0 18px; padding-left: 18px; }
   li { color: var(--ink-dim); font-size: 0.9rem; margin-bottom: 8px; line-height: 1.4; }
-  .go { display: block; width: 100%; background: var(--accent); border: none; color: #0b0f24; font-weight: 600;
+  .go { display: block; width: 100%; background: var(--accent); border: none; color: var(--on-accent); font-weight: 600;
     font-size: 1rem; border-radius: 14px; padding: 13px; }
 </style>

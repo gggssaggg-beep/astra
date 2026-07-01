@@ -46,6 +46,7 @@
   .row:hover { background: #ffffff16; }
   .ic { font-size: 1.4rem; width: 1.8rem; text-align: center; color: var(--gold); }
   .txt { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .txt b { font-family: var(--font-display); font-weight: 600; letter-spacing: 0.2px; }
   .txt small { color: var(--ink-faint); font-size: 0.78rem; }
   .arr { color: var(--ink-faint); }
 </style>

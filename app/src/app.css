@@ -1,5 +1,11 @@
+/* Unbounded — акцентный «неоново-космический» дисплейный шрифт (с кириллицей).
+   Space Grotesk кириллицу не содержит, поэтому заголовки/дата на нём разваливались;
+   Unbounded покрывает и латиницу, и кириллицу. Подключён ЛОКАЛЬНО через
+   @fontsource в main.ts (оффлайн-первый, без сетевого CDN). */
+
 /* Astra — тема «ночное небо сквозь матовое стекло» (§5).
-   Glassmorphism: глубокий космический градиент, звёзды, матовые панели. */
+   Glassmorphism: глубокий космический градиент, звёзды, матовые панели.
+   Светлая пара — «Рассвет · Зенит · Солнце» (см. :root[data-theme='light']). */
 
 :root {
   --bg-0: #070a1c;
@@ -14,6 +20,8 @@
   --gold: #f3c969;       /* гармоничные аспекты */
   --rose: #e8888f;       /* напряжённые аспекты */
   --accent: #9b8cff;
+  --sun: #f3c969;        /* «Солнце» — герой светлой темы; в тёмной = золото аспектов */
+  --on-accent: #0b0f24;  /* текст поверх --accent (в тёмной теме — тёмный) */
   --radius: 18px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   /* неоновый акцент (§1 темы neon-stardust): циан/маджента/фиолет, для glow-эффектов */
@@ -24,17 +32,33 @@
      стек, латиница/цифры/пунктуация возьмутся из Space Grotesk. */
   --font-body: 'Space Grotesk', "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --font-display: 'Unbounded', 'Space Grotesk', "Segoe UI", system-ui, sans-serif;
   color-scheme: dark;
 }
 
-/* мягкий «рассвет» — светлая тема. App ставит data-theme (с учётом «авто»). */
+/* «Рассвет · Зенит · Солнце» — светлая тема, тёплый двойник neon-stardust.
+   App ставит data-theme (с учётом «авто»). Неоновый трио переложен один-в-один:
+   циан→зенитная синь, маджента→рассветный коралл-роза, фиолет→accent;
+   Солнце (--sun) — тёплый золотой герой вместо холодного неонового свечения. */
 :root[data-theme='light'] {
-  --bg-0: #e9ecfb; --bg-1: #dfe4fb; --bg-2: #cdd6f7;
-  --ink: #1b2050; --ink-dim: #4a5183; --ink-faint: #7178a6;
-  --glass: rgba(255, 255, 255, 0.72);
-  --glass-brd: rgba(120, 130, 200, 0.28);
-  --silver: #5b63a8; --accent: #6a5cf0;
-  --neon-cyan: #1fb8d6; --neon-magenta: #d1379f; --neon-violet: #6a5cf0;
+  --bg-0: #fdf2e9;       /* рассветный тёплый свет */
+  --bg-1: #f6e6f0;       /* розовато-сиреневая дымка */
+  --bg-2: #cfe0f7;       /* зенит — прохладная синь неба */
+  --ink: #2b2350;        /* глубокая слива, читаемая на светлом */
+  --ink-dim: #6b5f88;
+  --ink-faint: #9a8fb4;
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-brd: rgba(180, 150, 190, 0.3);
+  --silver: #4f83e8;     /* «серебро» → зенитная синь */
+  --gold: #e0921a;       /* гармония — насыщенная амбра (читается на светлом) */
+  --rose: #e0568a;       /* напряжение — рассветный коралл-роза */
+  --accent: #7a5cf0;
+  --sun: #f6a821;        /* Солнце-герой: халотоны, акценты «сегодня» */
+  --on-accent: #ffffff;  /* на светлом accent текст белый, не тёмный */
+  --neon-cyan: #4f83e8;
+  --neon-magenta: #e0568a;
+  --neon-violet: #7a5cf0;
+  --shadow: 0 10px 30px rgba(90, 70, 120, 0.18);
   color-scheme: light;
 }
 
@@ -55,7 +79,9 @@ body {
 
 /* Космос + звёзды — ОДИН неподвижный композитный слой (position: fixed).
    Так фон не перерисовывается при прокрутке (быстрее, чем background-attachment:
-   fixed, который на Android WebView вызывает дёрганье ленты). */
+   fixed, который на Android WebView вызывает дёрганье ленты).
+   В светлой теме тот же слой читается как рассветное небо: тёплый горизонт снизу,
+   прохладный зенит сверху — за счёт переопределённых --bg-*. */
 body::before {
   content: "";
   position: fixed; inset: 0; z-index: -1; pointer-events: none;
@@ -89,6 +115,15 @@ body::before {
 }
 
 .glyph { font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "DejaVu Sans", sans-serif; }
+
+/* Акцентный дисплейный шрифт (Unbounded) — заголовки шторок и «геройский» текст.
+   Тело и моно-цифры остаются на Space Grotesk / JetBrains Mono. */
+section.sheet > header h2,
+.display {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
 
 /* «грабер» сверху каждой шторки — подсказка, что её можно свайпнуть вниз (#10) */
 section.sheet::before {

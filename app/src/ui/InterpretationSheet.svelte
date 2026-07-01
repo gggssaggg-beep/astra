@@ -107,7 +107,7 @@
   .btn { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 16px; font-size: 0.9rem; }
   .btn:disabled { opacity: 0.5; }
   .discuss { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px;
-    background: var(--accent); border: none; color: #0b0f24; border-radius: 14px; padding: 12px 14px; text-align: left; }
+    background: var(--accent); border: none; color: var(--on-accent); border-radius: 14px; padding: 12px 14px; text-align: left; }
   .discuss .dg { font-size: 1.3rem; }
   .discuss span { font-weight: 600; }
   .discuss small { display: block; font-weight: 400; opacity: 0.8; font-size: 0.76rem; }

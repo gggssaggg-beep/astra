@@ -19,6 +19,8 @@
     "@capacitor/preferences": "^8.0.1",
     "@capacitor/share": "^8.0.1",
     "@capgo/capacitor-updater": "^8.50.1",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@fontsource/space-grotesk": "^5.2.10",
     "swisseph-wasm": "^0.0.5"
   },
   "devDependencies": {

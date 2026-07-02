@@ -81,6 +81,18 @@ export async function signInGoogle(): Promise<void> {
   }
 }
 
+/** Вход по ссылке на почту — БЕЗ Google (обход «Доступ заблокирован»,
+ *  2026-07-03: redirect_uri_mismatch в Google-клиенте). Supabase шлёт письмо,
+ *  тап по ссылке возвращает в приложение тем же deep link astra://auth
+ *  (email-провайдер в проекте включён — проверено по /auth/v1/settings). */
+export async function signInEmail(email: string): Promise<void> {
+  const { error } = await sb().auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: NATIVE ? NATIVE_REDIRECT : window.location.origin },
+  });
+  if (error) throw error;
+}
+
 export async function signOut(): Promise<void> { await sb().auth.signOut(); }
 
 /** Профиль: завести/обновить своё имя (после первого входа — из Google). */

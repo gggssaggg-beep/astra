@@ -4,7 +4,7 @@
    *  вход через Google; вошли → лента / тред. `signature` фильтрует по аспекту. */
   import type { Session } from '@supabase/supabase-js';
   import {
-    configured, initCommunityAuth, signInGoogle, signOut, ensureProfile,
+    configured, initCommunityAuth, signInGoogle, signInEmail, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     type Discussion, type CommunityComment,
   } from '../lib/community.ts';
@@ -54,6 +54,18 @@
     err = null;
     try { await signInGoogle(); }
     catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+
+  // вход по почте — запасная дверь, пока Google-клиент не настроен
+  let email = $state('');
+  let mailSent = $state(false);
+  let mailBusy = $state(false);
+  async function loginEmail() {
+    const em = email.trim(); if (!em || mailBusy) return;
+    err = null; mailBusy = true;
+    try { await signInEmail(em); mailSent = true; }
+    catch (e) { err = e instanceof Error ? e.message : String(e); }
+    finally { mailBusy = false; }
   }
 
   async function openThread(d: Discussion) {
@@ -125,8 +137,20 @@
     <div class="stub">
       <div class="stubstar">✧</div>
       <b>Вход в сообщество</b>
-      <p>Обсуждения видны только вошедшим. Вход в один клик — через Google.</p>
+      <p>Обсуждения видны только вошедшим.</p>
       <button class="gbtn" onclick={login}>Войти через Google</button>
+      <div class="or">или по ссылке на почту</div>
+      {#if mailSent}
+        <p class="sentok">Письмо отправлено ✓<br />Откройте его на этом телефоне и
+          коснитесь ссылки — она вернёт в приложение уже с входом.</p>
+      {:else}
+        <div class="mailrow">
+          <input type="email" bind:value={email} placeholder="ваша почта…"
+            onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
+          <button class="btn primary" disabled={mailBusy || !email.trim()} onclick={loginEmail}>
+            {mailBusy ? '…' : 'Прислать'}</button>
+        </div>
+      {/if}
     </div>
   {:else if open}
     <!-- ТРЕД -->
@@ -211,6 +235,11 @@
   .stub p { font-size: 0.9rem; line-height: 1.55; }
   .gbtn { margin-top: 10px; background: var(--accent); border: none; color: var(--on-accent);
     border-radius: 14px; padding: 12px 22px; font-weight: 600; }
+  .or { margin: 14px 0 8px; color: var(--ink-faint); font-size: 0.78rem; }
+  .mailrow { display: flex; gap: 8px; max-width: 360px; margin: 0 auto; }
+  .mailrow input { flex: 1; min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd);
+    color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }
+  .sentok { color: var(--gold); font-size: 0.88rem; line-height: 1.5; }
 
   .newbtn { width: 100%; margin: 12px 0; }
   .newform { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }

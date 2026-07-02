@@ -13,9 +13,10 @@ import { Preferences } from '@capacitor/preferences';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 
-// === КОНФИГ: вписать после создания проекта Supabase (docs/SUPABASE_SETUP.md) ===
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+// === КОНФИГ проекта Supabase (создан владелицей 2026-07-02; ключ publishable —
+// НЕ секрет, данные защищает RLS на сервере) ===
+export const SUPABASE_URL = 'https://vbaysgzdvdyljlwlnivq.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_rYe1PJ0juzDec87oK7QC6Q_iSufPThD';
 // deep link возврата из Google-входа (intent-filter в AndroidManifest)
 const NATIVE_REDIRECT = 'astra://auth';
 

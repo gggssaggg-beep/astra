@@ -39,9 +39,6 @@
   let showLibrary = $state(false);
   let showInterp = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
-  // откуда открыто Сообщество: из библиотеки — закрытие вернёт в библиотеку,
-  // из нижнего меню — сразу на главный
-  let communityFrom = $state<'lib' | 'tab'>('lib');
   let selRec = $state<AspectRecord | null>(null);
   // Просмотренный аспект ОСТАЁТСЯ выделенным после закрытия трактовки (линия в
   // колесе + кромка карточки) — «пользователь знает, что смотрел». Сбрасывается
@@ -220,7 +217,7 @@
 <nav class="tabbar glass frost" aria-label="Меню">
   <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button onclick={() => { communityFrom = 'tab'; showCommunity = {}; }} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
+  <button onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
   <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
 
@@ -234,8 +231,7 @@
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
-    onChat={() => { showLibrary = false; showChat = true; }}
-    onCommunity={() => { showLibrary = false; communityFrom = 'lib'; showCommunity = {}; }} />
+    onChat={() => { showLibrary = false; showChat = true; }} />
 {/if}
 
 <!-- закрытие разделов библиотеки возвращает В БИБЛИОТЕКУ (пункт выше), не на главный -->
@@ -255,7 +251,7 @@
 
 {#if showCommunity}
   <CommunitySheet signature={showCommunity.signature} title={showCommunity.title}
-    onclose={() => { showCommunity = false; if (communityFrom === 'lib') showLibrary = true; }} />
+    onclose={() => (showCommunity = false)} />
 {/if}
 
 {#if showCal}
@@ -271,7 +267,7 @@
 
 {#if selRec && engine}
   <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} onclose={closeAspect}
-    oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; communityFrom = 'tab'; showCommunity = { signature: sig, title }; }}
+    oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; showCommunity = { signature: sig, title }; }}
     ongoto={(d) => { date = d; selRec = null; selFrom = 'day'; }}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
       + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,

@@ -83,8 +83,12 @@ html, body, #app { height: 100%; margin: 0; }
 
 /* Android WebView рисует серый ПРЯМОУГОЛЬНИК подсветки на каждый тап (жалоба
    «выделяет прямоугольником» в колесе и на карточках) — гасим системную
-   подсветку: выделение делаем сами (линия/глиф/обводка GlowCard). */
+   подсветку: выделение делаем сами (линия/глиф/обводка GlowCard).
+   outline на :focus — тот же «скруглённый прямоугольник» после тапа по
+   role=button/tabindex-элементам; приложение чисто тач-овое — гасим тоже. */
 * { -webkit-tap-highlight-color: transparent; }
+:focus { outline: none; }
+:focus-visible { outline: none; }
 
 /* масштаб шрифта (настройка «Крупный шрифт»): почти все размеры в rem, т.е.
    относительно корня — меняя font-size у html, увеличиваем весь текст разом. */
@@ -181,6 +185,9 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
   outline: none;
 }
 .seamless::placeholder { color: var(--ink-faint); font-style: italic; }
+/* страховка к use:autogrow: современный WebView сам растит textarea под текст
+   (весь текст ВСЕГДА виден целиком); где не поддерживается — работает JS */
+textarea.seamless { field-sizing: content; min-height: 3lh; }
 .seamless:focus { border-bottom: 1px dotted color-mix(in srgb, var(--accent) 55%, transparent) !important; }
 
 /* Отклик на палец: на телефоне :hover мёртв — «живость» даёт :active.

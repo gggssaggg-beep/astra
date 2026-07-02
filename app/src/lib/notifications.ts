@@ -29,6 +29,12 @@ async function LN() {
   return (await import('@capacitor/local-notifications')).LocalNotifications;
 }
 
+// Таймаут на нативные вызовы: мост/плагин может «замолчать» (старый APK, баг
+// системного диалога) — тогда кнопки висли «Отправляю…» вечно без объяснений.
+const withTimeout = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
+  Promise.race([p, new Promise<never>((_, rej) => setTimeout(
+    () => rej(new Error(`${what}: система не ответила за ${Math.round(ms / 1000)} с`)), ms))]);
+
 /** Создать каналы (идемпотентно). Только натив; без канала звук/heads-up не работают. */
 async function ensureChannels(): Promise<void> {
   if (!NATIVE) return;
@@ -50,14 +56,19 @@ async function ensureChannels(): Promise<void> {
 export const notifyAvailable = (): boolean =>
   NATIVE || typeof Notification !== 'undefined';
 
-/** Запросить разрешение. Возвращает granted/denied/unsupported. */
+/** Запросить разрешение. Возвращает granted/denied/unsupported.
+ *  Может бросить Error с понятным текстом (таймаут моста) — показывать юзеру. */
 export async function requestNotify(): Promise<'granted' | 'denied' | 'unsupported'> {
   if (NATIVE) {
-    try {
-      const ln = await LN();
-      const r = await ln.requestPermissions();
-      return r.display === 'granted' ? 'granted' : 'denied';
-    } catch { return 'unsupported'; }
+    let ln: Awaited<ReturnType<typeof LN>>;
+    try { ln = await withTimeout(LN(), 8000, 'Загрузка плагина уведомлений'); }
+    catch { return 'unsupported'; }
+    // если уже разрешено — НЕ дёргаем requestPermissions: на части устройств
+    // повторный запрос при выданном разрешении не отвечает (висло «Отправляю…»)
+    const cur = await withTimeout(ln.checkPermissions(), 6000, 'Проверка разрешения');
+    if (cur.display === 'granted') return 'granted';
+    const r = await withTimeout(ln.requestPermissions(), 30000, 'Запрос разрешения');
+    return r.display === 'granted' ? 'granted' : 'denied';
   }
   if (typeof Notification === 'undefined') return 'unsupported';
   if (Notification.permission === 'granted') return 'granted';
@@ -99,20 +110,23 @@ export async function requestExactAlarms(): Promise<void> {
   try { await (await LN()).changeExactNotificationSetting(); } catch { /* нет API */ }
 }
 
-/** Тестовое уведомление сейчас (демо, что всё работает; §10.5). */
+/** Тестовое уведомление сейчас (демо, что всё работает; §10.5).
+ *  Каждый шаг под таймаутом — при затыке вернёт, ГДЕ застряло, а не висит. */
 export async function testNotify(title: string, body: string): Promise<string> {
   buzz();
-  const perm = await requestNotify();
+  let perm: 'granted' | 'denied' | 'unsupported';
+  try { perm = await requestNotify(); }
+  catch (e) { return '⚠ ' + (e instanceof Error ? e.message : String(e)); }
   if (perm === 'unsupported') return 'Уведомления недоступны в этом окружении.';
   if (perm !== 'granted') return 'Разрешение на уведомления не выдано (откройте настройки приложения).';
   if (NATIVE) {
     try {
       const ln = await LN();
-      await ensureChannels();
-      await ln.schedule({ notifications: [{
+      await withTimeout(ensureChannels(), 6000, 'Создание канала');
+      await withTimeout(ln.schedule({ notifications: [{
         id: ID_TEST, title, body, channelId: CH_ASPECT, smallIcon: 'ic_stat_astra',
         schedule: { at: new Date(Date.now() + 1500), allowWhileIdle: true },
-      }] });
+      }] }), 8000, 'Постановка в расписание');
       return 'Уведомление придёт через пару секунд ✓';
     } catch (e) {
       return 'Не удалось запланировать: ' + (e instanceof Error ? e.message : String(e));
@@ -147,9 +161,9 @@ async function scheduleAll(engine: Engine, settings: Settings, tz: string, gen: 
 
   const want = settings.notifyDaily || settings.notifyAspects;
   if (want) {
-    const perm = await ln.checkPermissions();
+    const perm = await withTimeout(ln.checkPermissions(), 6000, 'Проверка разрешения');
     if (perm.display !== 'granted') {
-      const r = await ln.requestPermissions();
+      const r = await withTimeout(ln.requestPermissions(), 30000, 'Запрос разрешения');
       if (r.display !== 'granted') return;
     }
   }

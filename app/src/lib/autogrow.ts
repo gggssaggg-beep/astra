@@ -9,10 +9,16 @@ export function autogrow(node: HTMLTextAreaElement, _value?: unknown) {
   };
   node.style.overflowY = 'hidden';
   node.style.resize = 'none';
+  // Подгонка несколько раз: сразу, на след. кадре, после анимации шторки и
+  // после загрузки шрифтов — на телефоне разовый замер при монтаже давал
+  // высоту «3 строки» (жалоба «текст не влазит», 2026-07-02/03).
   fit();
+  requestAnimationFrame(fit);
+  const t = setTimeout(fit, 400);
+  try { void document.fonts?.ready.then(() => fit()); } catch { /* нет API */ }
   node.addEventListener('input', fit);
   return {
     update(_v?: unknown) { requestAnimationFrame(fit); },
-    destroy() { node.removeEventListener('input', fit); },
+    destroy() { clearTimeout(t); node.removeEventListener('input', fit); },
   };
 }

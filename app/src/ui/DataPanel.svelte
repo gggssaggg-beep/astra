@@ -56,11 +56,21 @@
   const RU_PERM: Record<string, string> = { granted: 'да ✓', denied: 'НЕТ ✗', prompt: 'ещё не спрашивали' };
   async function fixExact() { await requestExactAlarms(); void loadDiag(); }
   // явный запрос разрешения (просьба 2026-07-02: «попробуй запросить разрешения»)
+  let permBusy = $state(false);
   async function askPerm() {
-    const r = await requestNotify();
-    notifyMsg = r === 'granted' ? 'Разрешение выдано ✓ — расписание пересоберётся.'
-      : r === 'denied' ? 'Система ответила «нет». Включите вручную: Настройки Android → Приложения → Astra → Уведомления.'
-      : 'Уведомления недоступны в этом окружении.';
+    if (permBusy) return;
+    permBusy = true;
+    notifyMsg = 'Запрашиваю разрешение…';   // мгновенная реакция — видно, что нажалось
+    try {
+      const r = await requestNotify();
+      notifyMsg = r === 'granted' ? 'Разрешение выдано ✓ — расписание пересоберётся.'
+        : r === 'denied' ? 'Система ответила «нет». Включите вручную: Настройки Android → Приложения → Astra → Уведомления.'
+        : 'Уведомления недоступны в этом окружении.';
+    } catch (e) {
+      notifyMsg = '⚠ ' + (e instanceof Error ? e.message : String(e));
+    } finally {
+      permBusy = false;
+    }
     onchanged();       // пересобрать расписание с новым разрешением
     void loadDiag();
   }
@@ -190,7 +200,8 @@
     <div class="row" style="margin-top:10px">
       <button class="btn" disabled={notifyBusy} onclick={checkNotify}>
         {notifyBusy ? 'Отправляю…' : 'Тест уведомления'}</button>
-      <button class="btn" onclick={askPerm}>Запросить разрешение</button>
+      <button class="btn" disabled={permBusy} onclick={askPerm}>
+        {permBusy ? 'Запрашиваю…' : 'Запросить разрешение'}</button>
     </div>
     {#if notifyMsg}<div class="msg">{notifyMsg}</div>{/if}
     {#if diag}
@@ -322,10 +333,10 @@
   .sheet {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
     width: min(560px, 100%); z-index: 21; padding: 16px 16px calc(20px + var(--safe-bottom));
-    border-radius: 22px 22px 0 0; animation: up 0.25s ease;
+    border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1);
     max-height: 90vh; overflow-y: auto;   /* иначе верхние блоки уходят за край */
   }
-  @keyframes up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
   header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   h2 { margin: 0; font-size: 1.1rem; }
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }

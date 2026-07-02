@@ -52,8 +52,8 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 22; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 23; padding: 16px 16px calc(18px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
-  @keyframes up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+    max-height: 90vh; overflow-y: auto; z-index: 23; padding: 16px 16px calc(18px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
+  @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
   header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   h2 { margin: 0; font-size: 1.1rem; }
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }

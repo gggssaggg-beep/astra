@@ -23,6 +23,11 @@
   // символ знака / линия аспекта). НИКОГДА не рамка (жёсткое правило владелицы).
   const selSignIdx = $derived(selectedInfo?.kind === 'sign' ? selectedInfo.index : -1);
   const selPlanet = $derived(selectedInfo?.kind === 'planet' ? selectedInfo.name : null);
+  // тап ПО ЛИНИИ в колесе тоже подсвечивает её (раньше линия ждала выбора
+  // карточки — жалоба «линии не подсвечиваются»)
+  const effSig = $derived(selectedSignature
+    ?? (selectedInfo?.kind === 'aspect'
+      ? aspectSignature(selectedInfo.p1, selectedInfo.p2, selectedInfo.aspect) : null));
 
   // цвета стихий: огонь, земля, воздух, вода (по индексу знака % 4)
   const ELEM = ['#ff8a5b', '#7fd99a', '#7fd0ff', '#b39bff'];
@@ -70,7 +75,7 @@
         const A = pt(l1, rAspect), B = pt(l2, rAspect);
         return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying,
           aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol,
-          sel: !!selectedSignature && aspectSignature(a.p1, a.p2, a.aspect) === selectedSignature };
+          sel: !!effSig && aspectSignature(a.p1, a.p2, a.aspect) === effSig };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
@@ -126,10 +131,9 @@
       {#each SIGN_PATHS[s.i] as d}<path {d} />{/each}
     </svg>
     {#if oninfo}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <circle class="hit" cx={s.gx} cy={s.gy} r="15"
-        onclick={() => oninfo({ kind: 'sign', index: s.i })}
-        role="button" tabindex="-1" aria-label="Знак {s.i}" />
+        onclick={() => oninfo({ kind: 'sign', index: s.i })} />
     {/if}
   {/each}
 
@@ -139,14 +143,15 @@
          drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
       stroke-width={l.sel ? 2.8 : 1.2}
-      opacity={l.sel ? 1 : selectedSignature ? 0.18 : l.dim ? 0.35 : 0.8}
+      opacity={l.sel ? 1 : effSig ? 0.18 : l.dim ? 0.35 : 0.8}
       class:selline={l.sel}
       style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
     {#if oninfo}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+      <!-- хит-зоны БЕЗ role/tabindex: фокусируемые элементы рисовали системную
+           фокус-рамку (скруглённый прямоугольник) на каждый тап -->
       <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-        onclick={() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol })}
-        role="button" tabindex="-1" aria-label="{l.p1} {l.aspect} {l.p2}" />
+        onclick={() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol })} />
     {/if}
   {/each}
 
@@ -158,10 +163,9 @@
       class:sel={p.name === selPlanet}>{p.glyph}</text>
     {#if p.retro}<text x={pos.x + 9} y={pos.y - 8} class="rxmark">℞</text>{/if}
     {#if oninfo}
-      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <circle class="hit" cx={pos.x} cy={pos.y} r="14"
-        onclick={() => oninfo({ kind: 'planet', name: p.name })}
-        role="button" tabindex="-1" aria-label={p.name} />
+        onclick={() => oninfo({ kind: 'planet', name: p.name })} />
     {/if}
   {/each}
 </svg>
@@ -187,8 +191,9 @@
   .planet.sel { fill: var(--neon-cyan); filter: drop-shadow(0 0 5px var(--neon-cyan)); }
   /* явный значок ретроградности у глифа — «℞ не видно» (жалоба 2026-07-02) */
   .rxmark { fill: var(--gold); font-size: 8px; text-anchor: middle; font-weight: 600; }
-  /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх */
-  .hit { fill: transparent; stroke: transparent; stroke-width: 14; pointer-events: all; cursor: pointer; }
+  /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх.
+     outline: тап НЕ должен рисовать фокус-прямоугольник (правило владелицы) */
+  .hit { fill: transparent; stroke: transparent; stroke-width: 14; pointer-events: all; cursor: pointer; outline: none; }
   /* выбранная линия мягко «дышит» — глаз сразу находит аспект на колесе */
   .selline { animation: line-breathe 2.2s ease-in-out infinite; }
   @keyframes line-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }

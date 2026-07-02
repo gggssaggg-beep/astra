@@ -3,8 +3,8 @@
    *  Контент — встроенный (lore.ts); для планеты подмешивается архетип астролога,
    *  если он его правил. Кнопка «Обсудить с Claude» открывает чат по архетипам. */
   import type { WheelInfo } from '../lib/lore.ts';
-  import { PLANET_LORE, ASPECT_LORE } from '../lib/lore.ts';
-  import { PLANET_GLYPH } from '../engine/index.ts';
+  import { PLANET_LORE, ASPECT_LORE, SIGN_LORE } from '../lib/lore.ts';
+  import { PLANET_GLYPH, ZODIAC, SIGN_GLYPH } from '../engine/index.ts';
   import { db } from '../lib/db.ts';
   import { bottomSheet } from '../lib/sheet.ts';
 
@@ -22,10 +22,16 @@
   // аспект
   const asp = $derived(info.kind === 'aspect' ? ASPECT_LORE[info.aspect] : null);
 
+  // знак зодиака
+  const sign = $derived(info.kind === 'sign' ? SIGN_LORE[info.index] : null);
+
   function discuss() {
     if (info.kind === 'planet') {
       ondiscuss?.(`Расскажи про планету ${info.name} в астрологии — её роль и архетип `
         + `(${deity}). Кратко и по делу.`);
+    } else if (info.kind === 'sign') {
+      ondiscuss?.(`Расскажи про знак ${ZODIAC[info.index]} в астрологии — стихия, `
+        + `характер, как в нём проявляются планеты. Кратко и по делу.`);
     } else {
       ondiscuss?.(`Обсудим аспект ${info.p1} ${info.aspect} ${info.p2} `
         + `(${info.symbol}, ${asp?.angle}°). Опираясь на заложенные архетипы участников `
@@ -40,6 +46,9 @@
     {#if info.kind === 'planet'}
       <div class="title"><span class="g glyph">{PLANET_GLYPH[info.name] ?? '•'}</span>
         <div><b>{info.name}</b><small>{deity}</small></div></div>
+    {:else if info.kind === 'sign'}
+      <div class="title"><span class="g glyph">{SIGN_GLYPH[info.index]}</span>
+        <div><b>{ZODIAC[info.index]}</b><small>{sign?.element}</small></div></div>
     {:else}
       <div class="title"><span class="g glyph">{info.symbol}</span>
         <div><b>{info.p1} {info.aspect} {info.p2}</b><small>{asp?.angle}° · {asp ? NAT[asp.nature] : ''}</small></div></div>
@@ -50,6 +59,9 @@
   {#if info.kind === 'planet' && pl}
     <div class="role">{pl.role}</div>
     <p class="text">{archText}</p>
+  {:else if info.kind === 'sign' && sign}
+    <div class="role">{sign.role}</div>
+    <p class="text">{sign.text}</p>
   {:else if asp}
     <div class="role">{asp.short}</div>
     <p class="text">{asp.text}</p>
@@ -73,7 +85,7 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 27; padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+    max-height: 90vh; overflow-y: auto; z-index: 27; padding: 16px 16px calc(18px + var(--safe-bottom));
     border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
   @keyframes up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
   header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }

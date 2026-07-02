@@ -88,7 +88,7 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 20; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(440px, 100%);
-    z-index: 21; padding: 16px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
+    z-index: 21; padding: 16px 16px calc(18px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
   @keyframes up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
   .inputrow { display: flex; gap: 8px; margin-bottom: 12px; }
   .dinput { flex: 1; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }

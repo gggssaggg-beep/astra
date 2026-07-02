@@ -8,8 +8,8 @@
 import { tick } from './haptics.ts';
 
 let locks = 0;
-let prevBodyOverflow = '';
 let prevBodyOverscroll = '';
+let savedScrollY = 0;
 
 /** Открыта ли сейчас хоть одна шторка (для паузы фоновых анимаций). */
 export function anySheetOpen(): boolean { return locks > 0; }
@@ -20,17 +20,19 @@ function notifySheets(): void {
   document.dispatchEvent(new CustomEvent('astra:sheets', { detail: locks }));
 }
 
-let prevHtmlOverflow = '';
+// Замок фона: body становится position:fixed со сдвигом на текущий скролл —
+// фон не прокручивается ПОД шторкой, а при закрытии позиция восстанавливается
+// точно. Прежний overflow:hidden на html СБРАСЫВАЛ прокрутку в ноль — жалоба
+// «после библиотеки/окон не возвращает на то же место страницы».
 function lockScroll(): void {
   if (locks === 0) {
-    prevBodyOverflow = document.body.style.overflow;
+    savedScrollY = window.scrollY || document.documentElement.scrollTop || 0;
     prevBodyOverscroll = document.body.style.overscrollBehavior;
-    prevHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
-    // без html-замка Android прокручивал ГЛАВНЫЙ экран под шторкой
-    // (жалоба «в аспектах видно перемотку главного экрана»)
-    document.documentElement.style.overflow = 'hidden';
+    const bs = document.body.style;
+    bs.position = 'fixed';
+    bs.top = `-${savedScrollY}px`;
+    bs.left = '0'; bs.right = '0'; bs.width = '100%';
+    bs.overscrollBehavior = 'none';
   }
   locks++;
   notifySheets();
@@ -38,9 +40,10 @@ function lockScroll(): void {
 function unlockScroll(): void {
   locks = Math.max(0, locks - 1);
   if (locks === 0) {
-    document.body.style.overflow = prevBodyOverflow;
-    document.body.style.overscrollBehavior = prevBodyOverscroll;
-    document.documentElement.style.overflow = prevHtmlOverflow;
+    const bs = document.body.style;
+    bs.position = ''; bs.top = ''; bs.left = ''; bs.right = ''; bs.width = '';
+    bs.overscrollBehavior = prevBodyOverscroll;
+    window.scrollTo(0, savedScrollY);   // вернуть ленту ровно туда, откуда ушли
   }
   notifySheets();
 }

@@ -44,7 +44,7 @@
   });
 </script>
 
-<div class="glowcard" onclick={activate} role="presentation">
+<div class="glowcard" class:tappable={!!onactivate} onclick={activate} role="presentation">
   {@render children()}
   {#if show}
     <svg class="glow-overlay" class:play aria-hidden="true" style="--glowdur: {dur}ms">
@@ -62,6 +62,7 @@
 
 <style>
   .glowcard { position: relative; }
+  .glowcard.tappable { cursor: pointer; }
   .glow-overlay { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
   .glow-overlay rect {
     fill: none; stroke-width: 2.4px;

@@ -111,7 +111,7 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 24; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 25; padding: 16px 16px calc(18px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
+    max-height: 90vh; overflow-y: auto; z-index: 25; padding: 16px 16px calc(18px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
   @keyframes up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
   header { display: flex; align-items: center; justify-content: space-between; }
   h2 { margin: 0; font-size: 1.1rem; }
@@ -132,10 +132,11 @@
   .chev { color: var(--ink-faint); flex: none; transition: transform 0.2s ease; }
   .chev.up { transform: rotate(180deg); }
 
-  /* свёрнутый превью-хвостик: две строки (компактно, но видно суть) */
+  /* свёрнутый текст архетипа: ВЕСЬ виден (не резать до 2–3 строк — просьба
+     «текст должен влазить полностью», 2026-07-02) */
   .preview { display: block; width: 100%; text-align: left; background: transparent; border: none;
-    border-top: 1px solid var(--glass-brd); padding: 8px 14px; color: var(--ink-faint); font-size: 0.8rem;
-    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    border-top: 1px solid var(--glass-brd); padding: 8px 14px; color: var(--ink-faint);
+    font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; }
 
   .body { padding: 0 14px 12px; }
   .fld { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

@@ -33,6 +33,12 @@
   --font-body: 'Space Grotesk', "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-display: 'Unbounded', 'Space Grotesk', "Segoe UI", system-ui, sans-serif;
+  /* Отступы системных баров. Android WebView отдаёт env(safe-area-inset-*)=0
+     (баг Chromium <140), поэтому Capacitor 8 сам инжектирует реальные значения
+     как --safe-area-inset-* на <html>. Берём их, с фолбэком на env() (веб/iOS).
+     Использовать ТОЛЬКО var(--safe-top/--safe-bottom), не env() напрямую. */
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   color-scheme: dark;
 }
 
@@ -74,6 +80,11 @@
 
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
+
+/* Android WebView рисует серый ПРЯМОУГОЛЬНИК подсветки на каждый тап (жалоба
+   «выделяет прямоугольником» в колесе и на карточках) — гасим системную
+   подсветку: выделение делаем сами (линия/глиф/обводка GlowCard). */
+* { -webkit-tap-highlight-color: transparent; }
 
 /* масштаб шрифта (настройка «Крупный шрифт»): почти все размеры в rem, т.е.
    относительно корня — меняя font-size у html, увеличиваем весь текст разом. */
@@ -153,7 +164,7 @@ section.sheet::before {
 }
 .reveal.revealed { opacity: 1; transform: translateY(0); }
 
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 
 /* «Неявный» ввод текста (просьба владелицы): никакой рамки-коробки — просто
    текст, в котором мигает курсор. Акцентный курсор + едва заметная точечная

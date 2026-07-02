@@ -3,10 +3,10 @@
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
-  import { testNotify, notifyDiagnostics, requestExactAlarms, type NotifyDiag } from '../lib/notifications.ts';
+  import { testNotify, notifyDiagnostics, requestExactAlarms, requestNotify, type NotifyDiag } from '../lib/notifications.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
-  import { getOtaStatus, checkOtaUpdate } from '../lib/ota.ts';
+  import { getOtaStatus, checkOtaUpdate, applyQueuedNow } from '../lib/ota.ts';
 
   // объекты для индивидуального орбиса (светила + планеты + узлы)
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
@@ -55,6 +55,15 @@
   void loadDiag();
   const RU_PERM: Record<string, string> = { granted: 'да ✓', denied: 'НЕТ ✗', prompt: 'ещё не спрашивали' };
   async function fixExact() { await requestExactAlarms(); void loadDiag(); }
+  // явный запрос разрешения (просьба 2026-07-02: «попробуй запросить разрешения»)
+  async function askPerm() {
+    const r = await requestNotify();
+    notifyMsg = r === 'granted' ? 'Разрешение выдано ✓ — расписание пересоберётся.'
+      : r === 'denied' ? 'Система ответила «нет». Включите вручную: Настройки Android → Приложения → Astra → Уведомления.'
+      : 'Уведомления недоступны в этом окружении.';
+    onchanged();       // пересобрать расписание с новым разрешением
+    void loadDiag();
+  }
 
   let status = $state(dataFile.status());
   let busy = $state(false);
@@ -79,6 +88,13 @@
   async function checkOta() {
     otaBusy = true;
     try { ota = await checkOtaUpdate(); }
+    finally { otaBusy = false; }
+  }
+  // применить скачанное СЕЙЧАС: перезапуск webview — надёжнее, чем ждать
+  // «полного закрытия» (смахивание из недавних не всегда убивает процесс)
+  async function applyOta() {
+    otaBusy = true;
+    try { ota = await applyQueuedNow(); }   // при успехе приложение перезапустится само
     finally { otaBusy = false; }
   }
 
@@ -174,12 +190,14 @@
     <div class="row" style="margin-top:10px">
       <button class="btn" disabled={notifyBusy} onclick={checkNotify}>
         {notifyBusy ? 'Отправляю…' : 'Тест уведомления'}</button>
+      <button class="btn" onclick={askPerm}>Запросить разрешение</button>
     </div>
     {#if notifyMsg}<div class="msg">{notifyMsg}</div>{/if}
     {#if diag}
       <div class="hint small" style="margin-top:8px">
         Разрешение на уведомления: <b>{RU_PERM[diag.display] ?? diag.display}</b>
-        {#if diag.exact} · точные будильники: <b>{RU_PERM[diag.exact] ?? diag.exact}</b>{/if}
+        {#if diag.exact} · точные будильники: <b>{RU_PERM[diag.exact] ?? diag.exact}</b>
+        {/if} · запланировано: <b>{diag.pending}</b>
       </div>
       {#if diag.exact && diag.exact !== 'granted'}
         <div class="row" style="margin-top:6px">
@@ -265,6 +283,9 @@
     <div class="row" style="margin-top:8px">
       <button class="btn primary" disabled={otaBusy} onclick={checkOta}>
         {otaBusy ? 'Проверяю…' : 'Проверить обновление'}</button>
+      {#if ota.state === 'queued'}
+        <button class="btn" disabled={otaBusy} onclick={applyOta}>⟳ Обновить сейчас</button>
+      {/if}
     </div>
     {#if ota.state !== 'idle' && ota.state !== 'checking'}
       <!-- во время проверки статус НЕ дублируем: «Проверяю…» уже на кнопке -->
@@ -300,7 +321,7 @@
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 20; }
   .sheet {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
-    width: min(560px, 100%); z-index: 21; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));
+    width: min(560px, 100%); z-index: 21; padding: 16px 16px calc(20px + var(--safe-bottom));
     border-radius: 22px 22px 0 0; animation: up 0.25s ease;
     max-height: 90vh; overflow-y: auto;   /* иначе верхние блоки уходят за край */
   }
@@ -331,6 +352,10 @@
   .orbcell .u { color: var(--ink-faint); }
   .orb { display: inline-flex; align-items: center; gap: 6px; }
   .orb input { width: 78px; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 10px; padding: 8px 10px; font: inherit; }
+  /* окошко времени сводки: 78px обрезало цифры («9:00 не видна полностью») —
+     полю времени нужна своя ширина под системный виджет Android */
+  .orb input[type='time'] { width: auto; min-width: 116px; text-align: center;
+    font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   .seg { display: inline-flex; border: 1px solid var(--glass-brd); border-radius: 10px; overflow: hidden; }
   .seg button { background: transparent; border: none; color: var(--ink-dim); padding: 8px 12px; font-size: 0.84rem; }
   .seg button.on { background: var(--accent); color: var(--on-accent); }

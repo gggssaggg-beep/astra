@@ -33,6 +33,25 @@
 
   const positions = $derived(engine.positions(snapshot));
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
+  const sun = $derived(positions.find((p) => p.name === 'Солнце'));
+
+  // фаза Луны — из уже посчитанных долгот (элонгация Луна−Солнце), без движка
+  const PHASE_EM = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+  const phase = $derived.by(() => {
+    if (!moon || !sun) return null;
+    const e = ((moon.lon - sun.lon) % 360 + 360) % 360;
+    const illum = Math.round(((1 - Math.cos((e * Math.PI) / 180)) / 2) * 100);
+    const idx = Math.round(e / 45) % 8;
+    const name = idx === 0 ? 'новолуние' : idx === 4 ? 'полнолуние' : e < 180 ? 'растущая' : 'убывающая';
+    return { em: PHASE_EM[idx], name, illum };
+  });
+
+  // тёплое приветствие по времени суток — только на «сегодня»
+  const greet = $derived.by(() => {
+    if (!isToday) return null;
+    const h = parseInt(new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: 'numeric', hour12: false }).format(snapshot), 10);
+    return h < 5 ? 'Тихой ночи ✧' : h < 12 ? 'Доброе утро ✧' : h < 18 ? 'Доброго дня ✧' : 'Тихого вечера ✧';
+  });
   // Порядок по колонкам (требование астролога): левая сверху-вниз, потом правая.
   // Сетка заполняется по столбцам (grid-auto-flow: column, 5 строк).
   const ORDER = ['Солнце', 'Меркурий', 'Венера', 'Марс', 'Раху',
@@ -48,6 +67,7 @@
 </script>
 
 <div class="day">
+  {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
     <Wheel {positions} aspects={allAspects} {signStyle} {oninfo} />
     <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)}`}</div>
@@ -64,6 +84,12 @@
         <div class="lbl">Луна</div>
         <div class="pos">{fmtPos(moon.lon)} {moon.retro ? '℞' : ''}</div>
       </div>
+      {#if phase}
+        <div class="phase">
+          <span class="pem">{phase.em}</span>
+          <div><div class="lbl">Фаза</div><div class="pname">{phase.name} · {phase.illum}%</div></div>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -72,6 +98,7 @@
       <div class="chip reveal" class:retro={p.retro} use:reveal>
         <span class="g glyph">{p.glyph}</span>
         <span class="pp">{fmtPos(p.lon)}</span>
+        {#if p.retro}<span class="rx">℞</span>{/if}
       </div>
     {/each}
   </div>
@@ -100,7 +127,8 @@
   {/each}
 
   {#if !day.moon.length && !day.fast.length && !day.slow.length}
-    <div class="empty">Мажорных аспектов в орбисе нет</div>
+    <div class="empty">☽ Небо сегодня тихое — ни одного мажорного аспекта в орбисе.<br />
+      <span class="empty2">Редкий день, чтобы просто выдохнуть.</span></div>
   {/if}
 </div>
 
@@ -109,14 +137,19 @@
   .wheel-wrap { padding: 14px; margin: 8px 0; }
   .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   .audit { padding: 10px 12px; margin: 8px 0; color: var(--rose); font-size: 0.85rem; }
+  .greet { text-align: center; color: var(--ink-faint); font-size: 0.82rem; margin: 10px 0 2px; letter-spacing: 0.4px; }
   .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }
   .moon .g { font-size: 1.8rem; color: var(--silver); }
   .moon .lbl { color: var(--ink-faint); font-size: 0.72rem; }
   .moon .pos { font-size: 1.05rem; }
+  .phase { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+  .pem { font-size: 1.5rem; }
+  .pname { font-size: 0.92rem; color: var(--ink-dim); }
   .positions { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(5, auto); grid-auto-flow: column; gap: 7px 16px; padding: 12px 14px; margin: 8px 0; }
   .chip { display: flex; align-items: center; gap: 8px; }
   .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }
   .chip.retro .pp { color: var(--gold); }
+  .rx { color: var(--gold); font-size: 0.8rem; font-weight: 600; }
   .pp { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.92rem; }
   .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); font-family: var(--font-mono); }
   .events { padding: 6px 12px; margin: 8px 0; }
@@ -129,5 +162,6 @@
   .k-eclipse .evg { color: var(--gold); }
   .k-station .evg { color: var(--rose); }
   .k-lunation .evg { color: var(--silver); }
-  .empty { text-align: center; color: var(--ink-faint); padding: 30px 0; }
+  .empty { text-align: center; color: var(--ink-dim); padding: 30px 0; line-height: 1.6; }
+  .empty2 { color: var(--ink-faint); font-size: 0.86rem; }
 </style>

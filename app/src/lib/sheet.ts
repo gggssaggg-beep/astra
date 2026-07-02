@@ -5,6 +5,8 @@
  * открыта — блокируем скролл фона (ref-count, т.к. шторок может быть несколько).
  */
 
+import { tick } from './haptics.ts';
+
 let locks = 0;
 let prevBodyOverflow = '';
 let prevBodyOverscroll = '';
@@ -89,7 +91,14 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
   const onEnd = () => {
     if (!dragging) return;
     dragging = false;
-    if (dy > CLOSE_PX) { onclose(); return; }
+    if (dy > CLOSE_PX) {
+      // мягкое закрытие: лист доезжает вниз от текущей позиции, а не обрывается
+      tick();
+      node.style.transition = 'transform 0.18s ease-in';
+      node.style.transform = 'translate(-50%, 105%)';
+      window.setTimeout(onclose, 170);
+      return;
+    }
     if (dy > 0) {
       node.style.transition = 'transform 0.22s ease';
       node.style.transform = 'translate(-50%, 0)';

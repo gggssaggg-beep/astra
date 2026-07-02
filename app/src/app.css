@@ -46,9 +46,9 @@
   --bg-2: #cfe0f7;       /* зенит — прохладная синь неба */
   --ink: #2b2350;        /* глубокая слива, читаемая на светлом */
   --ink-dim: #6b5f88;
-  --ink-faint: #9a8fb4;
-  --glass: rgba(255, 255, 255, 0.7);
-  --glass-brd: rgba(180, 150, 190, 0.3);
+  --ink-faint: #7d7195;  /* было #9a8fb4 — не читалось на солнце (контраст) */
+  --glass: rgba(255, 252, 245, 0.78);   /* тёплое молочное стекло вместо чисто-белого */
+  --glass-brd: rgba(214, 138, 74, 0.32); /* янтарная кромка — панели «подсвечены рассветом» */
   --silver: #4f83e8;     /* «серебро» → зенитная синь */
   --gold: #e0921a;       /* гармония — насыщенная амбра (читается на светлом) */
   --rose: #e0568a;       /* напряжение — рассветный коралл-роза */
@@ -58,8 +58,18 @@
   --neon-cyan: #4f83e8;
   --neon-magenta: #e0568a;
   --neon-violet: #7a5cf0;
-  --shadow: 0 10px 30px rgba(90, 70, 120, 0.18);
+  --shadow: 0 10px 30px rgba(151, 86, 34, 0.16); /* тёплая тень вместо серой */
   color-scheme: light;
+}
+
+/* «Рассвет» — небо, а не «просто белая тема»: солнце встаёт у нижнего края,
+   тёплый золотой горизонт, розовая дымка, прохладный синий зенит сверху. */
+:root[data-theme='light'] body::before {
+  background:
+    radial-gradient(115% 55% at 50% 108%, #ffc470d9, transparent 62%),  /* солнце у горизонта */
+    radial-gradient(70% 45% at 14% 96%, #ffb3a0a8, transparent 70%),    /* коралловый отсвет */
+    radial-gradient(130% 80% at 82% -14%, #a9c9f2, transparent 62%),    /* зенитная синь */
+    linear-gradient(178deg, #cfe0f7 0%, #efdff0 42%, #ffe6cd 76%, #ffd9a6 100%);
 }
 
 * { box-sizing: border-box; }
@@ -141,5 +151,10 @@ section.sheet::before {
 .reveal.revealed { opacity: 1; transform: translateY(0); }
 
 button { font: inherit; color: inherit; cursor: pointer; }
+
+/* Отклик на палец: на телефоне :hover мёртв — «живость» даёт :active.
+   Без transform (он конфликтует с reveal-анимацией) — только свет. */
+button:active { filter: brightness(1.25) saturate(1.1); }
+:root[data-theme='light'] button:active { filter: brightness(0.93); }
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: #ffffff22; border-radius: 8px; }

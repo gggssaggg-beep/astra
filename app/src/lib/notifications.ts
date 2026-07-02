@@ -70,6 +70,29 @@ export function buzz(ms = 60): void {
   try { navigator.vibrate?.(ms); } catch { /* нет вибро */ }
 }
 
+/** Диагностика для настроек: почему уведомления могут не приходить.
+ *  Возвращает null не на устройстве / без плагина (старый APK). */
+export interface NotifyDiag {
+  display: string;        // разрешение на показ: granted / denied / prompt
+  exact: string | null;   // точные будильники (Android 12+): granted / denied / null=нет API
+}
+export async function notifyDiagnostics(): Promise<NotifyDiag | null> {
+  if (!NATIVE) return null;
+  try {
+    const ln = await LN();
+    const p = await ln.checkPermissions();
+    let exact: string | null = null;
+    try { exact = (await ln.checkExactNotificationSetting()).exact_alarm; }
+    catch { /* старый плагин или iOS — без точных будильников */ }
+    return { display: p.display, exact };
+  } catch { return null; }
+}
+
+/** Открыть системную настройку «точные будильники» (Android 12+). */
+export async function requestExactAlarms(): Promise<void> {
+  try { await (await LN()).changeExactNotificationSetting(); } catch { /* нет API */ }
+}
+
 /** Тестовое уведомление сейчас (демо, что всё работает; §10.5). */
 export async function testNotify(title: string, body: string): Promise<string> {
   buzz();

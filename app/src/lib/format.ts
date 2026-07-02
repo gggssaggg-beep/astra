@@ -85,3 +85,15 @@ export function aspectTone(aspect: string): 'harm' | 'tense' | 'neutral' {
   if (aspect === 'квадрат' || aspect === 'оппозиция') return 'tense';
   return 'neutral'; // соединение
 }
+
+/** «сегодня / вчера / N дн. назад» для дат журнала (YYYY-MM-DD в выбранном
+ *  поясе); старше недели — обычная дд.мм.гггг. Журнал становится «личным». */
+export function fmtRelDay(s: string, tz: string): string {
+  const [y, m, d] = s.split('-').map(Number);
+  const diff = Math.round((todayCivil(tz).getTime() - Date.UTC(y, m - 1, d)) / 86400000);
+  if (diff === 0) return 'сегодня';
+  if (diff === 1) return 'вчера';
+  if (diff === -1) return 'завтра';
+  if (diff > 1 && diff < 7) return `${diff} дн. назад`;
+  return `${String(d).padStart(2, '0')}.${String(m).padStart(2, '0')}.${y}`;
+}

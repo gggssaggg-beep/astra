@@ -15,6 +15,12 @@
   const crosses = $derived(
     rec.exactTime && rec.endTime && !sameDay(rec.exactTime, rec.endTime, tz)
   );
+  // аспект «живой» прямо сейчас — дышащая точка (снимок на момент отрисовки)
+  const live = $derived.by(() => {
+    const now = Date.now();
+    return !!rec.beginTime && !!rec.endTime
+      && now >= rec.beginTime.getTime() && now <= rec.endTime.getTime();
+  });
 </script>
 
 <GlowCard {selected} radius={18}>
@@ -27,6 +33,7 @@
         {PLANET_GLYPH[rec.p1] ?? rec.p1}<span class="asp glyph">{rec.symbol}</span>{PLANET_GLYPH[rec.p2] ?? rec.p2}
       </span>
       <span class="names">{rec.p1} {rec.aspect} {rec.p2}</span>
+      {#if live}<span class="live tone-{tone}" title="сейчас в орбисе"></span>{/if}
       <span class="orb" title="текущий орбис">{rec.exactOrb.toFixed(2)}°<span class="arr">{applyingArrow(rec.applying)}</span></span>
     </div>
 
@@ -53,6 +60,13 @@
   .asp { margin: 0 4px; opacity: 0.85; }
   .names { flex: 1; color: var(--ink-dim); font-size: 0.86rem; }
   .orb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 600; color: var(--silver); }
+  /* «сейчас в орбисе» — небо живое именно тут; лёгкий opacity-pulse, GPU не грузит */
+  .live { width: 7px; height: 7px; border-radius: 50%; flex: none;
+    background: var(--accent); animation: breathe 2.6s ease-in-out infinite; }
+  .live.tone-harm { background: var(--gold); }
+  .live.tone-tense { background: var(--rose); }
+  .live.tone-neutral { background: var(--silver); }
+  @keyframes breathe { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
   .arr { margin-left: 4px; opacity: 0.8; }
   .times { margin-top: 8px; justify-content: space-between; color: var(--ink-dim); }
   .seg { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }

@@ -23,6 +23,7 @@
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
   import { syncNotifications } from './lib/notifications.ts';
+  import { tick as buzzTick } from './lib/haptics.ts';
 
   let settings = $state(db.settings.get());
   let engine = $state<Engine | null>(null);
@@ -64,10 +65,21 @@
   let date = $state(todayCivil(db.settings.get().tz));
   const isToday = $derived(date.getTime() === todayCivil(settings.tz).getTime());
 
+  // направление последнего листания — страница дня въезжает с нужной стороны
+  let slideDir = $state(0);
   function shift(days: number) {
     const d = new Date(date);
     d.setUTCDate(d.getUTCDate() + days);
+    slideDir = Math.sign(days);
     date = d;
+    buzzTick();                                    // лёгкий «щелчок» перелистывания
+    window.scrollTo({ top: 0, behavior: 'smooth' }); // новый день — с начала ленты
+  }
+  function goToday() {
+    slideDir = date.getTime() > todayCivil(settings.tz).getTime() ? -1 : 1;
+    date = todayCivil(settings.tz);
+    buzzTick();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   onMount(async () => {
@@ -146,7 +158,7 @@
     <button class="nav" onclick={() => shift(-1)} aria-label="Предыдущий день">‹</button>
     <div class="title">
       <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">{fmtDayMid(date)}</button>
-      <button class="today" class:hidden={isToday} onclick={() => (date = todayCivil(settings.tz))}>сегодня</button>
+      <button class="today" class:hidden={isToday} onclick={goToday}>сегодня</button>
     </div>
     <button class="nav" onclick={() => shift(1)} aria-label="Следующий день">›</button>
   </header>
@@ -163,10 +175,10 @@
     <div class="state glass">Загрузка эфемерид…</div>
   {:else}
     {#key date.getTime()}
-      <div class="page">
+      <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} {date} {orbOf} tz={settings.tz} signStyle={settings.signStyle}
           selectedSignature={selRec ? aspectSignature(selRec.p1, selRec.p2, selRec.aspect) : null}
-          onAspect={(r) => (selRec = r)} oninfo={(i) => (wheelInfo = i)} />
+          onAspect={(r) => { selRec = r; buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
       </div>
     {/key}
   {/if}
@@ -206,11 +218,13 @@
 {/if}
 
 {#if showCal}
-  <DateSheet {date} today={todayCivil(settings.tz)} onpick={(d) => { date = d; showCal = false; }} onclose={() => (showCal = false)} />
+  <DateSheet {date} today={todayCivil(settings.tz)}
+    onpick={(d) => { slideDir = Math.sign(d.getTime() - date.getTime()); date = d; showCal = false; buzzTick(); }}
+    onclose={() => (showCal = false)} />
 {/if}
 
 {#if showJournal}
-  <Journal {date} onclose={() => (showJournal = false)} />
+  <Journal {date} tz={settings.tz} onclose={() => (showJournal = false)} />
 {/if}
 
 {#if selRec && engine}
@@ -248,8 +262,9 @@
   .title { flex: 1; text-align: center; }
   .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.2px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 2px 6px; border-radius: 8px; }
   .date:hover { background: #ffffff14; }
-  .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 2px 12px; font-size: 0.72rem; margin-top: 4px; }
-  .today.hidden { visibility: hidden; }
+  .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 2px 12px; font-size: 0.72rem; margin-top: 4px;
+    opacity: 1; transition: opacity 0.2s ease; }
+  .today.hidden { opacity: 0; pointer-events: none; }
   .tabbar {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
     width: min(560px, 100%); z-index: 10; display: flex; justify-content: space-around;
@@ -259,10 +274,15 @@
     display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }
   .tabbar button:hover { background: #ffffff14; color: var(--ink); }
   .tabbar .ti { font-size: 1.25rem; line-height: 1; }
-  .tabbar .tl { font-size: 0.6rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
+  .tabbar .tl { font-size: 0.7rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }
   .state { padding: 24px; text-align: center; color: var(--ink-dim); margin-top: 20px; }
   .state.err { color: var(--rose); }
   .page { animation: fade 0.25s ease; }
+  /* листание дня: новая страница въезжает со стороны жеста (главный жест приложения) */
+  .page.from-right { animation: slide-r 0.28s cubic-bezier(0.215, 0.61, 0.355, 1); }
+  .page.from-left { animation: slide-l 0.28s cubic-bezier(0.215, 0.61, 0.355, 1); }
   @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes slide-r { from { opacity: 0; transform: translateX(26px); } to { opacity: 1; transform: none; } }
+  @keyframes slide-l { from { opacity: 0; transform: translateX(-26px); } to { opacity: 1; transform: none; } }
 </style>

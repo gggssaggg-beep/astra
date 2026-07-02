@@ -5,8 +5,9 @@
   import { db, uid, onChange } from '../lib/db.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { noteDateStr } from '../lib/journal.ts';
-  import { fmtTime, civilOf } from '../lib/format.ts';
+  import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { tap, success } from '../lib/haptics.ts';
 
   let { rec, engine, date, tz, onclose, ondiscuss, ongoto }:
     { rec: AspectRecord; engine: Engine; date: Date; tz: string; onclose: () => void;
@@ -20,6 +21,7 @@
     if (ex) db.tracked.remove(ex.id);
     else db.tracked.put({ id: uid(), p1: rec.p1, p2: rec.p2, aspect: rec.aspect, signature: sig });
     tracked = !ex;
+    tap();
   }
 
   // новый массив (slice) — иначе Svelte не заметит мутацию db.notes на месте
@@ -30,10 +32,14 @@
   );
 
   let noteText = $state('');
+  let savedOk = $state(false);          // «✓ В журнале» — видно, что запись легла
   function addNote() {
     const t = noteText.trim(); if (!t) return;
     db.notes.put({ id: uid(), createdAt: new Date().toISOString(), date: noteDateStr(date), text: t, objects: [rec.p1, rec.p2], aspectSignature: sig });
     noteText = ''; notes = db.notes.all().slice();
+    success();
+    savedOk = true;
+    setTimeout(() => (savedOk = false), 1600);
   }
 
   const arch = (o: string) => db.archetypes.get(o);
@@ -103,14 +109,16 @@
   <div class="block">
     <div class="lbl">Заметка к этому аспекту</div>
     <textarea bind:value={noteText} rows="2" placeholder="Как проявилось сегодня…"></textarea>
-    <div class="row"><span class="hint">Сохранится в журнал с привязкой к этому аспекту.</span><button class="btn" onclick={addNote} disabled={!noteText.trim()}>В журнал</button></div>
+    <div class="row"><span class="hint">Сохранится в журнал с привязкой к этому аспекту.</span>
+      <button class="btn" class:okflash={savedOk} onclick={addNote} disabled={!noteText.trim() && !savedOk}>
+        {savedOk ? '✓ В журнале' : 'В журнал'}</button></div>
   </div>
 
   <div class="block">
     <div class="lbl">Похожие прошлые ({similar.length})</div>
-    {#if !similar.length}<div class="hint">Заметок по этой паре+аспекту ещё нет.</div>{/if}
+    {#if !similar.length}<div class="hint">По этой паре пока пусто — первая заметка появится здесь ✧</div>{/if}
     {#each similar as n (n.id)}
-      <div class="past"><b>{dmy(n.date)}</b><div>{n.text}</div></div>
+      <div class="past"><b title={dmy(n.date)}>{fmtRelDay(n.date, tz)}</b><div>{n.text}</div></div>
     {/each}
   </div>
 
@@ -156,7 +164,10 @@
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .hbtns { display: flex; align-items: center; gap: 6px; }
   .star { background: transparent; border: none; font-size: 1.3rem; color: var(--ink-faint); }
-  .star.on { color: var(--gold); }
+  .star.on { color: var(--gold); animation: starpop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-shadow: 0 0 10px color-mix(in srgb, var(--gold) 70%, transparent); }
+  @keyframes starpop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
+  .okflash { background: var(--gold) !important; color: #201a08 !important; }
   .exact { color: var(--gold); font-size: 0.84rem; margin: 6px 0 2px; }
   .block { padding: 12px 0; border-top: 1px solid var(--glass-brd); }
   .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); margin-bottom: 8px; }

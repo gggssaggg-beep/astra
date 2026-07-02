@@ -89,26 +89,27 @@
           if (p.y < -4) p.y = h + 4; else if (p.y > h + 4) p.y = -4;
         }
         if (light) {
-          // блёстка: резче мерцает (twinkle), тёплый цвет, у крупных — 4 лучика
+          // блёстка: резче мерцает (twinkle), тёплый цвет, у крупных — 4 лучика.
+          // На «Рассвете» блёстки заметнее (ярче/крупнее) — жалоба «ничего интересного»
           const s = Math.sin(t * p.k * 1.6 + p.ph);
           const twinkle = s * s * s * s;               // острый всплеск вместо плавной волны
-          const alpha = p.a * (0.25 + 0.75 * twinkle);
+          const alpha = p.a * (0.38 + 0.72 * twinkle);
           const tint = SPARKLE[(p.c * SPARKLE.length) | 0];
           // тёплое гало
           ctx!.beginPath();
-          ctx!.arc(p.x, p.y, p.r * 3.2, 0, Math.PI * 2);
-          ctx!.fillStyle = `rgba(${tint}, ${(alpha * 0.18).toFixed(3)})`;
+          ctx!.arc(p.x, p.y, p.r * 3.8, 0, Math.PI * 2);
+          ctx!.fillStyle = `rgba(${tint}, ${(alpha * 0.24).toFixed(3)})`;
           ctx!.fill();
           // ядро
           ctx!.beginPath();
-          ctx!.arc(p.x, p.y, p.r * 0.9, 0, Math.PI * 2);
+          ctx!.arc(p.x, p.y, p.r * 1.05, 0, Math.PI * 2);
           ctx!.fillStyle = `rgba(${tint}, ${alpha.toFixed(3)})`;
           ctx!.fill();
           // лучики-искра у крупных блёсток на пике мерцания
-          if (p.r > BIG_R && twinkle > 0.15) {
-            const len = p.r * (2.5 + 5 * twinkle);
+          if (p.r > BIG_R - 0.4 && twinkle > 0.12) {
+            const len = p.r * (2.8 + 5.5 * twinkle);
             ctx!.strokeStyle = `rgba(${tint}, ${(alpha * 0.9).toFixed(3)})`;
-            ctx!.lineWidth = 0.6;
+            ctx!.lineWidth = 0.8;
             ctx!.beginPath();
             ctx!.moveTo(p.x - len, p.y); ctx!.lineTo(p.x + len, p.y);
             ctx!.moveTo(p.x, p.y - len); ctx!.lineTo(p.x, p.y + len);

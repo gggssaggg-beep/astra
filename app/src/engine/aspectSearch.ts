@@ -58,7 +58,9 @@ export async function findAspectOccurrences(
       if (out.length >= maxResults) return { list: out, truncated: true };
     }
     prevJ = j; prevV = v;
-    if (++sinceYield >= 4000) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); }
+    // передышка почаще: 4000 шагов × 2 WASM-вызова держали главный поток
+    // сотни мс — кнопка «Ищу…» и анимации замирали (жалоба «нет плавности»)
+    if (++sinceYield >= 500) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); }
   }
   return { list: out, truncated: false };
 }

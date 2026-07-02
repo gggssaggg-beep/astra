@@ -8,6 +8,16 @@
 let locks = 0;
 let prevBodyOverflow = '';
 let prevBodyOverscroll = '';
+
+/** Открыта ли сейчас хоть одна шторка (для паузы фоновых анимаций). */
+export function anySheetOpen(): boolean { return locks > 0; }
+
+// Событие для фоновых слоёв (Starfield): пока шторка открыта, канвас замирает —
+// иначе backdrop-blur шторки пересчитывается на КАЖДЫЙ кадр канваса → лаги.
+function notifySheets(): void {
+  document.dispatchEvent(new CustomEvent('astra:sheets', { detail: locks }));
+}
+
 function lockScroll(): void {
   if (locks === 0) {
     prevBodyOverflow = document.body.style.overflow;
@@ -16,6 +26,7 @@ function lockScroll(): void {
     document.body.style.overscrollBehavior = 'none';
   }
   locks++;
+  notifySheets();
 }
 function unlockScroll(): void {
   locks = Math.max(0, locks - 1);
@@ -23,6 +34,7 @@ function unlockScroll(): void {
     document.body.style.overflow = prevBodyOverflow;
     document.body.style.overscrollBehavior = prevBodyOverscroll;
   }
+  notifySheets();
 }
 
 export interface SheetParams { onclose: () => void; }

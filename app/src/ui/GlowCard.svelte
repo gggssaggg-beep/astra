@@ -58,7 +58,9 @@
     fill: none; stroke-width: 2.4px;
     width: calc(100% - 2.4px); height: calc(100% - 2.4px);
     stroke-dasharray: 100; stroke-dashoffset: 100;
-    filter: drop-shadow(0 0 5px var(--neon-cyan)) drop-shadow(0 0 9px var(--neon-violet));
+    /* один drop-shadow вместо двух: каждый — отдельный проход GPU-фильтра,
+       на телефоне двойной глоу заметно ел плавность анимации обводки */
+    filter: drop-shadow(0 0 7px var(--neon-cyan));
     transition: stroke-dashoffset 0.56s cubic-bezier(0.215, 0.61, 0.355, 1);
   }
   .glow-overlay.play rect { stroke-dashoffset: 0; }

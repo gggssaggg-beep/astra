@@ -36,7 +36,9 @@ function exactTime(E: Engine, n1: string, n2: string, target: number,
   const f = signedFn(E, n1, n2, target);
   const step = 1 / 48; // полчаса
   let prevJ = jdStart, prevV = f(jdStart), j = jdStart + step;
-  while (j <= jdEnd) {
+  // +1e-9: накопленная float-ошибка сложений шага иначе выкидывает ПОСЛЕДНИЙ
+  // полушаг суток — аспект с «точно» в последние ~30 минут дня терялся (как в events.ts)
+  while (j <= jdEnd + 1e-9) {
     const v = f(j);
     if ((prevV <= 0) !== (v <= 0) && Math.abs(prevV - v) < 30) {
       let lo = prevJ, hi = j;
@@ -100,7 +102,7 @@ export function aspectsOn(E: Engine, dayStart: Date,
       for (const [asp, { angle, symbol }] of Object.entries(ASPECTS)) {
         // минимальный орбис за сутки (сетка — час)
         let minOrb: number | null = null, minJd = jdNoon;
-        for (let jd = jd0; jd <= jd1; jd += 1 / 24) {
+        for (let jd = jd0; jd <= jd1 + 1e-9; jd += 1 / 24) { // +1e-9 — не терять последний час (float)
           const o = Math.abs(sep(jd, n1, n2) - angle);
           if (minOrb === null || o < minOrb) { minOrb = o; minJd = jd; }
         }

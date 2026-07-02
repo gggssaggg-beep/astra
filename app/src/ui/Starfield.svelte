@@ -5,9 +5,11 @@
    * внешних библиотек. Не создаёт дополнительных DOM-узлов на кадр.
    */
   import { onMount } from 'svelte';
+  import { anySheetOpen } from '../lib/sheet.ts';
 
   const COUNT = 81;
   const BIG_R = 1.7;      // радиус, начиная с которого рисуем гало
+  const MIN_FRAME_MS = 31; // ~30 fps достаточно для дрейфа пыли, вдвое дешевле 60
 
   interface Dust { x: number; y: number; vx: number; vy: number; r: number; a: number; k: number; ph: number; c: number; }
 
@@ -53,7 +55,22 @@
     let last = performance.now();
     let lastLight: boolean | null = null;
 
+    // Пока открыта шторка — канвас замирает: над ним висит backdrop-blur, и
+    // каждая перерисовка фона заставляла GPU пересчитывать размытие → «тупит
+    // при открытии аспектов». Замерший кадр браузер кэширует, шторка плавная.
+    let paused = false;
+    const onSheets = (e: Event) => {
+      const open = ((e as CustomEvent).detail as number) > 0;
+      if (open === paused) return;
+      paused = open;
+      if (paused) cancelAnimationFrame(raf);
+      else { last = performance.now(); raf = requestAnimationFrame(frame); }
+    };
+    document.addEventListener('astra:sheets', onSheets);
+    paused = anySheetOpen();
+
     function frame(t: number) {
+      if (t - last < MIN_FRAME_MS) { raf = requestAnimationFrame(frame); return; }
       const dt = Math.min(t - last, 50); // защита от скачка при возврате в фон
       last = t;
       ctx!.clearRect(0, 0, w, h);
@@ -114,11 +131,12 @@
       }
       raf = requestAnimationFrame(frame);
     }
-    raf = requestAnimationFrame(frame);
+    if (!paused) raf = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
+      document.removeEventListener('astra:sheets', onSheets);
     };
   });
 </script>

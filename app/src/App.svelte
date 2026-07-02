@@ -3,6 +3,7 @@
   import type { Engine, AspectRecord } from './engine/index.ts';
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
+  import { hydrateKey } from './lib/secret.ts';
   import { fmtDayMid, todayCivil } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
@@ -74,6 +75,7 @@
     // чтобы заметки/архетипы/пояс/время уведомлений не «терялись» после перезапуска.
     try {
       await hydrate();
+      void hydrateKey();   // ключ Claude из durable-хранилища (не ждём — нужен только чату)
       settings = db.settings.get();
       date = todayCivil(settings.tz);   // дата по сохранённому поясу
       showWelcome = !settings.seenWelcome;

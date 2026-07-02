@@ -98,14 +98,21 @@ export async function testNotify(title: string, body: string): Promise<string> {
  * (надёжного фонового расписания нет). Вызывать при старте (после движка) и при
  * изменении настроек уведомлений/пояса/орбиса.
  */
+let syncGen = 0; // номер последнего запуска — устаревший проход не должен побеждать свежий
+
 export async function syncNotifications(engine: Engine, settings: Settings, tz: string): Promise<void> {
   if (!NATIVE) return;
   try {
-    await scheduleAll(engine, settings, tz);
+    await scheduleAll(engine, settings, tz, ++syncGen);
   } catch { /* плагина нет в этой сборке APK / нет разрешения — тихо */ }
 }
 
-async function scheduleAll(engine: Engine, settings: Settings, tz: string): Promise<void> {
+// передышка главному потоку: скан аспектов на 10 дней — тяжёлые WASM-вызовы,
+// без пауз UI замирал на старте и после каждого изменения настроек
+const breathe = () => new Promise((r) => setTimeout(r, 0));
+
+async function scheduleAll(engine: Engine, settings: Settings, tz: string, gen: number): Promise<void> {
+  const stale = () => gen !== syncGen; // запущен более свежий проход — выходим
   const ln = await LN();
   await ensureChannels();
 
@@ -127,18 +134,22 @@ async function scheduleAll(engine: Engine, settings: Settings, tz: string): Prom
     if (ours.length) await ln.cancel({ notifications: ours });
   } catch { /* нет ожидающих */ }
 
-  if (!want) return;
+  if (!want || stale()) return;
 
   const list: any[] = [];
 
   if (settings.notifyDaily) {
     const [hh, mm] = (settings.dailyNotifyTime || '09:00').split(':').map((x) => parseInt(x, 10));
+    // время задано в ВЫБРАННОМ поясе, а плагин повторяет по часам ТЕЛЕФОНА —
+    // переводим сегодняшнее hh:mm пояса в локальные час/минуту устройства
+    const dayStart = zonedDayStartUTC(todayCivil(tz), tz);
+    const at = new Date(dayStart.getTime() + ((isNaN(hh) ? 9 : hh) * 60 + (isNaN(mm) ? 0 : mm)) * 60_000);
     list.push({
       id: ID_DAILY,
       title: 'Сводка неба',
       body: 'Откройте Astra — аспекты и события сегодняшнего дня.',
       channelId: CH_DAILY, smallIcon: 'ic_stat_astra',
-      schedule: { on: { hour: isNaN(hh) ? 9 : hh, minute: isNaN(mm) ? 0 : mm }, allowWhileIdle: true },
+      schedule: { on: { hour: at.getHours(), minute: at.getMinutes() }, allowWhileIdle: true },
     });
   }
 
@@ -147,6 +158,8 @@ async function scheduleAll(engine: Engine, settings: Settings, tz: string): Prom
     const now = Date.now();
     let id = ID_ASPECT_FROM;
     for (let d = 0; d < 10 && id <= ID_ASPECT_TO; d++) {
+      await breathe();
+      if (stale()) return;
       const civil = todayCivil(tz);
       civil.setUTCDate(civil.getUTCDate() + d);
       const dayStart = zonedDayStartUTC(civil, tz);
@@ -166,7 +179,7 @@ async function scheduleAll(engine: Engine, settings: Settings, tz: string): Prom
     }
   }
 
-  if (list.length) {
+  if (list.length && !stale()) {
     try { await ln.schedule({ notifications: list }); } catch { /* тихо */ }
   }
 }

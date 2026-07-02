@@ -71,7 +71,7 @@
 </section>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0007; backdrop-filter: blur(2px); z-index: 26; }
+  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
     max-height: 90vh; overflow-y: auto; z-index: 27; padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
     border-radius: 22px 22px 0 0; animation: up 0.25s ease; }

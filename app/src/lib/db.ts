@@ -116,7 +116,7 @@ function adopt(parsed: any, mode: 'merge' | 'replace') {
   } else {
     const byId = <T extends { id: string }>(a: T[] = [], b: T[] = []) => {
       const map = new Map(a.map((x) => [x.id, x]));
-      for (const x of b) map.set(x.id, x);   // импорт не затирает существующее по id
+      for (const x of b) if (!map.has(x.id)) map.set(x.id, x); // импорт не затирает существующее по id
       return [...map.values()];
     };
     const byKey = <T>(a: T[] = [], b: T[] = [], key: (x: T) => string) => {
@@ -226,8 +226,24 @@ export async function hydrate(): Promise<void> {
     try {
       const { value } = await Preferences.get({ key: LS_KEY });
       if (value && value.trim()) {
-        adopt(JSON.parse(value), 'replace');
-        try { localStorage.setItem(LS_KEY, serialize()); } catch { /* quota */ }
+        // Preferences пишется с дебаунсом 300 мс — если процесс убили сразу после
+        // правки, localStorage может оказаться СВЕЖЕЕ. Берём того, у кого savedAt
+        // новее, иначе последняя заметка терялась при жёстком закрытии.
+        const pref = JSON.parse(value);
+        let lsNewer = false;
+        try {
+          const rawLs = localStorage.getItem(LS_KEY);
+          if (rawLs) {
+            const ls = JSON.parse(rawLs);
+            lsNewer = String(ls?.savedAt ?? '') > String(pref?.savedAt ?? '');
+          }
+        } catch { /* битый localStorage — берём Preferences */ }
+        if (lsNewer) {
+          scheduleNativeSave();   // data уже из localStorage (loadLS) — догнать Preferences
+        } else {
+          adopt(pref, 'replace');
+          try { localStorage.setItem(LS_KEY, serialize()); } catch { /* quota */ }
+        }
       }
     } catch { /* первый запуск / нет данных — стартуем с localStorage/пустого */ }
   }

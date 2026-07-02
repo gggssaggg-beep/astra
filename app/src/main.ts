@@ -14,9 +14,10 @@ import { mount } from 'svelte';
 import App from './App.svelte';
 import { initOta } from './lib/ota.ts';
 
-const app = mount(App, { target: document.getElementById('app')! });
-
-// OTA-обновление веб-части (на устройстве; в вебе — no-op). Не блокируем запуск.
+// OTA: notifyAppReady нужно отправить КАК МОЖНО РАНЬШЕ (до тяжёлого mount) —
+// иначе Capgo решит, что новый бандл не поднялся, и откатит его к вшитому.
 void initOta();
+
+const app = mount(App, { target: document.getElementById('app')! });
 
 export default app;

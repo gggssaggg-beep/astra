@@ -270,7 +270,7 @@
 </section>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0007; backdrop-filter: blur(2px); z-index: 20; }
+  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 20; }
   .sheet {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
     width: min(560px, 100%); z-index: 21; padding: 16px 16px calc(20px + env(safe-area-inset-bottom));

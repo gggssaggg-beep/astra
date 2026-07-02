@@ -1,7 +1,7 @@
 /**
  * Чат трактовок (§3.6). В модель кладём УЖЕ посчитанные движком данные дня —
  * она их ТРАКТУЕТ, не пересчитывает (токен-экономия, §0). Модель — Claude
- * (claude-sonnet-5). В вебе зовём напрямую с заголовком direct-browser-access;
+ * (claude-sonnet-4-6). В вебе зовём напрямую с заголовком direct-browser-access;
  * на устройстве (Capacitor) лучше нативный HTTP (CapacitorHttp) — обойти CORS.
  */
 import type { Engine } from '../engine/index.ts';
@@ -50,16 +50,26 @@ export async function loadDeityMyth(key: string, object: string, deity: string):
 }
 
 export async function askClaude(key: string, system: string, messages: ChatMsg[]): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 2000, system, messages }),
-  });
+  // таймаут: на мобильной сети зависший запрос иначе крутит «…думает…» вечно
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 90_000);
+  let res: Response;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: abort.signal,
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, system, messages }),
+    });
+  } catch (e) {
+    if (abort.signal.aborted) throw new Error('Нет ответа от API за 90 секунд — проверьте сеть и попробуйте ещё раз.');
+    throw e;
+  } finally { clearTimeout(timer); }
   if (!res.ok) {
     const t = await res.text().catch(() => '');
     if (res.status === 401) throw new Error('Неверный ключ (401). Проверь ключ Claude.');

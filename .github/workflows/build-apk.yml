@@ -9,6 +9,12 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# Сборки по очереди, не параллельно: две параллельные гонялись за push APK
+# обратно в main — проигравшая падала «fetch first» (случай 2026-07-02).
+concurrency:
+  group: build-apk-main
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -83,4 +89,7 @@ jobs:
           git add -f app/android/app/astra-debug.keystore
           git add apk/Astra.apk apk/bundle.zip apk/latest.json
           git commit -m "APK + OTA авто-сборка [skip ci]" || echo "без изменений"
+          # пока собирали, в main могли запушить (текст/доки) — подтянуть и пушить.
+          # Наш коммит трогает только apk/* и keystore → текстовые пуши ребейзятся чисто.
+          git pull --rebase origin main || { git rebase --abort; echo "конфликт rebase"; exit 1; }
           git push

@@ -38,11 +38,23 @@
   let showLibrary = $state(false);
   let showInterp = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
+  // откуда открыто Сообщество: из библиотеки — закрытие вернёт в библиотеку,
+  // из нижнего меню — сразу на главный
+  let communityFrom = $state<'lib' | 'tab'>('lib');
   let selRec = $state<AspectRecord | null>(null);
+  // Просмотренный аспект ОСТАЁТСЯ выделенным после закрытия трактовки (линия в
+  // колесе + кромка карточки) — «пользователь знает, что смотрел». Сбрасывается
+  // только выбором другого аспекта.
+  let selSig = $state<string | null>(null);
   // откуда открыт аспект: закрытие возвращает «на пункт выше», а не на главный
   let selFrom = $state<'day' | 'interp' | 'tracked'>('day');
+  function pickAspect(r: AspectRecord, from: 'day' | 'interp' | 'tracked' = 'day') {
+    selRec = r;
+    selSig = aspectSignature(r.p1, r.p2, r.aspect);
+    selFrom = from;
+  }
   function closeAspect() {
-    selRec = null;
+    selRec = null;   // selSig НЕ трогаем — выделение остаётся
     if (selFrom === 'interp') showInterp = true;
     else if (selFrom === 'tracked') showTracked = true;
     selFrom = 'day';
@@ -187,18 +199,19 @@
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} {date} {orbOf} tz={settings.tz} signStyle={settings.signStyle}
-          selectedSignature={selRec ? aspectSignature(selRec.p1, selRec.p2, selRec.aspect) : null}
-          onAspect={(r) => { selRec = r; buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
+          selectedSignature={selSig} selectedInfo={wheelInfo}
+          onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
       </div>
     {/key}
   {/if}
 </main>
 
+<!-- Дата открывается тапом по дате в шапке; чат переехал в Библиотеку (просьба
+     владелицы 2026-07-02) — в нижнем меню его место заняло Сообщество. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button onclick={() => (showCal = true)} aria-label="Календарь"><span class="ti glyph">📅</span><span class="tl">Дата</span></button>
   <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button onclick={() => (showChat = true)} aria-label="Чат"><span class="ti glyph">💬</span><span class="tl">Чат</span></button>
+  <button onclick={() => { communityFrom = 'tab'; showCommunity = {}; }} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
   <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
 
@@ -212,13 +225,14 @@
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
-    onCommunity={() => { showLibrary = false; showCommunity = {}; }} />
+    onChat={() => { showLibrary = false; showChat = true; }}
+    onCommunity={() => { showLibrary = false; communityFrom = 'lib'; showCommunity = {}; }} />
 {/if}
 
 <!-- закрытие разделов библиотеки возвращает В БИБЛИОТЕКУ (пункт выше), не на главный -->
 {#if showInterp}
   <InterpretationsSheet onclose={() => { showInterp = false; showLibrary = true; }}
-    onopen={(r) => { showInterp = false; selRec = r; selFrom = 'interp'; }} />
+    onopen={(r) => { showInterp = false; pickAspect(r, 'interp'); }} />
 {/if}
 
 {#if showArch}
@@ -227,17 +241,18 @@
 
 {#if showTracked}
   <TrackedSheet onclose={() => { showTracked = false; showLibrary = true; }}
-    onopen={(r) => { showTracked = false; selRec = r; selFrom = 'tracked'; }} />
+    onopen={(r) => { showTracked = false; pickAspect(r, 'tracked'); }} />
 {/if}
 
 {#if showCommunity}
   <CommunitySheet signature={showCommunity.signature} title={showCommunity.title}
-    onclose={() => { showCommunity = false; showLibrary = true; }} />
+    onclose={() => { showCommunity = false; if (communityFrom === 'lib') showLibrary = true; }} />
 {/if}
 
 {#if showCal}
   <DateSheet {date} today={todayCivil(settings.tz)}
-    onpick={(d) => { slideDir = Math.sign(d.getTime() - date.getTime()); date = d; showCal = false; buzzTick(); }}
+    onpick={(d) => { slideDir = Math.sign(d.getTime() - date.getTime()); date = d; showCal = false; buzzTick();
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCal = false)} />
 {/if}
 
@@ -247,7 +262,7 @@
 
 {#if selRec && engine}
   <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} onclose={closeAspect}
-    oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; showCommunity = { signature: sig, title }; }}
+    oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; communityFrom = 'tab'; showCommunity = { signature: sig, title }; }}
     ongoto={(d) => { date = d; selRec = null; selFrom = 'day'; }}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
       + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,

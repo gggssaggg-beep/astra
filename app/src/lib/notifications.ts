@@ -75,6 +75,7 @@ export function buzz(ms = 60): void {
 export interface NotifyDiag {
   display: string;        // разрешение на показ: granted / denied / prompt
   exact: string | null;   // точные будильники (Android 12+): granted / denied / null=нет API
+  pending: number;        // сколько наших уведомлений реально стоит в расписании ОС
 }
 export async function notifyDiagnostics(): Promise<NotifyDiag | null> {
   if (!NATIVE) return null;
@@ -84,7 +85,12 @@ export async function notifyDiagnostics(): Promise<NotifyDiag | null> {
     let exact: string | null = null;
     try { exact = (await ln.checkExactNotificationSetting()).exact_alarm; }
     catch { /* старый плагин или iOS — без точных будильников */ }
-    return { display: p.display, exact };
+    let pending = 0;
+    try {
+      const pd = await ln.getPending();
+      pending = pd.notifications.filter((n) => n.id >= ID_DAILY && n.id <= ID_ASPECT_TO).length;
+    } catch { /* нет API */ }
+    return { display: p.display, exact, pending };
   } catch { return null; }
 }
 

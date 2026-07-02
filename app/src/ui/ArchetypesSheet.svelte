@@ -132,10 +132,11 @@
   .chev { color: var(--ink-faint); flex: none; transition: transform 0.2s ease; }
   .chev.up { transform: rotate(180deg); }
 
-  /* свёрнутый превью-хвостик: две строки (компактно, но видно суть) */
+  /* свёрнутый текст архетипа: ВЕСЬ виден (не резать до 2–3 строк — просьба
+     «текст должен влазить полностью», 2026-07-02) */
   .preview { display: block; width: 100%; text-align: left; background: transparent; border: none;
-    border-top: 1px solid var(--glass-brd); padding: 8px 14px; color: var(--ink-faint); font-size: 0.8rem;
-    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    border-top: 1px solid var(--glass-brd); padding: 8px 14px; color: var(--ink-faint);
+    font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; }
 
   .body { padding: 0 14px 12px; }
   .fld { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

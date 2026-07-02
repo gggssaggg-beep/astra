@@ -33,6 +33,7 @@ export interface OtaStatus {
   latest?: string;       // версия из манифеста, если удалось получить
   state: 'idle' | 'checking' | 'uptodate' | 'queued' | 'error';
   message: string;       // человекочитаемый итог
+  queuedId?: string;     // id бандла, поставленного в очередь (для «Обновить сейчас»)
 }
 
 let status: OtaStatus = {
@@ -120,24 +121,54 @@ export async function checkOtaUpdate(): Promise<OtaStatus> {
       return getOtaStatus();
     }
 
-    // вдруг нужная версия уже скачана (повторная проверка в этой же сессии,
-    // либо бандл пережил откат) — тогда не качаем заново, просто ставим в очередь
+    // Вдруг нужная версия уже скачана (повторная проверка в этой же сессии) —
+    // тогда не качаем заново. НО: бандл со статусом error (скачался и не
+    // запустился → откатился) переиспользовать НЕЛЬЗЯ — именно так обновление
+    // «залипало» навсегда («установлено 21, в манифесте 22, не берёт»).
+    // Битый — удаляем и качаем заново начисто.
     let id: string | null = null;
+    let hadBroken = false;
     try {
       const { bundles } = await CapacitorUpdater.list();
-      id = bundles.find((b) => b.version === m.version)?.id ?? null;
+      for (const b of bundles) {
+        if (b.version !== m.version || b.id === 'builtin') continue;
+        if (b.status === 'success' || b.status === 'pending') { id = b.id; }
+        else {
+          hadBroken = true;
+          try { await CapacitorUpdater.delete({ id: b.id }); } catch { /* занят — пропустим */ }
+        }
+      }
     } catch { /* нет list() — просто скачаем */ }
     if (!id) {
       const bundle = await CapacitorUpdater.download({ url: m.url, version: m.version });
       id = bundle.id;
     }
-    // применится на следующем запуске (без рывка посреди работы)
+    // ставим в очередь: применится при следующем запуске ЛИБО сразу по кнопке
+    // «Обновить сейчас» (applyQueuedNow) в настройках
     await CapacitorUpdater.next({ id });
-    status = { ...status, state: 'queued',
-      message: `Скачано ${m.version} — применится при следующем запуске приложения.` };
+    status = { ...status, state: 'queued', queuedId: id,
+      message: `Скачано ${m.version} — обновить сейчас или при следующем запуске.`
+        + (hadBroken ? ' (прошлая загрузка была битой — скачано заново)' : '') };
     return getOtaStatus();
   } catch (e) {
     status = { ...status, state: 'error', message: `Ошибка обновления: ${errText(e)}` };
+    return getOtaStatus();
+  }
+}
+
+/**
+ * Применить поставленный в очередь бандл НЕМЕДЛЕННО (reload webview). Кнопка
+ * «Обновить сейчас» в настройках: не ждать следующего запуска — перезапуск
+ * «убил из недавних» на Android не всегда реально убивает процесс, из-за чего
+ * `next()` мог не примениться и обновление казалось «не берётся».
+ * ВАЖНО: после reload() JS-контекст уничтожается — код дальше не выполнится.
+ */
+export async function applyQueuedNow(): Promise<OtaStatus> {
+  try {
+    await CapacitorUpdater.reload();
+    return getOtaStatus();   // сюда обычно уже не дойдём
+  } catch (e) {
+    status = { ...status, state: 'error', message: `Не удалось применить сейчас: ${errText(e)}` };
     return getOtaStatus();
   }
 }

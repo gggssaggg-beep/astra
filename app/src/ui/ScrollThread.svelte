@@ -34,7 +34,10 @@
 <div class="scroll-thread" style="z-index: {zIndex}" aria-hidden="true">
   <div class="track"></div>
   <div class="fill" style="transform: scaleY({progress})"></div>
-  <div class="node" style="top: {progress * 100}%"></div>
+  <!-- шарик едет на «носителе» высотой в весь трек: transform, как у заливки, —
+       одинаковый GPU-путь, поэтому линия и шарик движутся строго синхронно
+       (раньше шарик шёл через top — layout отставал на первой прокрутке) -->
+  <div class="carrier" style="transform: translateY({progress * 100}%)"><div class="node"></div></div>
 </div>
 
 <style>
@@ -51,10 +54,13 @@
     background: linear-gradient(to bottom, var(--neon-violet), var(--neon-cyan));
     transition: transform 0.08s linear;
   }
+  .carrier {
+    position: absolute; inset: 0;
+    transition: transform 0.08s linear;   /* та же кривая, что у .fill — без рассинхрона */
+  }
   .node {
-    position: absolute; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+    position: absolute; top: 0; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
     border-radius: 50%; background: var(--neon-cyan);
     box-shadow: 0 0 6px 2px color-mix(in srgb, var(--neon-cyan) 65%, transparent);
-    transition: top 0.08s linear;
   }
 </style>

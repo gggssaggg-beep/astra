@@ -75,6 +75,11 @@
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; margin: 0; }
 
+/* Android WebView рисует серый ПРЯМОУГОЛЬНИК подсветки на каждый тап (жалоба
+   «выделяет прямоугольником» в колесе и на карточках) — гасим системную
+   подсветку: выделение делаем сами (линия/глиф/обводка GlowCard). */
+* { -webkit-tap-highlight-color: transparent; }
+
 /* масштаб шрифта (настройка «Крупный шрифт»): почти все размеры в rem, т.е.
    относительно корня — меняя font-size у html, увеличиваем весь текст разом. */
 html { font-size: 16px; }
@@ -153,7 +158,7 @@ section.sheet::before {
 }
 .reveal.revealed { opacity: 1; transform: translateY(0); }
 
-button { font: inherit; color: inherit; cursor: pointer; }
+button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulation; }
 
 /* «Неявный» ввод текста (просьба владелицы): никакой рамки-коробки — просто
    текст, в котором мигает курсор. Акцентный курсор + едва заметная точечная

@@ -14,9 +14,15 @@
   import { aspectSignature } from '../lib/signature.ts';
   import { SIGN_PATHS } from './signIcons.ts';
 
-  let { positions, aspects, signStyle = 'gold', selectedSignature = null, oninfo }:
+  let { positions, aspects, signStyle = 'gold', selectedSignature = null, selectedInfo = null, oninfo }:
     { positions: BodyPosition[]; aspects: AspectRecord[]; signStyle?: SignStyle;
-      selectedSignature?: string | null; oninfo?: (info: WheelInfo) => void } = $props();
+      selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
+      oninfo?: (info: WheelInfo) => void } = $props();
+
+  // выделение тапнутого элемента = подсветка САМОГО элемента (глиф планеты /
+  // символ знака / линия аспекта). НИКОГДА не рамка (жёсткое правило владелицы).
+  const selSignIdx = $derived(selectedInfo?.kind === 'sign' ? selectedInfo.index : -1);
+  const selPlanet = $derived(selectedInfo?.kind === 'planet' ? selectedInfo.name : null);
 
   // цвета стихий: огонь, земля, воздух, вода (по индексу знака % 4)
   const ELEM = ['#ff8a5b', '#7fd99a', '#7fd0ff', '#b39bff'];
@@ -109,21 +115,33 @@
 
   {#each signs as s}
     <line x1={s.ix} y1={s.iy} x2={s.ex} y2={s.ey} class="spoke" />
-    <svg class="signicon" class:glow x={s.gx - ICON / 2} y={s.gy - ICON / 2} width={ICON} height={ICON}
-      viewBox="0 0 24 24" fill="none" style="stroke:{signStroke(s.i)}" stroke-width="2"
+    <!-- выбранный тапом знак подсвечивается САМИМ символом (циан + глоу),
+         никакой прямоугольной рамки (жёсткое правило владелицы) -->
+    <svg class="signicon" class:glow class:sel={s.i === selSignIdx}
+      x={s.gx - ICON / 2} y={s.gy - ICON / 2} width={ICON} height={ICON}
+      viewBox="0 0 24 24" fill="none"
+      style="stroke:{s.i === selSignIdx ? 'var(--neon-cyan)' : signStroke(s.i)}"
+      stroke-width={s.i === selSignIdx ? 2.6 : 2}
       stroke-linecap="round" stroke-linejoin="round">
       {#each SIGN_PATHS[s.i] as d}<path {d} />{/each}
     </svg>
+    {#if oninfo}
+      <!-- svelte-ignore a11y_click_events_have_key_events -->
+      <circle class="hit" cx={s.gx} cy={s.gy} r="15"
+        onclick={() => oninfo({ kind: 'sign', index: s.i })}
+        role="button" tabindex="-1" aria-label="Знак {s.i}" />
+    {/if}
   {/each}
 
   {#each lines as l}
-    <!-- выбранный аспект подсвечивается САМОЙ линией (не рамкой карточки):
-         толще, ярче, с сильным глоу; остальные притухают -->
+    <!-- выбранный аспект подсвечивается САМОЙ линией: толще, ярче, с глоу;
+         остальные притухают. Глоу-фильтр ТОЛЬКО у выбранной линии: пачка
+         drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
       stroke-width={l.sel ? 2.8 : 1.2}
       opacity={l.sel ? 1 : selectedSignature ? 0.18 : l.dim ? 0.35 : 0.8}
       class:selline={l.sel}
-      style="filter: drop-shadow(0 0 {l.sel ? 5 : l.dim ? 2 : 3}px {l.color}) drop-shadow(0 0 {l.sel ? 12 : l.dim ? 4 : 7}px {l.color})" />
+      style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
@@ -136,7 +154,8 @@
     {@const pos = pt(p.lon, r)}
     {@const tick = pt(p.lon, rZodiac)}
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />
-    <text x={pos.x} y={pos.y} class="planet glyph" class:retro={p.retro}>{p.glyph}</text>
+    <text x={pos.x} y={pos.y} class="planet glyph" class:retro={p.retro}
+      class:sel={p.name === selPlanet}>{p.glyph}</text>
     {#if p.retro}<text x={pos.x + 9} y={pos.y - 8} class="rxmark">℞</text>{/if}
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -158,15 +177,14 @@
   .spoke { stroke: var(--glass-brd); stroke-width: 0.6; opacity: 0.5; }
   .signicon { opacity: 0.95; overflow: visible; }
   .signicon.glow { filter: url(#sgGlow); }
+  .signicon.sel { opacity: 1; filter: drop-shadow(0 0 5px var(--neon-cyan)); }
   .plink { stroke: var(--glass-brd); stroke-width: 0.5; opacity: 0.5; }
   .planet {
     fill: var(--ink); font-size: 15px; text-anchor: middle; dominant-baseline: central;
-    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--neon-cyan) 35%, transparent));
   }
-  .planet.retro {
-    fill: var(--gold);
-    filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) 55%, transparent));
-  }
+  .planet.retro { fill: var(--gold); }
+  /* тапнутая планета светится САМА (не рамка) */
+  .planet.sel { fill: var(--neon-cyan); filter: drop-shadow(0 0 5px var(--neon-cyan)); }
   /* явный значок ретроградности у глифа — «℞ не видно» (жалоба 2026-07-02) */
   .rxmark { fill: var(--gold); font-size: 8px; text-anchor: middle; font-weight: 600; }
   /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх */

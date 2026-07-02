@@ -1,17 +1,38 @@
+<script lang="ts" module>
+  import type { DayEvent } from '../engine/index.ts';
+  import { aspectsOn, eventsOn } from '../engine/index.ts';
+
+  // Кэш тяжёлых расчётов дня — В МОДУЛЕ: сам компонент пересоздаётся на каждое
+  // листание ({#key date}), а кэш должен жить между ними. Аспекты/события
+  // считаются WASM-бисекциями и при каждом свайпе блокировали анимацию
+  // («тормозит»); движок детерминирован — пересчитывать нечего.
+  const CACHE_MAX = 48;
+  function cached<T>(map: Map<string, T>, key: string, make: () => T): T {
+    const hit = map.get(key);
+    if (hit !== undefined) return hit;
+    const v = make();
+    map.set(key, v);
+    if (map.size > CACHE_MAX) map.delete(map.keys().next().value!); // FIFO-обрезка
+    return v;
+  }
+  const aspCache = new Map<string, ReturnType<typeof aspectsOn>>();
+  const evCache = new Map<string, DayEvent[]>();
+</script>
+
 <script lang="ts">
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
-  import { aspectsOn, eventsOn } from '../engine/index.ts';
   import { fmtPos, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
+  import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
-  let { engine, date, orbOf, tz, signStyle = 'gold', selectedSignature = null, onAspect, oninfo }:
+  let { engine, date, orbOf, tz, signStyle = 'gold', selectedSignature = null, selectedInfo = null, onAspect, oninfo }:
     { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string; signStyle?: SignStyle;
-      selectedSignature?: string | null;
+      selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void } = $props();
 
   // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса. Снимок положений
@@ -59,9 +80,14 @@
   const planets = $derived(
     ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p)
   );
-  const day = $derived(aspectsOn(engine, dayStart, orbOf, true));
+  // ключ кэша аспектов включает орбисы (настройка меняет результат); события
+  // от орбисов не зависят — ключ только день+режим движка
+  const orbKey = $derived(['Луна', ...ORDER].map((n) => orbOf(n)).join(','));
+  const day = $derived(cached(aspCache, `${engine.mode}|${dayStart.getTime()}|${orbKey}`,
+    () => aspectsOn(engine, dayStart, orbOf, true)));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
-  const events = $derived(eventsOn(engine, dayStart));
+  const events = $derived(cached(evCache, `${engine.mode}|${dayStart.getTime()}`,
+    () => eventsOn(engine, dayStart)));
 
   const section = (title: string, list: AspectRecord[]) => ({ title, list });
 </script>
@@ -69,8 +95,12 @@
 <div class="day">
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
-    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {oninfo} />
+    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {oninfo} />
     <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)}`}</div>
+    <!-- легенда цветов линий/кромок — «невзначай», одной тихой строкой -->
+    <div class="legend">
+      <span class="lg harm">гармония</span><span class="lg tense">напряжение</span><span class="lg neutral">нейтрально</span>
+    </div>
   </div>
 
   {#if day.audit.length}
@@ -120,8 +150,12 @@
     {#if s.list.length}
       <h3 class="sec">{s.title}</h3>
       {#each s.list as rec (rec.p1 + rec.p2 + rec.aspect)}
-        <AspectCard {rec} {tz} onpick={onAspect}
-          selected={!!selectedSignature && selectedSignature === aspectSignature(rec.p1, rec.p2, rec.aspect)} />
+        <!-- тап: обводка обегает карточку → ПОТОМ плавно открывается трактовка
+             (единый паттерн GlowCard, просьба «сперва рамка, потом открытие») -->
+        <GlowCard radius={18} onactivate={() => onAspect?.(rec)}>
+          <AspectCard {rec} {tz}
+            selected={!!selectedSignature && selectedSignature === aspectSignature(rec.p1, rec.p2, rec.aspect)} />
+        </GlowCard>
       {/each}
     {/if}
   {/each}
@@ -136,6 +170,14 @@
   .day { padding: 6px 2px 40px; }
   .wheel-wrap { padding: 14px; margin: 8px 0; }
   .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+  /* тихая легенда цветов: чёрточка цвета линии + слово, не отвлекает */
+  .legend { display: flex; justify-content: center; gap: 14px; margin-top: 4px;
+    color: var(--ink-faint); font-size: 0.68rem; }
+  .lg::before { content: ''; display: inline-block; width: 14px; height: 2px;
+    border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .lg.harm::before { background: var(--gold); }
+  .lg.tense::before { background: var(--rose); }
+  .lg.neutral::before { background: var(--silver); }
   .audit { padding: 10px 12px; margin: 8px 0; color: var(--rose); font-size: 0.85rem; }
   .greet { text-align: center; color: var(--ink-faint); font-size: 0.82rem; margin: 10px 0 2px; letter-spacing: 0.4px; }
   .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }

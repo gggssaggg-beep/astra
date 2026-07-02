@@ -4,9 +4,9 @@
   import GlowCard from './GlowCard.svelte';
   import ScrollThread from './ScrollThread.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onTracked, onCommunity }:
+  let { onclose, onInterpretations, onArchetypes, onTracked, onChat, onCommunity }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
-      onTracked: () => void; onCommunity: () => void } = $props();
+      onTracked: () => void; onChat: () => void; onCommunity: () => void } = $props();
   let sheetEl = $state<HTMLElement | null>(null);
 </script>
 
@@ -35,6 +35,14 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">★</span>
       <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <!-- чат переехал сюда из нижнего меню (его место там заняло Сообщество) -->
+  <GlowCard radius={14} onactivate={onChat}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">💬</span>
+      <div class="txt"><b>Чат с Claude</b><small>трактовки по архетипам, на своём ключе</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

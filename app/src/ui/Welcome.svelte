@@ -25,7 +25,7 @@
   .wrap { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center;
     padding: 16px; background: #050714e8; overflow-y: auto; }
   .card { width: min(560px, 100%); max-height: 92vh; overflow-y: auto;
-    padding: 22px 20px calc(20px + env(safe-area-inset-bottom)); border-radius: 22px; }
+    padding: 22px 20px calc(20px + var(--safe-bottom)); border-radius: 22px; }
   .logo { text-align: center; font-size: 1.6rem; letter-spacing: 6px; color: var(--silver); opacity: 0.85; }
   h1 { text-align: center; font-size: 1.5rem; margin: 10px 0 6px; }
   .intro { text-align: center; color: var(--ink-dim); margin: 0 0 16px; }

@@ -123,7 +123,7 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 22; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; display: flex; flex-direction: column; z-index: 23; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
+    max-height: 90vh; display: flex; flex-direction: column; z-index: 23; padding: 16px 16px calc(16px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.25s ease; }
   @keyframes up { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
   header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
   h2 { margin: 0; font-size: 1.05rem; }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { Capacitor, registerPlugin } from '@capacitor/core';
   import type { Engine, AspectRecord } from './engine/index.ts';
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
@@ -134,13 +135,21 @@
   function reschedule() { if (engine) void syncNotifications(engine, db.settings.get(), db.settings.get().tz); }
   function onPanelChanged() { settings = { ...db.settings.get() }; reschedule(); }
 
-  // тема: ставим data-theme на корень; «авто» — по системной, со слежением
+  // тема: ставим data-theme на корень; «авто» — по системной, со слежением.
+  // Статус-бар Android: иконки часов должны читаться на НАШЕМ фоне (тема
+  // приложения может не совпадать с системной) — стиль шлём через встроенный
+  // SystemBars ('DARK' = светлые иконки). Старый APK без SystemBars — тихий no-op.
   $effect(() => {
     const apply = () => {
       const dark = settings.theme === 'cosmos' ? true
         : settings.theme === 'dawn' ? false
         : !window.matchMedia('(prefers-color-scheme: light)').matches;
       document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      if (Capacitor.isNativePlatform()) {
+        registerPlugin<{ setStyle(o: { style: string }): Promise<void> }>('SystemBars')
+          .setStyle({ style: dark ? 'DARK' : 'LIGHT' })
+          .catch(() => { /* старый APK */ });
+      }
     };
     apply();
     if (settings.theme === 'auto') {
@@ -285,10 +294,10 @@
 <style>
   main {
     max-width: 560px; margin: 0 auto; min-height: 100%;
-    padding: calc(12px + env(safe-area-inset-top)) 12px calc(74px + env(safe-area-inset-bottom));
+    padding: calc(12px + var(--safe-top)) 12px calc(74px + var(--safe-bottom));
   }
   header {
-    position: sticky; top: calc(8px + env(safe-area-inset-top)); z-index: 5;
+    position: sticky; top: calc(8px + var(--safe-top)); z-index: 5;
     display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 6px;
   }
   .nav { background: transparent; border: none; font-size: 1.8rem; line-height: 1; width: 40px; height: 44px; border-radius: 12px; color: var(--ink-dim); }
@@ -302,7 +311,7 @@
   .tabbar {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
     width: min(560px, 100%); z-index: 10; display: flex; justify-content: space-around;
-    gap: 4px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border-radius: 18px 18px 0 0;
+    gap: 4px; padding: 6px 8px calc(6px + var(--safe-bottom)); border-radius: 18px 18px 0 0;
   }
   .tabbar button { flex: 1; background: transparent; border: none; color: var(--ink-dim);
     display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }

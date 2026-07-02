@@ -43,7 +43,7 @@
 <style>
   .scroll-thread {
     position: fixed; left: 5px; width: 2px; pointer-events: none;
-    top: calc(64px + env(safe-area-inset-top)); bottom: calc(84px + env(safe-area-inset-bottom));
+    top: calc(64px + var(--safe-top)); bottom: calc(84px + var(--safe-bottom));
   }
   .track {
     position: absolute; inset: 0; border-radius: 999px;

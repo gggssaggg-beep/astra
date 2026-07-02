@@ -90,6 +90,8 @@ jobs:
           git add apk/Astra.apk apk/bundle.zip apk/latest.json
           git commit -m "APK + OTA авто-сборка [skip ci]" || echo "без изменений"
           # пока собирали, в main могли запушить (текст/доки) — подтянуть и пушить.
+          # --autostash: npm install/cap sync оставляют незакоммиченный мусор в
+          # дереве CI, без него rebase отказывается («You have unstaged changes»).
           # Наш коммит трогает только apk/* и keystore → текстовые пуши ребейзятся чисто.
-          git pull --rebase origin main || { git rebase --abort; echo "конфликт rebase"; exit 1; }
+          git pull --rebase --autostash origin main
           git push

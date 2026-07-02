@@ -1,0 +1,42 @@
+# Supabase — шаг 0: что нужно сделать владелице (один раз, ~20 минут)
+
+Это подготовка к «Сообществу» (обсуждения аспектов, лайки, комменты) по плану
+`docs/SUPABASE_PLAN.md`. Дальше всё кодит Claude — от вас нужны только эти клики.
+
+## 1. Проект Supabase (~5 мин)
+
+1. Зайти на **supabase.com** → Sign in → войти через GitHub (аккаунт gggssaggg-beep).
+2. **New project**: организация — своя, имя проекта `astra`, пароль БД —
+   сгенерировать и СОХРАНИТЬ (пригодится редко, но терять нельзя), регион —
+   `Central EU (Frankfurt)` (ближайший). Тариф Free.
+3. Когда проект создастся: **Project Settings → API**. Скопировать и прислать мне
+   в чат два значения (они НЕ секретные, их можно в код):
+   - `Project URL` (вида `https://xxxx.supabase.co`)
+   - `anon public` ключ (длинная строка)
+
+## 2. Google-вход (~10 мин)
+
+1. Зайти на **console.cloud.google.com** (любой Google-аккаунт) →
+   создать проект `astra` (верхняя панель → New Project).
+2. Меню ☰ → **APIs & Services → OAuth consent screen**:
+   - тип **External**, имя приложения `Astra`, свой e-mail; остальное по умолчанию,
+     Save. Публиковать не обязательно (Testing хватит для своей тусовочки —
+     добавьте e-mail'ы подруг в Test users).
+3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**:
+   - тип **Web application**, имя `Astra Supabase`;
+   - в **Authorized redirect URIs** добавить строку из Supabase:
+     открыть в Supabase **Authentication → Sign In / Up → Google** — там написан
+     Callback URL (вида `https://xxxx.supabase.co/auth/v1/callback`) — вставить его.
+   - Create → показать **Client ID** и **Client secret**.
+4. Вернуться в Supabase **Authentication → Sign In / Up → Google**: включить
+   тумблер, вставить Client ID и Client secret, Save.
+
+## 3. Прислать мне
+
+- Project URL + anon key (из шага 1.3);
+- «Google включила» (из шага 2.4);
+- Ответы на 3 вопроса из конца `SUPABASE_PLAN.md` (чтение публично или только
+  для вошедших; ник из Google или свой; ок ли публичная веб-версия).
+
+После этого я делаю: SQL-схему, вход в приложении, блок «Обсуждения» в шторке
+аспекта, ленту сообщества, лайки/комменты, деплой веб-версии на GitHub Pages.

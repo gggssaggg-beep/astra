@@ -11,11 +11,12 @@
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
   import { aspectTone } from '../lib/format.ts';
+  import { aspectSignature } from '../lib/signature.ts';
   import { SIGN_PATHS } from './signIcons.ts';
 
-  let { positions, aspects, signStyle = 'gold', oninfo }:
+  let { positions, aspects, signStyle = 'gold', selectedSignature = null, oninfo }:
     { positions: BodyPosition[]; aspects: AspectRecord[]; signStyle?: SignStyle;
-      oninfo?: (info: WheelInfo) => void } = $props();
+      selectedSignature?: string | null; oninfo?: (info: WheelInfo) => void } = $props();
 
   // цвета стихий: огонь, земля, воздух, вода (по индексу знака % 4)
   const ELEM = ['#ff8a5b', '#7fd99a', '#7fd0ff', '#b39bff'];
@@ -62,7 +63,8 @@
         if (l1 == null || l2 == null) return null;
         const A = pt(l1, rAspect), B = pt(l2, rAspect);
         return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying,
-          aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol };
+          aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol,
+          sel: !!selectedSignature && aspectSignature(a.p1, a.p2, a.aspect) === selectedSignature };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
@@ -115,9 +117,13 @@
   {/each}
 
   {#each lines as l}
+    <!-- выбранный аспект подсвечивается САМОЙ линией (не рамкой карточки):
+         толще, ярче, с сильным глоу; остальные притухают -->
     <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
-      stroke-width="1.2" opacity={l.dim ? 0.35 : 0.8}
-      style="filter: drop-shadow(0 0 {l.dim ? 2 : 3}px {l.color}) drop-shadow(0 0 {l.dim ? 4 : 7}px {l.color})" />
+      stroke-width={l.sel ? 2.8 : 1.2}
+      opacity={l.sel ? 1 : selectedSignature ? 0.18 : l.dim ? 0.35 : 0.8}
+      class:selline={l.sel}
+      style="filter: drop-shadow(0 0 {l.sel ? 5 : l.dim ? 2 : 3}px {l.color}) drop-shadow(0 0 {l.sel ? 12 : l.dim ? 4 : 7}px {l.color})" />
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
@@ -165,4 +171,7 @@
   .rxmark { fill: var(--gold); font-size: 8px; text-anchor: middle; font-weight: 600; }
   /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх */
   .hit { fill: transparent; stroke: transparent; stroke-width: 14; pointer-events: all; cursor: pointer; }
+  /* выбранная линия мягко «дышит» — глаз сразу находит аспект на колесе */
+  .selline { animation: line-breathe 2.2s ease-in-out infinite; }
+  @keyframes line-breathe { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 </style>

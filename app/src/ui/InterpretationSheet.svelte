@@ -5,13 +5,15 @@
   import { db, uid, onChange } from '../lib/db.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { noteDateStr } from '../lib/journal.ts';
+  import { ASPECT_LORE } from '../lib/lore.ts';
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { tap, success } from '../lib/haptics.ts';
 
-  let { rec, engine, date, tz, onclose, ondiscuss, ongoto }:
+  let { rec, engine, date, tz, onclose, ondiscuss, ongoto, oncommunity }:
     { rec: AspectRecord; engine: Engine; date: Date; tz: string; onclose: () => void;
-      ondiscuss?: (r: AspectRecord) => void; ongoto?: (d: Date) => void } = $props();
+      ondiscuss?: (r: AspectRecord) => void; ongoto?: (d: Date) => void;
+      oncommunity?: (sig: string, title: string) => void } = $props();
 
   const sig = untrack(() => aspectSignature(rec.p1, rec.p2, rec.aspect));
 
@@ -44,6 +46,16 @@
 
   const arch = (o: string) => db.archetypes.get(o);
   const dmy = (s: string) => { const p = s.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; };
+
+  // --- Трактовка (краткая общая + СВОЯ, сохраняется в библиотеку по сигнатуре) ---
+  const lore = $derived(ASPECT_LORE[rec.aspect]);
+  let interpText = $state(db.interpretations.get(sig)?.text ?? '');
+  let interpSaved = $state(false);
+  function saveInterp() {
+    db.interpretations.put({ signature: sig, text: interpText.trim(), updatedAt: new Date().toISOString() });
+    interpSaved = true; success();
+    setTimeout(() => (interpSaved = false), 1600);
+  }
 
   // --- Поиск «когда ещё случался этот аспект» в диапазоне лет ---
   const curYear = untrack(() => date.getUTCFullYear());
@@ -90,9 +102,26 @@
 
   {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}°</div>{/if}
 
+  <div class="block">
+    <div class="lbl">Трактовка</div>
+    {#if lore}
+      <div class="lshort">{lore.symbol} {lore.short}</div>
+      <div class="ltext">{lore.text}</div>
+    {/if}
+    <textarea bind:value={interpText} rows="3"
+      placeholder="Своя трактовка этой пары — сохранится в Библиотеку → Трактовки…"
+      onchange={saveInterp}></textarea>
+    {#if interpSaved}<div class="hint oksave">✓ Сохранено в библиотеку трактовок</div>{/if}
+  </div>
+
   <button class="discuss" onclick={() => ondiscuss?.(rec)}>
     <span class="dg glyph">💬</span>
     <span>Обсудить аспект с Claude<small>по заложенным архетипам участников</small></span>
+  </button>
+
+  <button class="discuss ghost" onclick={() => oncommunity?.(sig, `${rec.p1} ${rec.aspect} ${rec.p2}`)}>
+    <span class="dg glyph">✧</span>
+    <span>Обсуждения сообщества<small>что говорят коллеги про этот аспект</small></span>
   </button>
 
   {#if arch(rec.p1) || arch(rec.p2)}
@@ -169,6 +198,9 @@
   @keyframes starpop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
   .okflash { background: var(--gold) !important; color: #201a08 !important; }
   .exact { color: var(--gold); font-size: 0.84rem; margin: 6px 0 2px; }
+  .lshort { font-weight: 600; margin-bottom: 4px; }
+  .ltext { font-size: 0.88rem; color: var(--ink-dim); margin-bottom: 10px; }
+  .oksave { color: var(--gold); margin-top: 6px; }
   .block { padding: 12px 0; border-top: 1px solid var(--glass-brd); }
   .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); margin-bottom: 8px; }
   textarea { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
@@ -179,6 +211,8 @@
   .discuss { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px;
     background: var(--accent); border: none; color: var(--on-accent); border-radius: 14px; padding: 12px 14px; text-align: left; }
   .discuss .dg { font-size: 1.3rem; }
+  .discuss.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); margin-top: 8px; }
+  .discuss.ghost small { color: var(--ink-faint); }
   .discuss span { font-weight: 600; }
   .discuss small { display: block; font-weight: 400; opacity: 0.8; font-size: 0.76rem; }
   .arch { margin-bottom: 8px; }

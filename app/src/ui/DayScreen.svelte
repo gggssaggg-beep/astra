@@ -69,7 +69,7 @@
 <div class="day">
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
-    <Wheel {positions} aspects={allAspects} {signStyle} {oninfo} />
+    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {oninfo} />
     <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)}`}</div>
   </div>
 

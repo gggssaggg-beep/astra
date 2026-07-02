@@ -34,6 +34,13 @@
 
   function toggleObj(o: string) { const s = new Set(sel); s.has(o) ? s.delete(o) : s.add(o); sel = s; }
   function toggleCmp(id: string) { const c = new Set(cmp); c.has(id) ? c.delete(id) : c.add(id); cmp = c; }
+  // обучалка журнала (просьба владелицы): видна до «Понятно», флаг в настройках
+  let seenHelp = $state(!!db.settings.get().seenJournalHelp);
+  function dismissHelp() {
+    db.settings.set({ ...db.settings.get(), seenJournalHelp: true });
+    seenHelp = true; tick();
+  }
+
   let savedOk = $state(false);           // «✓ Сохранено» на кнопке — фидбек, что запись легла
   function save() {
     const t = text.trim(); if (!t) return;
@@ -66,11 +73,27 @@
 <section class="sheet glass" aria-label="Журнал" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
   <header><h2>Бортовой журнал</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
+  {#if !seenHelp}
+    <div class="help glass">
+      <b>Как вести журнал ✧</b>
+      <ul>
+        <li>Пиши наблюдение дня и отмечай чипами планеты-участницы — потом фильтр «по планете» найдёт всё.</li>
+        <li>Кнопка <b>⇄</b> на записи собирает 2+ заметки в блок «Сравнение».</li>
+        <li>Разговоры с Claude по аспектам сохраняются сюда сами — с тегами планет.</li>
+        <li>Заметку можно писать и из шторки аспекта — она привяжется к нему («Похожие прошлые»).</li>
+      </ul>
+      <button class="btn" onclick={dismissHelp}>Понятно ✓</button>
+    </div>
+  {/if}
+
   <div class="add">
     <textarea bind:value={text} rows="2" placeholder="Наблюдение за {dmy(noteDateStr(date))}…"></textarea>
     <div class="chips">
       {#each OBJ as o}
-        <button class="chip glyph" class:on={sel.has(o)} onclick={() => toggleObj(o)}>{o}</button>
+        <!-- выделение планеты — неоновый периметр (единый GlowCard), просьба владелицы -->
+        <GlowCard radius={999} selected={sel.has(o)}>
+          <button class="chip glyph" class:on={sel.has(o)} onclick={() => toggleObj(o)}>{o}</button>
+        </GlowCard>
       {/each}
     </div>
     <div class="addrow">
@@ -162,6 +185,10 @@
   .empty { text-align: center; color: var(--ink-dim); padding: 20px 0; line-height: 1.6; }
   .empty2 { color: var(--ink-faint); font-size: 0.84rem; }
   .okflash { background: var(--gold) !important; }
+  .help { padding: 12px 14px; margin-bottom: 12px; font-size: 0.88rem; color: var(--ink-dim); }
+  .help b { color: var(--ink); }
+  .help ul { margin: 8px 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .help .btn { padding: 7px 14px; font-size: 0.84rem; }
   .undo { display: flex; align-items: center; justify-content: space-between; gap: 10px;
     background: #ffffff12; border: 1px solid var(--glass-brd); border-radius: 12px;
     padding: 9px 12px; margin: 6px 0 10px; font-size: 0.88rem; color: var(--ink-dim);

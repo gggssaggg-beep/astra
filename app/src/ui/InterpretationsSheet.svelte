@@ -5,6 +5,7 @@
   import { parseSignature } from '../lib/signature.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
+  import GlowCard from './GlowCard.svelte';
   import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onopen }: { onclose: () => void; onopen: (r: AspectRecord) => void } = $props();
@@ -37,13 +38,16 @@
 
   {#each list as it (it.signature)}
     {@const p = parseSignature(it.signature)}
-    <button class="item reveal" use:reveal onclick={() => open(it.signature)}>
-      <span class="pair glyph">{PLANET_GLYPH[p.p1] ?? p.p1}<span class="a">{ASPECTS[p.aspect]?.symbol}</span>{PLANET_GLYPH[p.p2] ?? p.p2}</span>
-      <div class="body">
-        <span class="nm">{p.p1} {p.aspect} {p.p2}</span>
-        <span class="prev">{it.text}</span>
-      </div>
-    </button>
+    <!-- обводка обегает контур и лишь потом открывает (единый паттерн GlowCard) -->
+    <GlowCard radius={14} onactivate={() => open(it.signature)}>
+      <button class="item reveal" use:reveal>
+        <span class="pair glyph">{PLANET_GLYPH[p.p1] ?? p.p1}<span class="a">{ASPECTS[p.aspect]?.symbol}</span>{PLANET_GLYPH[p.p2] ?? p.p2}</span>
+        <div class="body">
+          <span class="nm">{p.p1} {p.aspect} {p.p2}</span>
+          <span class="prev">{it.text}</span>
+        </div>
+      </button>
+    </GlowCard>
   {/each}
 </section>
 

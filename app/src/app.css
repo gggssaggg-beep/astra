@@ -124,6 +124,9 @@ body::before {
   -webkit-backdrop-filter: blur(12px) saturate(120%);
 }
 
+/* скролл внутри шторки НЕ передаётся фоновой ленте (перемотка главного экрана) */
+section.sheet { overscroll-behavior: contain; }
+
 .glyph { font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "DejaVu Sans", sans-serif; }
 
 /* Акцентный дисплейный шрифт (Unbounded) — заголовки шторок и «геройский» текст.

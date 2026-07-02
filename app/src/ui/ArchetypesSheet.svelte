@@ -7,6 +7,7 @@
   import { PLANET_LORE } from '../lib/lore.ts';
   import { reveal } from '../lib/reveal.ts';
   import { success } from '../lib/haptics.ts';
+  import GlowCard from './GlowCard.svelte';
   import ScrollThread from './ScrollThread.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -73,6 +74,8 @@
 
   {#each items as it, i (it.object)}
     {@const opened = open === it.object}
+    <!-- раскрытый архетип подсвечен неоновым периметром (единый GlowCard) -->
+    <GlowCard radius={14} selected={opened}>
     <div class="row reveal" class:opened use:reveal>
       <button class="head" onclick={() => toggle(it.object)} aria-expanded={opened}>
         <span class="g glyph">{PLANET_GLYPH[it.object] ?? '•'}</span>
@@ -98,6 +101,7 @@
         <button class="preview" onclick={() => toggle(it.object)}>{it.text}</button>
       {/if}
     </div>
+    </GlowCard>
   {/each}
 </section>
 

@@ -155,6 +155,23 @@ section.sheet::before {
 
 button { font: inherit; color: inherit; cursor: pointer; }
 
+/* «Неявный» ввод текста (просьба владелицы): никакой рамки-коробки — просто
+   текст, в котором мигает курсор. Акцентный курсор + едва заметная точечная
+   линия снизу на фокусе, чтобы видно было, ГДЕ правишь. */
+.seamless {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 2px 0 !important;
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  caret-color: var(--accent);
+  outline: none;
+}
+.seamless::placeholder { color: var(--ink-faint); font-style: italic; }
+.seamless:focus { border-bottom: 1px dotted color-mix(in srgb, var(--accent) 55%, transparent) !important; }
+
 /* Отклик на палец: на телефоне :hover мёртв — «живость» даёт :active.
    Без transform (он конфликтует с reveal-анимацией) — только свет. */
 button:active { filter: brightness(1.25) saturate(1.1); }

@@ -7,6 +7,7 @@
   import { noteDateStr } from '../lib/journal.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
+  import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { tap, success } from '../lib/haptics.ts';
 
@@ -108,8 +109,9 @@
       <div class="lshort">{lore.symbol} {lore.short}</div>
       <div class="ltext">{lore.text}</div>
     {/if}
-    <textarea bind:value={interpText} rows="3"
-      placeholder="Своя трактовка этой пары — сохранится в Библиотеку → Трактовки…"
+    <!-- «неявный» ввод: без коробки, растёт под текст, курсор показывает правку -->
+    <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
+      placeholder="Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…"
       onchange={saveInterp}></textarea>
     {#if interpSaved}<div class="hint oksave">✓ Сохранено в библиотеку трактовок</div>{/if}
   </div>

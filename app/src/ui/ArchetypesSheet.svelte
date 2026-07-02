@@ -6,6 +6,7 @@
   import { loadDeityMyth } from '../lib/chat.ts';
   import { PLANET_LORE } from '../lib/lore.ts';
   import { reveal } from '../lib/reveal.ts';
+  import { autogrow } from '../lib/autogrow.ts';
   import { success } from '../lib/haptics.ts';
   import GlowCard from './GlowCard.svelte';
   import ScrollThread from './ScrollThread.svelte';
@@ -88,9 +89,11 @@
         <div class="body">
           <label class="fld">
             <span class="flbl">Божество</span>
-            <input class="deity" bind:value={it.deity} placeholder={HINT[it.object] ?? 'божество'} onchange={() => saveItem(i)} />
+            <input class="deity seamless" bind:value={it.deity} placeholder={HINT[it.object] ?? 'божество'} onchange={() => saveItem(i)} />
           </label>
-          <textarea bind:value={it.text} rows="5" placeholder="Архетип, миф, ключевые мотивы…" onchange={() => saveItem(i)}></textarea>
+          <!-- «неявный» ввод: без коробки, текст целиком, курсор показывает правку -->
+          <textarea class="seamless" use:autogrow={it.text} bind:value={it.text} rows="3"
+            placeholder="Архетип, миф, ключевые мотивы…" onchange={() => saveItem(i)}></textarea>
           <div class="rowbtns">
             <button class="myth" disabled={loadingObj === it.object} onclick={() => loadMyth(i)}>
               {loadingObj === it.object ? '…подгружаю…' : '✨ Подгрузить миф (Claude)'}
@@ -129,16 +132,16 @@
   .chev { color: var(--ink-faint); flex: none; transition: transform 0.2s ease; }
   .chev.up { transform: rotate(180deg); }
 
-  /* свёрнутый превью-хвостик: одна строка текста, чтобы видеть, что заполнено */
+  /* свёрнутый превью-хвостик: две строки (компактно, но видно суть) */
   .preview { display: block; width: 100%; text-align: left; background: transparent; border: none;
     border-top: 1px solid var(--glass-brd); padding: 8px 14px; color: var(--ink-faint); font-size: 0.8rem;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
   .body { padding: 0 14px 12px; }
   .fld { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .flbl { color: var(--ink-faint); font-size: 0.78rem; flex: none; }
-  .deity { flex: 1; min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 10px; padding: 6px 10px; font: inherit; }
-  textarea { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 12px; font: inherit; resize: vertical; }
+  .deity { flex: 1; min-width: 0; color: var(--ink); font: inherit; }
+  /* превью в свёрнутой строке больше не режем — весь текст виден */
   .rowbtns { display: flex; justify-content: flex-end; margin-top: 8px; }
   .myth { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 0.8rem; }
   .myth:disabled { opacity: 0.6; }

@@ -1,7 +1,9 @@
 /**
  * Чат трактовок (§3.6). В модель кладём УЖЕ посчитанные движком данные дня —
  * она их ТРАКТУЕТ, не пересчитывает (токен-экономия, §0). Модель — Claude
- * (claude-sonnet-4-6). В вебе зовём напрямую с заголовком direct-browser-access;
+ * (claude-sonnet-5 — вышла 2026-07-01, проверена владелицей на живом ключе;
+ * справочники со старым кэшем её ещё не знают — НЕ «исправлять» на 4-6). В вебе
+ * зовём напрямую с заголовком direct-browser-access;
  * на устройстве (Capacitor) лучше нативный HTTP (CapacitorHttp) — обойти CORS.
  */
 import type { Engine } from '../engine/index.ts';
@@ -64,7 +66,7 @@ export async function askClaude(key: string, system: string, messages: ChatMsg[]
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true',
       },
-      body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 2000, system, messages }),
+      body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 2000, system, messages }),
     });
   } catch (e) {
     if (abort.signal.aborted) throw new Error('Нет ответа от API за 90 секунд — проверьте сеть и попробуйте ещё раз.');

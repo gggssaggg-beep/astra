@@ -67,5 +67,6 @@
   .a { margin: 0 3px; opacity: 0.85; }
   .body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
   .nm { font-size: 0.82rem; color: var(--ink-dim); }
-  .prev { font-size: 0.86rem; color: var(--ink-faint); display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  /* весь текст трактовки виден целиком (просьба владелицы — без обрезания) */
+  .prev { font-size: 0.86rem; color: var(--ink-faint); white-space: pre-wrap; }
 </style>

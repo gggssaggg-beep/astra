@@ -35,14 +35,15 @@
   {/if}
 
   {#each items as t (t.id)}
-    <GlowCard selected radius={12}>
+    <!-- обводка обегает контур и лишь потом открывает (единый паттерн GlowCard) -->
+    <GlowCard radius={12} onactivate={() => open(t.p1, t.p2, t.aspect)}>
       <div class="item reveal" use:reveal>
-        <button class="open" onclick={() => open(t.p1, t.p2, t.aspect)}>
+        <button class="open">
           <span class="glyph pair">{PLANET_GLYPH[t.p1] ?? t.p1}<span class="a">{ASPECTS[t.aspect]?.symbol}</span>{PLANET_GLYPH[t.p2] ?? t.p2}</span>
           <span class="nm">{t.p1} {t.aspect} {t.p2}</span>
           {#if interpOf(t.signature)}<span class="prev">{interpOf(t.signature)}</span>{/if}
         </button>
-        <button class="mini" title="Открепить" onclick={() => unpin(t.id)}>★</button>
+        <button class="mini" title="Открепить" onclick={(e) => { e.stopPropagation(); unpin(t.id); }}>★</button>
       </div>
     </GlowCard>
   {/each}

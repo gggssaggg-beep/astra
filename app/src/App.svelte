@@ -17,6 +17,7 @@
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
+  import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
   import Starfield from './ui/Starfield.svelte';
@@ -36,7 +37,16 @@
   let showChat = $state(false);
   let showLibrary = $state(false);
   let showInterp = $state(false);
+  let showCommunity = $state<false | { signature?: string; title?: string }>(false);
   let selRec = $state<AspectRecord | null>(null);
+  // откуда открыт аспект: закрытие возвращает «на пункт выше», а не на главный
+  let selFrom = $state<'day' | 'interp' | 'tracked'>('day');
+  function closeAspect() {
+    selRec = null;
+    if (selFrom === 'interp') showInterp = true;
+    else if (selFrom === 'tracked') showTracked = true;
+    selFrom = 'day';
+  }
   let needReconnect = $state(false);
   let showWelcome = $state(false);
   let wheelInfo = $state<WheelInfo | null>(null);
@@ -201,20 +211,28 @@
   <LibrarySheet onclose={() => (showLibrary = false)}
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
-    onTracked={() => { showLibrary = false; showTracked = true; }} />
+    onTracked={() => { showLibrary = false; showTracked = true; }}
+    onCommunity={() => { showLibrary = false; showCommunity = {}; }} />
 {/if}
 
+<!-- закрытие разделов библиотеки возвращает В БИБЛИОТЕКУ (пункт выше), не на главный -->
 {#if showInterp}
-  <InterpretationsSheet onclose={() => (showInterp = false)}
-    onopen={(r) => { showInterp = false; selRec = r; }} />
+  <InterpretationsSheet onclose={() => { showInterp = false; showLibrary = true; }}
+    onopen={(r) => { showInterp = false; selRec = r; selFrom = 'interp'; }} />
 {/if}
 
 {#if showArch}
-  <ArchetypesSheet onclose={() => (showArch = false)} />
+  <ArchetypesSheet onclose={() => { showArch = false; showLibrary = true; }} />
 {/if}
 
 {#if showTracked}
-  <TrackedSheet onclose={() => (showTracked = false)} onopen={(r) => { showTracked = false; selRec = r; }} />
+  <TrackedSheet onclose={() => { showTracked = false; showLibrary = true; }}
+    onopen={(r) => { showTracked = false; selRec = r; selFrom = 'tracked'; }} />
+{/if}
+
+{#if showCommunity}
+  <CommunitySheet signature={showCommunity.signature} title={showCommunity.title}
+    onclose={() => { showCommunity = false; showLibrary = true; }} />
 {/if}
 
 {#if showCal}
@@ -228,8 +246,9 @@
 {/if}
 
 {#if selRec && engine}
-  <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} onclose={() => (selRec = null)}
-    ongoto={(d) => { date = d; selRec = null; }}
+  <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} onclose={closeAspect}
+    oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; showCommunity = { signature: sig, title }; }}
+    ongoto={(d) => { date = d; selRec = null; selFrom = 'day'; }}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
       + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,
       { objects: [r.p1, r.p2], aspectSignature: aspectSignature(r.p1, r.p2, r.aspect), title: `${r.p1} ${r.aspect} ${r.p2}` })} />

@@ -1,26 +1,35 @@
 <script lang="ts">
   /**
-   * Обводка выбранного блока (тема neon-stardust, п.6 DESIGN_BRIEF): когда
-   * блок выбран — рамка ОДИН РАЗ обводится градиентом фиолет→циан
-   * (stroke-dashoffset), затем обводка остаётся статично + мягкий glow.
-   * pathLength нормализует длину контура, чтобы dash-анимация не зависела
-   * от реального размера карточки.
+   * ЕДИНАЯ неоновая обводка по периметру (тема neon-stardust, п.6 DESIGN_BRIEF).
+   * Все выделения блоков в приложении — ТОЛЬКО через этот компонент, чтобы
+   * стиль правился одной итерацией (просьба владелицы 2026-07-02).
    *
-   * Выбор = `selected` (готовое состояние экрана, напр. «сравнение» в
-   * журнале) ИЛИ тап по самому блоку (`manual` — локальный тоггл). Тап
-   * работает всегда, даже если у блока нет своего onclick — событие просто
-   * всплывает до этого div, не мешая другим обработчикам внутри children.
+   * Режимы:
+   *  • `selected` — обводка горит, пока блок выбран/раскрыт (журнал-сравнение,
+   *    раскрытый архетип, чипы планет).
+   *  • `onactivate` — тап: обводка быстро обегает контур (~flashMs) и ТОЛЬКО
+   *    потом вызывается действие (открытие пункта библиотеки/трактовки) —
+   *    «сначала выделяется, потом открывается».
+   * pathLength нормализует длину контура — анимация не зависит от размера.
    */
   import type { Snippet } from 'svelte';
 
-  let { selected = false, radius = 16, children }:
-    { selected?: boolean; radius?: number; children: Snippet } = $props();
+  let { selected = false, radius = 16, flashMs = 240, onactivate, children }:
+    { selected?: boolean; radius?: number; flashMs?: number;
+      onactivate?: () => void; children: Snippet } = $props();
 
   const gid = `glowcard-${Math.random().toString(36).slice(2, 9)}`;
-  let manual = $state(false);
-  const active = $derived(selected || manual);
+  let flashing = $state(false);
+  const active = $derived(selected || flashing);
   let play = $state(false);
   let show = $state(false);
+  const dur = $derived(flashing ? flashMs : 560);
+
+  function activate() {
+    if (!onactivate || flashing) return;
+    flashing = true;
+    setTimeout(() => { flashing = false; onactivate?.(); }, flashMs + 40);
+  }
 
   $effect(() => {
     if (active) {
@@ -35,10 +44,10 @@
   });
 </script>
 
-<div class="glowcard" onclick={() => (manual = !manual)} role="presentation">
+<div class="glowcard" onclick={activate} role="presentation">
   {@render children()}
   {#if show}
-    <svg class="glow-overlay" class:play aria-hidden="true">
+    <svg class="glow-overlay" class:play aria-hidden="true" style="--glowdur: {dur}ms">
       <defs>
         <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0%" style="stop-color:var(--neon-violet)" />
@@ -58,10 +67,9 @@
     fill: none; stroke-width: 2.4px;
     width: calc(100% - 2.4px); height: calc(100% - 2.4px);
     stroke-dasharray: 100; stroke-dashoffset: 100;
-    /* один drop-shadow вместо двух: каждый — отдельный проход GPU-фильтра,
-       на телефоне двойной глоу заметно ел плавность анимации обводки */
+    /* один drop-shadow: двойной глоу ел плавность на телефоне */
     filter: drop-shadow(0 0 7px var(--neon-cyan));
-    transition: stroke-dashoffset 0.56s cubic-bezier(0.215, 0.61, 0.355, 1);
+    transition: stroke-dashoffset var(--glowdur, 560ms) cubic-bezier(0.215, 0.61, 0.355, 1);
   }
   .glow-overlay.play rect { stroke-dashoffset: 0; }
 </style>

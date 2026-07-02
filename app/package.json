@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
     "@capacitor/core": "^8.4.1",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/local-notifications": "^8.2.0",
@@ -22,6 +24,7 @@
     "@fontsource/jetbrains-mono": "^5.2.8",
     "@fontsource/space-grotesk": "^5.2.10",
     "@fontsource/unbounded": "^5.2.8",
+    "@supabase/supabase-js": "^2.110.0",
     "swisseph-wasm": "^0.0.5"
   },
   "devDependencies": {

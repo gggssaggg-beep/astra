@@ -1,10 +1,12 @@
 <script lang="ts">
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
+  import GlowCard from './GlowCard.svelte';
   import ScrollThread from './ScrollThread.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onTracked }:
-    { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void; onTracked: () => void } = $props();
+  let { onclose, onInterpretations, onArchetypes, onTracked, onCommunity }:
+    { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
+      onTracked: () => void; onCommunity: () => void } = $props();
   let sheetEl = $state<HTMLElement | null>(null);
 </script>
 
@@ -14,21 +16,35 @@
   <header><h2>Библиотека</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Трактовки, архетипы божеств и отслеживаемые аспекты — в одном месте.</div>
 
-  <button class="row reveal" use:reveal onclick={onInterpretations}>
-    <span class="ic glyph">📖</span>
-    <div class="txt"><b>Трактовки</b><small>свои тексты по парам и аспектам</small></div>
-    <span class="arr">→</span>
-  </button>
-  <button class="row reveal" use:reveal onclick={onArchetypes}>
-    <span class="ic glyph">🏛</span>
-    <div class="txt"><b>Архетипы божеств</b><small>миф и архетип на каждую планету</small></div>
-    <span class="arr">→</span>
-  </button>
-  <button class="row reveal" use:reveal onclick={onTracked}>
-    <span class="ic glyph">★</span>
-    <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
-    <span class="arr">→</span>
-  </button>
+  <!-- тап: обводка обегает контур → открытие (единый паттерн GlowCard) -->
+  <GlowCard radius={14} onactivate={onInterpretations}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">📖</span>
+      <div class="txt"><b>Трактовки</b><small>свои тексты по парам и аспектам</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onArchetypes}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🏛</span>
+      <div class="txt"><b>Архетипы божеств</b><small>миф и архетип на каждую планету</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onTracked}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">★</span>
+      <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onCommunity}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">✧</span>
+      <div class="txt"><b>Сообщество</b><small>обсуждения аспектов с коллегами</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
 </section>
 
 <style>

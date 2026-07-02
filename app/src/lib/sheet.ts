@@ -20,12 +20,17 @@ function notifySheets(): void {
   document.dispatchEvent(new CustomEvent('astra:sheets', { detail: locks }));
 }
 
+let prevHtmlOverflow = '';
 function lockScroll(): void {
   if (locks === 0) {
     prevBodyOverflow = document.body.style.overflow;
     prevBodyOverscroll = document.body.style.overscrollBehavior;
+    prevHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
     document.body.style.overscrollBehavior = 'none';
+    // без html-замка Android прокручивал ГЛАВНЫЙ экран под шторкой
+    // (жалоба «в аспектах видно перемотку главного экрана»)
+    document.documentElement.style.overflow = 'hidden';
   }
   locks++;
   notifySheets();
@@ -35,6 +40,7 @@ function unlockScroll(): void {
   if (locks === 0) {
     document.body.style.overflow = prevBodyOverflow;
     document.body.style.overscrollBehavior = prevBodyOverscroll;
+    document.documentElement.style.overflow = prevHtmlOverflow;
   }
   notifySheets();
 }
@@ -44,9 +50,14 @@ export interface SheetParams { onclose: () => void; }
 /** use:bottomSheet={{ onclose }} на корневом <section> шторки (он же скролл-контейнер). */
 export function bottomSheet(node: HTMLElement, params: SheetParams) {
   let onclose = params.onclose;
-  const CLOSE_PX = 130;     // дальше потянул — закрываем (было 90: закрывалось слишком легко)
-  const DECIDE_PX = 10;     // порог распознавания направления жеста
+  // Закрываем ТОЛЬКО при явном жесте: далеко утянул ИЛИ быстро смахнул.
+  // Небольшое смещение — плавный возврат на место (просьба владелицы).
+  const CLOSE_PX = 180;      // явное «далеко» (было 130 — закрывалось слишком легко)
+  const FLICK_PX = 70;       // минимум пути для «быстрого смаха»…
+  const FLICK_V = 0.65;      // …при скорости больше этой (px/мс)
+  const DECIDE_PX = 10;      // порог распознавания направления жеста
   let startY = 0, startX = 0, dy = 0;
+  let lastY = 0, lastT = 0, vel = 0;         // скорость жеста (для смаха)
   let dragging = false, decided = false, vertical = false;
   let scroller: HTMLElement | null = null;   // внутренний скролл-контейнер под пальцем
 
@@ -68,6 +79,7 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
     if (e.touches.length !== 1) return;
     startY = e.touches[0].clientY; startX = e.touches[0].clientX;
     dragging = true; decided = false; vertical = false; dy = 0;
+    lastY = startY; lastT = performance.now(); vel = 0;
     scroller = nearestScroller(e.target);
   };
   const onMove = (e: TouchEvent) => {
@@ -83,6 +95,10 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
     // иначе это обычный скролл содержимого, а не жест закрытия
     if (vertical && cy > 0 && (scroller ? scroller.scrollTop <= 0 : node.scrollTop <= 0)) {
       dy = cy;
+      const now = performance.now();
+      const dt = now - lastT;
+      if (dt > 0) vel = (e.touches[0].clientY - lastY) / dt;   // px/мс, вниз = +
+      lastY = e.touches[0].clientY; lastT = now;
       node.style.transition = 'none';
       node.style.transform = `translate(-50%, ${dy}px)`;
       e.preventDefault();     // фон/контент не скроллится во время закрытия
@@ -91,7 +107,8 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
   const onEnd = () => {
     if (!dragging) return;
     dragging = false;
-    if (dy > CLOSE_PX) {
+    const flick = dy > FLICK_PX && vel > FLICK_V;   // быстрый явный смах вниз
+    if (dy > CLOSE_PX || flick) {
       // мягкое закрытие: лист доезжает вниз от текущей позиции, а не обрывается
       tick();
       node.style.transition = 'transform 0.18s ease-in';

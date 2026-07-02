@@ -29,6 +29,7 @@ export interface Settings {
   notifyAspects: boolean;     // уведомления в момент точного аспекта
   largeFont: boolean;         // крупный шрифт (доступность)
   seenWelcome: boolean;       // приветствие первого запуска уже показано
+  seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
 }
 
 /** Запись бортового журнала = наблюдение (§3.5 + раунд 3). */

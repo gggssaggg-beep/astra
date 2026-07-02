@@ -4,10 +4,12 @@
   import type { JournalNote } from '../lib/models.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
+  import { fmtRelDay } from '../lib/format.ts';
+  import { success, tick } from '../lib/haptics.ts';
   import GlowCard from './GlowCard.svelte';
   import ScrollThread from './ScrollThread.svelte';
 
-  let { date, onclose }: { date: Date; onclose: () => void } = $props();
+  let { date, tz, onclose }: { date: Date; tz: string; onclose: () => void } = $props();
   let sheetEl = $state<HTMLElement | null>(null);
 
   const OBJ = ['Луна', 'Солнце', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
@@ -28,15 +30,35 @@
   const list = $derived(filterNotes(notes, date, period, planet));
   const cmpList = $derived(list.filter((n) => cmp.has(n.id)));
   const dmy = (s: string) => { const p = s.split('-'); return `${p[2]}.${p[1]}.${p[0]}`; };
+  const rel = (s: string) => fmtRelDay(s, tz);   // «сегодня/вчера/3 дн. назад»
 
   function toggleObj(o: string) { const s = new Set(sel); s.has(o) ? s.delete(o) : s.add(o); sel = s; }
   function toggleCmp(id: string) { const c = new Set(cmp); c.has(id) ? c.delete(id) : c.add(id); cmp = c; }
+  let savedOk = $state(false);           // «✓ Сохранено» на кнопке — фидбек, что запись легла
   function save() {
     const t = text.trim(); if (!t) return;
     db.notes.put({ id: uid(), createdAt: new Date().toISOString(), date: noteDateStr(date), text: t, objects: [...sel] });
     text = ''; sel = new Set(); refresh();
+    success();
+    savedOk = true;
+    setTimeout(() => (savedOk = false), 1600);
   }
-  function del(id: string) { db.notes.remove(id); const c = new Set(cmp); c.delete(id); cmp = c; refresh(); }
+
+  // удаление с «Вернуть»: промах пальцем больше не уносит наблюдение навсегда
+  let deleted = $state<JournalNote | null>(null);
+  let undoTimer: ReturnType<typeof setTimeout> | null = null;
+  function del(id: string) {
+    deleted = notes.find((n) => n.id === id) ?? null;
+    db.notes.remove(id);
+    const c = new Set(cmp); c.delete(id); cmp = c; refresh();
+    tick();
+    if (undoTimer) clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => (deleted = null), 6000);
+  }
+  function undo() {
+    if (!deleted) return;
+    db.notes.put(deleted); deleted = null; refresh(); tick();
+  }
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -53,7 +75,8 @@
     </div>
     <div class="addrow">
       <span class="hint">Отметь объекты — потом фильтр по планете найдёт запись.</span>
-      <button class="btn primary" onclick={save} disabled={!text.trim()}>Сохранить</button>
+      <button class="btn primary" class:okflash={savedOk} onclick={save} disabled={!text.trim() && !savedOk}>
+        {savedOk ? '✓ Сохранено' : 'Сохранить'}</button>
     </div>
   </div>
 
@@ -78,13 +101,18 @@
     </div>
   {/if}
 
+  {#if deleted}
+    <div class="undo">Запись удалена<button class="undobtn" onclick={undo}>Вернуть</button></div>
+  {/if}
+
   <div class="list">
-    {#if !list.length}<div class="empty">Записей нет</div>{/if}
+    {#if !list.length}<div class="empty">Здесь пока пусто ✧<br />
+      <span class="empty2">Первая запись появится после наблюдений — журнал подождёт.</span></div>{/if}
     {#each list as n (n.id)}
       <GlowCard selected={cmp.has(n.id)} radius={12}>
         <div class="note reveal" class:picked={cmp.has(n.id)} use:reveal>
           <div class="nhead">
-            <b>{dmy(n.date)}</b>
+            <b title={dmy(n.date)}>{rel(n.date)}</b>
             {#if n.objects.length}<span class="tags">{n.objects.join(' · ')}</span>{/if}
             <span class="spacer"></span>
             <button class="mini" class:on={cmp.has(n.id)} title="Для сравнения" onclick={() => toggleCmp(n.id)}>⇄</button>
@@ -131,5 +159,13 @@
   .mini { background: transparent; border: none; color: var(--ink-faint); font-size: 0.95rem; padding: 2px 4px; border-radius: 6px; }
   .mini.on, .mini:hover { color: var(--ink); background: #ffffff14; }
   .ntext { font-size: 0.92rem; white-space: pre-wrap; }
-  .empty { text-align: center; color: var(--ink-faint); padding: 20px 0; }
+  .empty { text-align: center; color: var(--ink-dim); padding: 20px 0; line-height: 1.6; }
+  .empty2 { color: var(--ink-faint); font-size: 0.84rem; }
+  .okflash { background: var(--gold) !important; }
+  .undo { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: #ffffff12; border: 1px solid var(--glass-brd); border-radius: 12px;
+    padding: 9px 12px; margin: 6px 0 10px; font-size: 0.88rem; color: var(--ink-dim);
+    animation: undo-in 0.2s ease; }
+  .undobtn { background: transparent; border: none; color: var(--accent); font-weight: 600; }
+  @keyframes undo-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 </style>

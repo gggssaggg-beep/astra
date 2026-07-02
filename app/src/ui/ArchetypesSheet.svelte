@@ -6,6 +6,7 @@
   import { loadDeityMyth } from '../lib/chat.ts';
   import { PLANET_LORE } from '../lib/lore.ts';
   import { reveal } from '../lib/reveal.ts';
+  import { success } from '../lib/haptics.ts';
   import ScrollThread from './ScrollThread.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -54,6 +55,7 @@
       items[i].text = text;
       if (!items[i].deity) items[i].deity = HINT[it.object];
       saveItem(i);
+      success();     // миф подгружен и сохранён
     } catch (e) {
       loadErr = e instanceof Error ? e.message : String(e);
     } finally {

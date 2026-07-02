@@ -3,7 +3,7 @@
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
-  import { testNotify } from '../lib/notifications.ts';
+  import { testNotify, notifyDiagnostics, requestExactAlarms, type NotifyDiag } from '../lib/notifications.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { getOtaStatus, checkOtaUpdate } from '../lib/ota.ts';
@@ -40,9 +40,21 @@
   })();
 
   let notifyMsg = $state<string | null>(null);
+  let notifyBusy = $state(false);
   async function checkNotify() {
-    notifyMsg = await testNotify('Astra', 'Тест уведомления — на телефоне так придёт сводка дня.');
+    if (notifyBusy) return;
+    notifyBusy = true;
+    try { notifyMsg = await testNotify('Astra', 'Тест уведомления — на телефоне так придёт сводка дня.'); }
+    finally { notifyBusy = false; }
+    void loadDiag();      // после запроса разрешения статус мог поменяться
   }
+
+  // диагностика «почему не приходят»: разрешение + точные будильники (Android 12+)
+  let diag = $state<NotifyDiag | null>(null);
+  async function loadDiag() { diag = await notifyDiagnostics(); }
+  void loadDiag();
+  const RU_PERM: Record<string, string> = { granted: 'да ✓', denied: 'НЕТ ✗', prompt: 'ещё не спрашивали' };
+  async function fixExact() { await requestExactAlarms(); void loadDiag(); }
 
   let status = $state(dataFile.status());
   let busy = $state(false);
@@ -103,7 +115,7 @@
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Данные и настройки" use:bottomSheet={{ onclose }}>
   <header>
-    <h2>Данные</h2>
+    <h2>Настройки</h2>
     <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
   </header>
 
@@ -160,11 +172,25 @@
       В момент точного аспекта (планеты)
     </label>
     <div class="row" style="margin-top:10px">
-      <button class="btn" onclick={checkNotify}>Проверить уведомление</button>
+      <button class="btn" disabled={notifyBusy} onclick={checkNotify}>
+        {notifyBusy ? 'Отправляю…' : 'Тест уведомления'}</button>
     </div>
     {#if notifyMsg}<div class="msg">{notifyMsg}</div>{/if}
-    <div class="hint small">Реальные уведомления (ежедневно и в момент аспекта) сработают
-      в приложении на телефоне; здесь — проверка.</div>
+    {#if diag}
+      <div class="hint small" style="margin-top:8px">
+        Разрешение на уведомления: <b>{RU_PERM[diag.display] ?? diag.display}</b>
+        {#if diag.exact} · точные будильники: <b>{RU_PERM[diag.exact] ?? diag.exact}</b>{/if}
+      </div>
+      {#if diag.exact && diag.exact !== 'granted'}
+        <div class="row" style="margin-top:6px">
+          <button class="btn" onclick={fixExact}>Разрешить точные будильники…</button>
+        </div>
+        <div class="hint small">Без этого Android присылает уведомления с опозданием
+          или теряет их. Откроются системные настройки — включите для Astra.</div>
+      {/if}
+    {/if}
+    <div class="hint small">На Xiaomi/MIUI ещё нужно: Автозапуск ВКЛ и Батарея →
+      «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
   </div>
 
   <div class="group">Орбис</div>
@@ -240,7 +266,8 @@
       <button class="btn primary" disabled={otaBusy} onclick={checkOta}>
         {otaBusy ? 'Проверяю…' : 'Проверить обновление'}</button>
     </div>
-    {#if ota.state !== 'idle'}
+    {#if ota.state !== 'idle' && ota.state !== 'checking'}
+      <!-- во время проверки статус НЕ дублируем: «Проверяю…» уже на кнопке -->
       <div class="msg" class:err={ota.state === 'error'}>{ota.message}</div>
     {/if}
     <div class="hint small" style="margin-top:6px">

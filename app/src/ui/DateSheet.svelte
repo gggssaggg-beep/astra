@@ -2,6 +2,15 @@
   import { untrack } from 'svelte';
   import { parseDateInput } from '../lib/dateparse.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { db } from '../lib/db.ts';
+
+  // дни с записями журнала — точка под числом («где жила практика»);
+  // снимок на открытие шторки достаточен (.slice — правило Svelte 5)
+  const noteDays = new Set(db.notes.all().slice().map((n) => n.date));
+  const dayKey = (ms: number): string => {
+    const d = new Date(ms);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+  };
 
   let { date, today, onpick, onclose }:
     { date: Date; today?: Date; onpick: (d: Date) => void; onclose: () => void } = $props();
@@ -65,6 +74,7 @@
   <div class="days">
     {#each grid as c}
       <button class="day" class:dim={!c.inMonth} class:sel={c.ms === selKey} class:today={c.ms === todayMs}
+        class:noted={noteDays.has(dayKey(c.ms))}
         onclick={() => onpick(new Date(c.ms))}>{c.day}</button>
     {/each}
   </div>
@@ -91,7 +101,11 @@
   .mlabel { font-weight: 600; }
   .wd { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-bottom: 4px; }
   .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
-  .day { aspect-ratio: 1; background: transparent; border: 1px solid transparent; color: var(--ink); border-radius: 10px; font-size: 0.9rem; }
+  .day { aspect-ratio: 1; background: transparent; border: 1px solid transparent; color: var(--ink); border-radius: 10px; font-size: 0.9rem; position: relative; }
+  /* точка = в этот день есть записи журнала */
+  .day.noted::after { content: ""; position: absolute; left: 50%; bottom: 4px; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
+  .day.sel.noted::after { background: var(--on-accent); }
   .day:hover { background: #ffffff14; }
   .day.dim { color: var(--ink-faint); opacity: 0.6; }
   .day.today { border-color: var(--glass-brd); }

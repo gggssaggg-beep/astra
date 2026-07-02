@@ -131,6 +131,7 @@
     {@const tick = pt(p.lon, rZodiac)}
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />
     <text x={pos.x} y={pos.y} class="planet glyph" class:retro={p.retro}>{p.glyph}</text>
+    {#if p.retro}<text x={pos.x + 9} y={pos.y - 8} class="rxmark">℞</text>{/if}
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events -->
       <circle class="hit" cx={pos.x} cy={pos.y} r="14"
@@ -160,6 +161,8 @@
     fill: var(--gold);
     filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gold) 55%, transparent));
   }
+  /* явный значок ретроградности у глифа — «℞ не видно» (жалоба 2026-07-02) */
+  .rxmark { fill: var(--gold); font-size: 8px; text-anchor: middle; font-weight: 600; }
   /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх */
   .hit { fill: transparent; stroke: transparent; stroke-width: 14; pointer-events: all; cursor: pointer; }
 </style>

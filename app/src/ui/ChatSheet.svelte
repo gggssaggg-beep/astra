@@ -106,7 +106,7 @@
       {#each messages as m}
         <div class="m {m.role}">{m.content}</div>
       {/each}
-      {#if busy}<div class="m assistant busy">…думает…</div>{/if}
+      {#if busy}<div class="m assistant busy">✦ читает небо<span class="dots"><i>.</i><i>.</i><i>.</i></span></div>{/if}
       {#if err}<div class="m err">⚠ {err}</div>{/if}
     </div>
     {#if saved}
@@ -143,7 +143,13 @@
   .m { padding: 9px 12px; border-radius: 12px; font-size: 0.92rem; white-space: pre-wrap; max-width: 92%; }
   .m.user { align-self: flex-end; background: var(--accent); color: var(--on-accent); }
   .m.assistant { align-self: flex-start; background: #ffffff12; border: 1px solid var(--glass-brd); }
-  .m.busy { color: var(--ink-faint); }
+  .m.busy { color: var(--ink-faint); animation: busy-pulse 2.4s ease-in-out infinite; }
+  @keyframes busy-pulse { 0%, 100% { opacity: 0.65; } 50% { opacity: 1; } }
+  /* поочерёдно мерцающие точки — «живое» ожидание вместо застывшего текста */
+  .dots i { font-style: normal; animation: dot-blink 1.4s infinite; }
+  .dots i:nth-child(2) { animation-delay: 0.25s; }
+  .dots i:nth-child(3) { animation-delay: 0.5s; }
+  @keyframes dot-blink { 0%, 60%, 100% { opacity: 0.2; } 30% { opacity: 1; } }
   .m.err { align-self: stretch; color: var(--rose); background: transparent; }
   .autosave { color: var(--gold); font-size: 0.78rem; margin: 0 0 8px; text-align: center; opacity: 0.85; }
 </style>

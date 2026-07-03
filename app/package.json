@@ -26,6 +26,7 @@
     "@fontsource/space-grotesk": "^5.2.10",
     "@fontsource/unbounded": "^5.2.8",
     "@supabase/supabase-js": "^2.110.0",
+    "capacitor-native-settings": "^8.1.0",
     "swisseph-wasm": "^0.0.5"
   },
   "devDependencies": {

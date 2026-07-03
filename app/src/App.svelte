@@ -24,7 +24,7 @@
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
-  import { syncNotifications, requestNotifyOnFirstRun } from './lib/notifications.ts';
+  import { syncNotifications, requestNotifyOnFirstRun, requestNotifyIfNeverAsked } from './lib/notifications.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
   let settings = $state(db.settings.get());
@@ -120,6 +120,10 @@
 
     try { engine = await getEngine('swieph'); reschedule(); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
+    // подстраховка: если система ещё ни разу не спрашивала разрешение на
+    // уведомления — спросить при старте (welcome могли пропустить: бэкап/OTA).
+    // При первом запуске не дублируем: диалог позовёт dismissWelcome.
+    if (!showWelcome) void requestNotifyIfNeverAsked();
     // подхватить файл данных с диска (если доступ уже разрешён — тихо; только веб)
     try {
       const ok = await dataFile.reconnectSilently();

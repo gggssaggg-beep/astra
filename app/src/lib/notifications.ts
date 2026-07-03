@@ -18,7 +18,8 @@ const NATIVE = Capacitor.isNativePlatform();
 const ID_DAILY = 1000;          // повторяющаяся сводка
 const ID_ASPECT_FROM = 1001;    // одноразовые моменты аспектов
 const ID_ASPECT_TO = 1099;      // наш управляемый диапазон 1000..1099
-const ID_TEST = 9001;
+const ID_TEST = 9001;           // тест: мгновенное (мимо будильников)
+const ID_TEST_DELAYED = 9002;   // тест: отложенное (через AlarmManager)
 
 // Каналы уведомлений (Android 8+): без явного канала нет ни звука, ни всплытия.
 // daily — HIGH (звук + всплывашка), aspect — MAX (важный момент точного аспекта).
@@ -85,6 +86,20 @@ export async function requestNotifyOnFirstRun(): Promise<void> {
   try { await requestNotify(); } catch { /* мост молчит — не мешаем старту */ }
 }
 
+/** Подстраховка на КАЖДЫЙ старт: если система ещё ни разу не спрашивала
+ *  (state 'prompt' — welcome могли пропустить: восстановление из бэкапа,
+ *  старый бандл), зовём системный диалог. После отказа state уже не 'prompt' —
+ *  не пристаём, дальше только кнопками в настройках. */
+export async function requestNotifyIfNeverAsked(): Promise<void> {
+  if (!NATIVE) return;
+  try {
+    const ln = await LN();
+    const cur = await withTimeout(ln.checkPermissions(), 6000, 'Проверка разрешения');
+    if (cur.display === 'prompt' || cur.display === 'prompt-with-rationale')
+      await withTimeout(ln.requestPermissions(), 30000, 'Запрос разрешения');
+  } catch { /* мост молчит / нет плагина — не мешаем старту */ }
+}
+
 /** Хаптик — Capacitor WebView понимает navigator.vibrate (Android). */
 export function buzz(ms = 60): void {
   try { navigator.vibrate?.(ms); } catch { /* нет вибро */ }
@@ -119,6 +134,20 @@ export async function requestExactAlarms(): Promise<void> {
   try { await (await LN()).changeExactNotificationSetting(); } catch { /* нет API */ }
 }
 
+/** Открыть СИСТЕМНЫЙ экран настроек уведомлений нашего приложения (как делают
+ *  другие приложения): там разрешение включается руками, даже если системный
+ *  диалог больше не показывается. Нативный плагин — нужен APK от 04.07.2026+. */
+export async function openNotifySettings(): Promise<boolean> {
+  if (!NATIVE) return false;
+  try {
+    const { NativeSettings, AndroidSettings } = await import('capacitor-native-settings');
+    await withTimeout(
+      NativeSettings.openAndroid({ option: AndroidSettings.AppNotification }),
+      8000, 'Открытие настроек');
+    return true;
+  } catch { return false; /* старый APK без плагина */ }
+}
+
 /** Тестовое уведомление сейчас (демо, что всё работает; §10.5).
  *  Каждый шаг под таймаутом — при затыке вернёт, ГДЕ застряло, а не висит. */
 export async function testNotify(title: string, body: string): Promise<string> {
@@ -132,15 +161,26 @@ export async function testNotify(title: string, body: string): Promise<string> {
     try {
       const ln = await LN();
       await withTimeout(ensureChannels(), 6000, 'Создание канала');
-      // Запас 10 с (как в проверенной реализации FemCycle): если поставить
-      // «через 1.5 с», то пока мост/каналы отрабатывают, момент уже в прошлом —
-      // натив МОЛЧА выбрасывает уведомление (ошибка только в logcat), а JS
-      // получает успех: «✓, придёт» — и не приходит никогда.
+      // Ступень 1: БЕЗ расписания — плагин показывает сразу, мимо AlarmManager.
+      // Если не видно даже его — блокирует система (разрешение/канал/прошивка).
       await withTimeout(ln.schedule({ notifications: [{
-        id: ID_TEST, title, body, channelId: CH_ASPECT, smallIcon: 'ic_stat_astra',
+        id: ID_TEST, title: title + ' — сразу',
+        body: 'Мгновенное уведомление (без будильника). ' + body,
+        channelId: CH_ASPECT, smallIcon: 'ic_stat_astra',
+      }] }), 8000, 'Показ мгновенного');
+      // Ступень 2: через будильник, запас 10 с (как в проверенной FemCycle):
+      // «через 1.5 с» к моменту натива уже в прошлом — натив МОЛЧА выбрасывает
+      // (ошибка только в logcat), JS получал успех «✓ придёт» — и не приходило.
+      await withTimeout(ln.schedule({ notifications: [{
+        id: ID_TEST_DELAYED, title: title + ' — через 10 с',
+        body: 'Отложенное уведомление (будильник) — так придёт сводка дня.',
+        channelId: CH_ASPECT, smallIcon: 'ic_stat_astra',
         schedule: { at: new Date(Date.now() + 10_000), allowWhileIdle: true },
       }] }), 8000, 'Постановка в расписание');
-      return 'Придёт через ~10 секунд. Сверните приложение — так проверяется доставка в фоне ✓';
+      return 'Отправлено два: первое — уже в шторке уведомлений, второе придёт '
+        + 'через ~10 с (сверните приложение). Нет даже первого → система блокирует '
+        + 'показ; первое есть, второго нет → теряются будильники (Xiaomi: '
+        + 'Автозапуск + Батарея «Без ограничений»).';
     } catch (e) {
       return 'Не удалось запланировать: ' + (e instanceof Error ? e.message : String(e));
     }

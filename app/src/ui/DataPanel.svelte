@@ -3,7 +3,8 @@
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
-  import { testNotify, notifyDiagnostics, requestExactAlarms, requestNotify, type NotifyDiag } from '../lib/notifications.ts';
+  import { testNotify, notifyDiagnostics, requestExactAlarms, requestNotify,
+    openNotifySettings, type NotifyDiag } from '../lib/notifications.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { getOtaStatus, checkOtaUpdate, applyQueuedNow } from '../lib/ota.ts';
@@ -55,6 +56,13 @@
   void loadDiag();
   const RU_PERM: Record<string, string> = { granted: 'да ✓', denied: 'НЕТ ✗', prompt: 'ещё не спрашивали' };
   async function fixExact() { await requestExactAlarms(); void loadDiag(); }
+  // системный экран настроек уведомлений приложения (как у «других приложений»)
+  async function openSys() {
+    const ok = await openNotifySettings();
+    if (!ok) notifyMsg = 'Не удалось открыть (старый APK без плагина). Вручную: '
+      + 'Настройки Android → Приложения → Astra → Уведомления.';
+    void loadDiag();
+  }
   // явный запрос разрешения (просьба 2026-07-02: «попробуй запросить разрешения»)
   let permBusy = $state(false);
   async function askPerm() {
@@ -203,6 +211,13 @@
       <button class="btn" disabled={permBusy} onclick={askPerm}>
         {permBusy ? 'Запрашиваю…' : 'Запросить разрешение'}</button>
     </div>
+    {#if diag}
+      <div class="row" style="margin-top:6px">
+        <button class="btn" onclick={openSys}>Открыть настройки уведомлений…</button>
+      </div>
+      <div class="hint small">Системный экран уведомлений Astra — включите
+        «Показывать уведомления», если диалог не появляется.</div>
+    {/if}
     {#if notifyMsg}<div class="msg">{notifyMsg}</div>{/if}
     {#if diag}
       <div class="hint small" style="margin-top:8px">

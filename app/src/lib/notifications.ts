@@ -76,6 +76,15 @@ export async function requestNotify(): Promise<'granted' | 'denied' | 'unsupport
   return p === 'granted' ? 'granted' : 'denied';
 }
 
+/** Первый запуск: системный диалог разрешения сразу после welcome-экрана —
+ *  объяснение «зачем» человек только что прочёл там (Android 13+ даёт считанные
+ *  показы диалога, холодный запрос без контекста сжигает попытку). Только натив:
+ *  в браузере фонового расписания всё равно нет — пугать промптом незачем. */
+export async function requestNotifyOnFirstRun(): Promise<void> {
+  if (!NATIVE) return;
+  try { await requestNotify(); } catch { /* мост молчит — не мешаем старту */ }
+}
+
 /** Хаптик — Capacitor WebView понимает navigator.vibrate (Android). */
 export function buzz(ms = 60): void {
   try { navigator.vibrate?.(ms); } catch { /* нет вибро */ }
@@ -123,11 +132,15 @@ export async function testNotify(title: string, body: string): Promise<string> {
     try {
       const ln = await LN();
       await withTimeout(ensureChannels(), 6000, 'Создание канала');
+      // Запас 10 с (как в проверенной реализации FemCycle): если поставить
+      // «через 1.5 с», то пока мост/каналы отрабатывают, момент уже в прошлом —
+      // натив МОЛЧА выбрасывает уведомление (ошибка только в logcat), а JS
+      // получает успех: «✓, придёт» — и не приходит никогда.
       await withTimeout(ln.schedule({ notifications: [{
         id: ID_TEST, title, body, channelId: CH_ASPECT, smallIcon: 'ic_stat_astra',
-        schedule: { at: new Date(Date.now() + 1500), allowWhileIdle: true },
+        schedule: { at: new Date(Date.now() + 10_000), allowWhileIdle: true },
       }] }), 8000, 'Постановка в расписание');
-      return 'Уведомление придёт через пару секунд ✓';
+      return 'Придёт через ~10 секунд. Сверните приложение — так проверяется доставка в фоне ✓';
     } catch (e) {
       return 'Не удалось запланировать: ' + (e instanceof Error ? e.message : String(e));
     }

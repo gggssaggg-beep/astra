@@ -24,7 +24,7 @@
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
-  import { syncNotifications } from './lib/notifications.ts';
+  import { syncNotifications, requestNotifyOnFirstRun } from './lib/notifications.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
   let settings = $state(db.settings.get());
@@ -67,8 +67,13 @@
 
   function dismissWelcome() {
     showWelcome = false;
+    const first = !db.settings.get().seenWelcome;
     db.settings.set({ ...db.settings.get(), seenWelcome: true });
     settings = db.settings.get();
+    // первый запуск: системный запрос разрешения на уведомления — «зачем»
+    // человек только что прочёл в приветствии; повторные открытия из настроек
+    // диалог не дёргают
+    if (first) void requestNotifyOnFirstRun();
   }
   // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
   function openChat(seed: string, source: typeof chatSource = null) {
@@ -279,7 +284,7 @@
 {/if}
 
 {#if showWelcome}
-  <Welcome onclose={dismissWelcome} />
+  <Welcome onclose={dismissWelcome} firstRun={!settings.seenWelcome} />
 {/if}
 
 {#if showChat && engine}

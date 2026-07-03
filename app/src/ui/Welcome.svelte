@@ -2,7 +2,8 @@
   /** Приветствие первого запуска (раунд 5): какая школа и по каким правилам
    *  считаем. Показывается, пока settings.seenWelcome=false; повторно — из настроек. */
   import { WELCOME } from '../lib/lore.ts';
-  let { onclose }: { onclose: () => void } = $props();
+  let { onclose, firstRun = false }:
+    { onclose: () => void; firstRun?: boolean } = $props();
 </script>
 
 <div class="wrap">
@@ -16,6 +17,12 @@
       <div class="rt">По каким правилам считаем</div>
       <ul>{#each WELCOME.rules as r}<li>{r}</li>{/each}</ul>
     </div>
+
+    {#if firstRun}
+      <p class="notif">🔔 Дальше телефон спросит разрешение на уведомления — чтобы
+        Astra могла присылать сводку дня и момент точного аспекта. Сами
+        уведомления включаются в Настройках.</p>
+    {/if}
 
     <button class="go" onclick={onclose}>Понятно, начать</button>
   </section>
@@ -33,6 +40,9 @@
     border-radius: 14px; padding: 12px 14px; margin: 0 0 16px; }
   .rules .rt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent);
     font-weight: 600; margin-bottom: 8px; }
+  .notif { font-size: 0.88rem; color: var(--ink-dim); background: #ffffff0c;
+    border: 1px solid var(--glass-brd); border-radius: 14px; padding: 11px 14px;
+    margin: 0 0 16px; line-height: 1.4; }
   ul { margin: 0 0 18px; padding-left: 18px; }
   li { color: var(--ink-dim); font-size: 0.9rem; margin-bottom: 8px; line-height: 1.4; }
   .go { display: block; width: 100%; background: var(--accent); border: none; color: var(--on-accent); font-weight: 600;

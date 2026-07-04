@@ -17,12 +17,14 @@
   import { synastryAspects, staticKey } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
   import { natalPositions } from '../lib/charts.ts';
-  import { fmtPos } from '../lib/format.ts';
+  import { fmtPos, zonedTimeUTC } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
   import { searchCities, type City } from '../lib/cities.ts';
+  import { forecastTransits, type TransitHit } from '../lib/forecast.ts';
   import Wheel from './Wheel.svelte';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
+  import TransitDial from './TransitDial.svelte';
 
   type Mode = 'transitNatal' | 'triple' | 'synastry';
 
@@ -68,12 +70,47 @@
   const posA = $derived(personA ? natalPositions(engine, personA) : []);
   const posB = $derived(personB ? natalPositions(engine, personB) : []);
 
-  // транзит на «сейчас»; обновляется кнопкой (не тикаем каждую секунду — незачем)
+  // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск)
   let transitAt = $state(new Date());
   const transitPos = $derived(engine.positions(transitAt));
   const transitLabel = $derived(new Intl.DateTimeFormat('ru-RU',
     { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(transitAt));
   function refreshTransit(): void { transitAt = new Date(); }
+  function stepTransit(ms: number): void { transitAt = new Date(transitAt.getTime() + ms); }
+
+  // поля даты/времени транзита в поясе вывода — зеркалят transitAt (шаги/диск их
+  // обновляют), правка поля применяется в transitAt
+  let tDate = $state('');
+  let tTime = $state('');
+  $effect(() => {
+    tDate = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' }).format(transitAt);
+    tTime = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(transitAt);
+  });
+  function applyTransitFields(): void {
+    const iso = isoFromMasked(tDate);
+    const tm = normTime(tTime);
+    if (iso && tm) transitAt = zonedTimeUTC(iso, tm, tz);
+  }
+
+  // --- прогноз: ближайшие точные транзиты к наталу(ам) ---
+  let forecastDays = $state(90);
+  let forecastList = $state<TransitHit[]>([]);
+  let forecastBusy = $state(false);
+  let forecastRan = $state(false);
+  const forecastTargets = $derived(
+    mode === 'triple' && personA && personB
+      ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
+      : mode === 'transitNatal' && personA ? [{ owner: personA.name, pos: posA }] : []);
+  async function runForecast(): Promise<void> {
+    if (forecastBusy || !forecastTargets.length) return;
+    forecastBusy = true; forecastRan = false;
+    try { forecastList = await forecastTransits(engine, forecastTargets, transitAt, forecastDays); }
+    catch { forecastList = []; }
+    finally { forecastBusy = false; forecastRan = true; }
+  }
+  function gotoHit(h: TransitHit): void { transitAt = new Date(h.when); selKey = null; }
+  const fmtHit = (d: Date): string => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
 
   // межаспекты по режиму (p1 всегда из первого набора)
   const crossSyn = $derived(posA.length && posB.length ? synastryAspects(posA, posB, orbOf) : []);
@@ -284,6 +321,19 @@
       <h2 class="pairttl">{chartTitle}</h2>
     </header>
 
+    {#snippet transitCtl()}
+      <div class="tctl">
+        <button class="mini" onclick={() => stepTransit(-86_400_000)} aria-label="День назад">‹ день</button>
+        <input class="tin" inputmode="numeric" maxlength="10" value={tDate} aria-label="Дата транзита"
+          oninput={(e) => (tDate = maskDate((e.target as HTMLInputElement).value))} onchange={applyTransitFields} />
+        <input class="tin tt" inputmode="numeric" maxlength="5" value={tTime} aria-label="Время транзита"
+          oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value))} onchange={applyTransitFields} />
+        <button class="mini" onclick={() => stepTransit(86_400_000)} aria-label="День вперёд">день ›</button>
+        <button class="mini now" onclick={refreshTransit}>сейчас</button>
+      </div>
+      <TransitDial value={transitAt} {tz} onchange={(d) => (transitAt = d)} />
+    {/snippet}
+
     {#if mode === 'synastry'}
       <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle}
         selectedStaticKey={selKey} onstatictap={onStatic} />
@@ -291,14 +341,14 @@
     {:else if mode === 'transitNatal'}
       <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle}
         selectedStaticKey={selKey} onstatictap={onStatic} />
-      <div class="legend">внутри — {personA?.name}, снаружи — транзит ({transitLabel})
-        <button class="mini" onclick={refreshTransit}>⟳ сейчас</button></div>
+      <div class="legend">внутри — {personA?.name}, снаружи — транзит на {transitLabel}</div>
+      {@render transitCtl()}
     {:else}
       <Wheel positions={posA} positionsOuter={posB} positionsOuter2={transitPos}
         staticAspects={crossTA} staticAspects2={crossTB} {signStyle}
         selectedStaticKey={selKey} onstatictap={onStatic} />
-      <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит ({transitLabel})
-        <button class="mini" onclick={refreshTransit}>⟳ сейчас</button></div>
+      <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит на {transitLabel}</div>
+      {@render transitCtl()}
     {/if}
 
     {#if personA?.unknownTime}
@@ -333,6 +383,31 @@
         <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
           selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит')} />
       {/each}
+    {/if}
+
+    {#if mode !== 'synastry'}
+      <div class="fc">
+        <div class="fchead">
+          <span class="grp">Прогноз транзитов</span>
+          <div class="fcdays">
+            {#each [30, 90, 180, 365] as d}
+              <button class="mini" class:on={forecastDays === d} onclick={() => (forecastDays = d)}>{d}д</button>
+            {/each}
+          </div>
+        </div>
+        <button class="btn" disabled={forecastBusy} onclick={runForecast}>
+          {forecastBusy ? 'Считаю…' : `Показать на ${forecastDays} дн. от текущего момента`}</button>
+        {#if forecastRan}
+          {#if forecastList.length === 0}<div class="empty">В этом окне точных транзитов нет.</div>{/if}
+          {#each forecastList as h}
+            <button class="fcrow" onclick={() => gotoHit(h)}>
+              <span class="fcglyph glyph">{h.tGlyph}<span class="fcasp">{h.symbol}</span>{h.nGlyph}</span>
+              <span class="fcnames">{h.tName} {h.aspect} {h.nName} <small>({h.owner})</small></span>
+              <span class="fcdate">{fmtHit(h.when)} <span class="go">→</span></span>
+            </button>
+          {/each}
+        {/if}
+      </div>
     {/if}
 
     <details class="positions">
@@ -433,7 +508,32 @@
   /* карта */
   .legend { color: var(--ink-faint); font-size: 0.78rem; text-align: center; margin: 4px 0 12px; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
-    border-radius: 999px; padding: 1px 8px; font-size: 0.72rem; margin-left: 6px; }
+    border-radius: 999px; padding: 3px 10px; font-size: 0.74rem; }
+  .mini.now { color: var(--accent); }
+  /* панель прокрутки транзита */
+  .tctl { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 2px 0; }
+  .tin { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 10px; padding: 6px 8px; font: inherit; font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums; text-align: center; width: 6.4rem; }
+  .tin.tt { width: 4rem; }
+  /* прогноз транзитов */
+  .fc { margin-top: 14px; }
+  .fchead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .fcdays { display: flex; gap: 4px; }
+  .mini.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+  .fc .btn { width: 100%; }
+  .fcrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 12px; padding: 8px 12px; margin: 6px 0; }
+  .fcrow:hover { background: #ffffff16; }
+  .fcglyph { font-size: 1.05rem; letter-spacing: 1px; flex: none; }
+  .fcasp { margin: 0 2px; opacity: 0.9; }
+  .fcnames { flex: 1; min-width: 0; color: var(--ink-dim); font-size: 0.82rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fcnames small { color: var(--ink-faint); }
+  .fcdate { flex: none; font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint);
+    font-variant-numeric: tabular-nums; }
+  .fcdate .go { color: var(--accent); }
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
   .warn { color: var(--gold); font-size: 0.8rem; margin: 6px 0; }

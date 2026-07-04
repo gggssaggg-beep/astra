@@ -6,6 +6,7 @@
   import { aspectSignature } from '../lib/signature.ts';
   import { noteDateStr } from '../lib/journal.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
+  import { pairLore } from '../lib/pairLore.ts';
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -60,6 +61,7 @@
 
   // --- Трактовка (краткая общая + СВОЯ, сохраняется в библиотеку по сигнатуре) ---
   const lore = $derived(ASPECT_LORE[rec.aspect]);
+  const pair = $derived(pairLore(rec.p1, rec.p2));   // смысл пары планет (не только тип аспекта)
   let interpText = $state(db.interpretations.get(sig)?.text ?? '');
   let interpSaved = $state(false);
   function saveInterp() {
@@ -118,6 +120,7 @@
 
   <div class="block">
     <div class="lbl">Трактовка</div>
+    {#if pair}<div class="ptext">{rec.p1} — {rec.p2}: {pair}</div>{/if}
     {#if lore}
       <div class="lshort">{lore.symbol} {lore.short}</div>
       <div class="ltext">{lore.text}</div>
@@ -217,6 +220,7 @@
   @keyframes starpop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
   .okflash { background: var(--gold) !important; color: #201a08 !important; }
   .exact { color: var(--gold); font-size: 0.84rem; margin: 6px 0 2px; }
+  .ptext { font-size: 0.92rem; margin-bottom: 8px; }
   .lshort { font-weight: 600; margin-bottom: 4px; }
   .ltext { font-size: 0.88rem; color: var(--ink-dim); margin-bottom: 10px; }
   .oksave { color: var(--gold); margin-top: 6px; }

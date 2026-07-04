@@ -250,7 +250,9 @@
     <div class="lbl">Комментарии ({comments.length})</div>
     {#each comments as c (c.id)}
       <div class="cmt reveal" use:reveal>
-        <div class="cmeta"><b>{c.authorName}</b> · {fmt(c.created_at)}</div>
+        <div class="cmeta">
+          <button class="who" onclick={() => openCard(c.author_id)}>{c.authorName}</button>
+          · {fmt(c.created_at)}</div>
         <div class="cbody">{c.body}</div>
         <div class="tactions">
           <button class="heart small" class:on={c.myLike} onclick={() => heartComment(c)}>
@@ -396,7 +398,6 @@
   .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); margin: 12px 0 6px; }
   .cmt { padding: 8px 0; border-bottom: 1px solid var(--glass-brd); }
   .cmeta { font-size: 0.78rem; color: var(--ink-faint); }
-  .cmeta b { color: var(--ink-dim); }
   .cbody { font-size: 0.92rem; margin-top: 3px; white-space: pre-wrap; }
   .inputrow { display: flex; gap: 8px; margin-top: 12px; }
   .inputrow textarea { flex: 1; resize: none; }

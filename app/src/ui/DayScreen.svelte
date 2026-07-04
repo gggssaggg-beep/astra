@@ -27,6 +27,7 @@
   import Wheel from './Wheel.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
+  import { discussionCounts } from '../lib/community.ts';
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
@@ -86,6 +87,16 @@
   const day = $derived(cached(aspCache, `${engine.mode}|${dayStart.getTime()}|${orbKey}`,
     () => aspectsOn(engine, dayStart, orbOf, true)));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
+
+  // метка «в сообществе есть обсуждение» — тихий сетевой запрос по сигнатурам дня
+  // (оффлайн-ядро не ждёт: пусто без входа/сети). Обновляется при смене дня.
+  let discCounts = $state<Map<string, number>>(new Map());
+  $effect(() => {
+    const sigs = allAspects.map((a) => aspectSignature(a.p1, a.p2, a.aspect));
+    let cancelled = false;
+    void discussionCounts(sigs).then((m) => { if (!cancelled) discCounts = m; });
+    return () => { cancelled = true; };
+  });
   const events = $derived(cached(evCache, `${engine.mode}|${dayStart.getTime()}`,
     () => eventsOn(engine, dayStart)));
 
@@ -154,6 +165,7 @@
              (единый паттерн GlowCard, просьба «сперва рамка, потом открытие») -->
         <GlowCard radius={18} onactivate={() => onAspect?.(rec)}>
           <AspectCard {rec} {tz}
+            discussions={discCounts.get(aspectSignature(rec.p1, rec.p2, rec.aspect)) ?? 0}
             selected={!!selectedSignature && selectedSignature === aspectSignature(rec.p1, rec.p2, rec.aspect)} />
         </GlowCard>
       {/each}

@@ -155,6 +155,24 @@ async function decorate(rows: Row[]): Promise<Discussion[]> {
   }));
 }
 
+/** Сколько обсуждений у каждой сигнатуры аспекта (для метки «есть обсуждение»
+ *  на карточках). Тихо возвращает пусто без входа/сети — оффлайн-ядро не страдает. */
+export async function discussionCounts(signatures: string[]): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  const uniq = [...new Set(signatures.filter(Boolean))];
+  if (!uniq.length || !configured()) return map;
+  try {
+    if (!(await uidOf())) return map;                 // RLS: только вошедшим
+    const { data } = await sb().from('discussions')
+      .select('aspect_signature').in('aspect_signature', uniq);
+    for (const r of (data ?? []) as Row[]) {
+      const s = r.aspect_signature; if (!s) continue;
+      map.set(s, (map.get(s) ?? 0) + 1);
+    }
+  } catch { /* нет сети/входа — без меток */ }
+  return map;
+}
+
 export async function listDiscussions(signature?: string | null, limit = 50): Promise<Discussion[]> {
   let q = sb().from('discussions')
     .select('*, profiles:author_id(display_name), comments(count)')

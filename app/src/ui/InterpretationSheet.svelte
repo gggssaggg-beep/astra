@@ -9,6 +9,7 @@
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { discussionCounts } from '../lib/community.ts';
   import { tap, success } from '../lib/haptics.ts';
 
   let { rec, engine, date, tz, onclose, ondiscuss, ongoto, oncommunity }:
@@ -17,6 +18,14 @@
       oncommunity?: (sig: string, title: string) => void } = $props();
 
   const sig = untrack(() => aspectSignature(rec.p1, rec.p2, rec.aspect));
+
+  // сколько обсуждений сообщества по этому аспекту (метка на кнопке; тихо 0 без входа)
+  let discCount = $state(0);
+  $effect(() => {
+    let cancelled = false;
+    void discussionCounts([sig]).then((m) => { if (!cancelled) discCount = m.get(sig) ?? 0; });
+    return () => { cancelled = true; };
+  });
 
   let tracked = $state(!!db.tracked.all().find((t) => t.signature === sig));
   function toggleTrack() {
@@ -59,9 +68,10 @@
   }
 
   // --- Поиск «когда ещё случался этот аспект» в диапазоне лет ---
-  const curYear = untrack(() => date.getUTCFullYear());
-  let fromYear = $state(curYear - 10);
-  let toYear = $state(curYear + 10);
+  // Диапазон по умолчанию 2025–2027 (просьба владелицы) — узкое окно «около
+  // сейчас»: быстрее считается и обычно то, что интересно.
+  let fromYear = $state(2025);
+  let toYear = $state(2027);
   let searching = $state(false);
   let searched = $state(false);
   let occ = $state<AspectOccurrence[]>([]);
@@ -123,7 +133,9 @@
 
   <button class="discuss ghost" onclick={() => oncommunity?.(sig, `${rec.p1} ${rec.aspect} ${rec.p2}`)}>
     <span class="dg glyph">✧</span>
-    <span>Обсуждения сообщества<small>что говорят коллеги про этот аспект</small></span>
+    <span>Обсуждения сообщества{#if discCount} · {discCount}{/if}<small>
+      {discCount ? 'коллеги уже обсуждают этот аспект — загляни' : 'что говорят коллеги про этот аспект'}</small></span>
+    {#if discCount}<span class="dbadge">💬 {discCount}</span>{/if}
   </button>
 
   {#if arch(rec.p1) || arch(rec.p2)}
@@ -214,6 +226,8 @@
     background: var(--accent); border: none; color: var(--on-accent); border-radius: 14px; padding: 12px 14px; text-align: left; }
   .discuss .dg { font-size: 1.3rem; }
   .discuss.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); margin-top: 8px; }
+  .dbadge { margin-left: auto; align-self: center; font-size: 0.78rem; color: var(--accent);
+    background: #ffffff12; border: 1px solid var(--glass-brd); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
   .discuss.ghost small { color: var(--ink-faint); }
   .discuss span { font-weight: 600; }
   .discuss small { display: block; font-weight: 400; opacity: 0.8; font-size: 0.76rem; }

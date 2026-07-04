@@ -7,8 +7,9 @@
   import { aspectSignature } from '../lib/signature.ts';
   import { db } from '../lib/db.ts';
 
-  let { rec, tz, onpick, selected = false }:
-    { rec: AspectRecord; tz: string; onpick?: (r: AspectRecord) => void; selected?: boolean } = $props();
+  let { rec, tz, onpick, selected = false, discussions = 0 }:
+    { rec: AspectRecord; tz: string; onpick?: (r: AspectRecord) => void; selected?: boolean;
+      discussions?: number } = $props();
   const tone = $derived(aspectTone(rec.aspect));
   const t = (d: Date | null) => (d ? fmtTime(d, tz) : '—');
   // дата начала/конца — аспект может растянуться на несколько дней (требование астролога)
@@ -43,6 +44,7 @@
       {PLANET_GLYPH[rec.p1] ?? rec.p1}<span class="asp glyph">{rec.symbol}</span>{PLANET_GLYPH[rec.p2] ?? rec.p2}
     </span>
     <span class="names">{rec.p1} {rec.aspect} {rec.p2}</span>
+    {#if discussions}<span class="disc" title="в сообществе есть обсуждение">💬 {discussions}</span>{/if}
     {#if live}<span class="live tone-{tone}" title="сейчас в орбисе"></span>{/if}
     <span class="orb" title="текущий орбис">{rec.exactOrb.toFixed(2)}°<span class="arr">{applyingArrow(rec.applying)}</span></span>
   </div>
@@ -72,6 +74,8 @@
   .pair { font-size: 1.5rem; letter-spacing: 2px; }
   .asp { margin: 0 4px; opacity: 0.85; }
   .names { flex: 1; color: var(--ink-dim); font-size: 0.86rem; }
+  .disc { font-size: 0.72rem; color: var(--accent); background: #ffffff12;
+    border: 1px solid var(--glass-brd); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
   .orb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 600; color: var(--silver); }
   .arr { margin-left: 4px; opacity: 0.8; }
   /* «сейчас в орбисе» — небо живое именно тут; лёгкий opacity-pulse, GPU не грузит */

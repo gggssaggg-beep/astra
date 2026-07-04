@@ -7,8 +7,9 @@
     configured, initCommunityAuth, signInGoogle, signInEmail, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     removeDiscussion, removeComment, isAdmin,
-    follow, getProfileCard, subscribeThread, isSubscribed,
-    type Discussion, type CommunityComment, type ProfileCard,
+    follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
+    listNotifications, unreadCount, markNotificationsRead,
+    type Discussion, type CommunityComment, type ProfileCard, type CommunityNotif,
   } from '../lib/community.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
@@ -36,8 +37,12 @@
   let open = $state<Discussion | null>(null);      // открытый тред
   let comments = $state<CommunityComment[]>([]);
   let subbed = $state(false);                      // подписана ли на открытую ветку
-  let card = $state<ProfileCard | null>(null);     // открытая карточка пользователя
+  let card = $state<ProfileCard | null>(null);     // открытая страница пользователя
+  let cardThreads = $state<Discussion[]>([]);      // темы этого пользователя
   let cardBusy = $state(false);
+  let notifView = $state(false);                   // открыт список уведомлений
+  let notifs = $state<CommunityNotif[]>([]);
+  let unread = $state(0);                           // непрочитанных — для бейджа
 
   let newTitle = $state('');
   let newBody = $state('');
@@ -51,8 +56,10 @@
   async function refresh() {
     if (!configured() || !session) return;
     loading = true; err = null;
-    try { feed = await listDiscussions(signature); }
-    catch (e) { err = e instanceof Error ? e.message : String(e); }
+    try {
+      feed = await listDiscussions(signature);
+      try { unread = await unreadCount(); } catch { /* нет таблицы уведомлений — старый SQL */ }
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
     finally { loading = false; }
   }
 
@@ -87,9 +94,31 @@
   // и ✕ идут сюда же — «при закрытии ветки возвращать к списку сообщений».
   function handleClose() {
     if (card) { card = null; return; }
+    if (notifView) { notifView = false; return; }
     if (open) { open = null; return; }
     onclose();
   }
+
+  async function openNotifs() {
+    notifView = true; buzz();
+    try {
+      notifs = await listNotifications();
+      await markNotificationsRead(); unread = 0;
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+  async function notifTap(n: CommunityNotif) {
+    if (!n.discussion_id) return;
+    try {
+      const d = await getDiscussion(n.discussion_id);
+      if (d) { notifView = false; await openThread(d); }
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+  const NOTIF_VERB: Record<string, string> = {
+    reply_own: 'ответил(а) в вашей теме',
+    reply_sub: 'ответил(а) в теме, на которую вы подписаны',
+    follow_activity: 'публикует (ваша подписка)',
+    like: 'оценил(а) вашу запись ♥',
+  };
 
   async function openThread(d: Discussion) {
     open = d; comments = []; buzz();
@@ -108,9 +137,11 @@
 
   // карточка пользователя (тап по имени автора): аватар, счётчики, подписка
   async function openCard(userId: string) {
-    buzz(); err = null;
-    try { card = await getProfileCard(userId); }
-    catch (e) { err = e instanceof Error ? e.message : String(e); }
+    buzz(); err = null; cardThreads = [];
+    try {
+      card = await getProfileCard(userId);
+      cardThreads = await listByAuthor(userId);
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
   }
   async function toggleFollow() {
     if (!card || cardBusy) return;
@@ -186,6 +217,8 @@
   <header>
     {#if open}
       <button class="back" onclick={() => (open = null)}>‹ Лента</button>
+    {:else if notifView}
+      <button class="back" onclick={() => (notifView = false)}>‹ Лента</button>
     {:else}
       <h2>Сообщество{signature ? ' · аспект' : ''}</h2>
     {/if}
@@ -195,7 +228,11 @@
           title="Уведомлять о новых комментариях в этой ветке">
           {subbed ? '🔔 Подписана' : '🔕 Подписаться'}</button>
       {/if}
-      {#if session && !open}<button class="link" onclick={() => signOut()}>выйти</button>{/if}
+      {#if session && !open && !notifView}
+        <button class="bell" onclick={openNotifs} aria-label="Уведомления">
+          🔔{#if unread}<span class="badge">{unread > 99 ? '99+' : unread}</span>{/if}</button>
+        <button class="link" onclick={() => signOut()}>выйти</button>
+      {/if}
       <button class="x" onclick={handleClose} aria-label="Закрыть">✕</button>
     </div>
   </header>
@@ -269,6 +306,19 @@
       <textarea bind:value={newComment} rows="1" placeholder="Комментарий…"></textarea>
       <button class="btn primary" onclick={submitComment} disabled={!newComment.trim()}>▶</button>
     </div>
+  {:else if notifView}
+    <!-- УВЕДОМЛЕНИЯ -->
+    {#each notifs as n (n.id)}
+      <button class="drow reveal" use:reveal onclick={() => notifTap(n)} class:unread={!n.read}>
+        {#if aspectLabel(n.aspect_signature)}<div class="achip glyph">{aspectLabel(n.aspect_signature)}</div>{/if}
+        <div class="ntext"><b>{n.actorName}</b> {NOTIF_VERB[n.kind] ?? 'активность'}</div>
+        {#if n.body}<div class="dprev">{n.body}</div>{/if}
+        <div class="dmeta">{fmt(n.created_at)}</div>
+      </button>
+    {:else}
+      <div class="hint" style="margin-top:14px">Пока пусто — уведомления появятся,
+        когда ответят в вашей ветке, лайкнут запись или опубликует тот, на кого вы подписаны ✧</div>
+    {/each}
   {:else}
     <!-- ЛЕНТА -->
     {#if creating}
@@ -318,26 +368,41 @@
 
 {#if card}
   <div class="cardback" onclick={() => (card = null)} role="presentation"></div>
-  <div class="ucard glass" role="dialog" aria-modal="true" aria-label="Карточка пользователя" tabindex="-1">
-    {#if card.avatar}
-      <img class="uav" src={card.avatar} alt="" referrerpolicy="no-referrer" />
-    {:else}
-      <div class="uav ph glyph">✧</div>
-    {/if}
-    <div class="uname">{card.name}</div>
-    <div class="ustats">
-      <span><b>{card.posts}</b> тем</span>
-      <span><b>{card.followers}</b> подписчиков</span>
-      <span><b>{card.following}</b> подписок</span>
+  <section class="sheet glass upage" aria-label="Профиль пользователя" use:bottomSheet={{ onclose: () => (card = null) }}>
+    <header>
+      <button class="back" onclick={() => (card = null)}>‹ Назад</button>
+      <button class="x" onclick={() => (card = null)} aria-label="Закрыть">✕</button>
+    </header>
+    <div class="uhead">
+      {#if card.avatar}
+        <img class="uav" src={card.avatar} alt="" referrerpolicy="no-referrer" />
+      {:else}
+        <div class="uav ph glyph">✧</div>
+      {/if}
+      <div class="uname">{card.name}</div>
+      <div class="ustats">
+        <span><b>{card.posts}</b> тем</span>
+        <span><b>{card.followers}</b> подписчиков</span>
+        <span><b>{card.following}</b> подписок</span>
+      </div>
+      {#if !card.isMe}
+        <button class="btn primary follow" class:following={card.iFollow} disabled={cardBusy} onclick={toggleFollow}>
+          {card.iFollow ? '✓ Вы подписаны' : '+ Подписаться'}</button>
+      {:else}
+        <div class="hint">Это вы ✧</div>
+      {/if}
     </div>
-    {#if !card.isMe}
-      <button class="btn primary" class:following={card.iFollow} disabled={cardBusy} onclick={toggleFollow}>
-        {card.iFollow ? '✓ Вы подписаны' : '+ Подписаться'}</button>
+    <div class="lbl">Темы автора ({cardThreads.length})</div>
+    {#each cardThreads as d (d.id)}
+      <button class="drow reveal" use:reveal onclick={() => { const t = d; card = null; openThread(t); }}>
+        {#if aspectLabel(d.aspect_signature)}<div class="achip glyph">{aspectLabel(d.aspect_signature)}</div>{/if}
+        <div class="dtitle">{d.title}</div>
+        <div class="dmeta">{fmt(d.created_at)}<span class="spacer"></span><span class="cnt">💬 {d.comments}</span></div>
+      </button>
     {:else}
-      <div class="hint">Это вы ✧</div>
-    {/if}
-    <button class="ux" onclick={() => (card = null)} aria-label="Закрыть">✕</button>
-  </div>
+      <div class="hint">Пока нет тем</div>
+    {/each}
+  </section>
 {/if}
 
 <style>
@@ -410,19 +475,26 @@
   /* кликабельное имя автора */
   .who { background: transparent; border: none; color: var(--accent); font: inherit;
     font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
-  /* оверлей-карточка пользователя (подписка на человека) */
-  .cardback { position: fixed; inset: 0; z-index: 46; background: #0009; }
-  .ucard { position: fixed; z-index: 47; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: min(340px, calc(100% - 40px)); border-radius: 20px; padding: 22px 20px; text-align: center; }
+  /* колокольчик уведомлений + бейдж непрочитанных */
+  .bell { position: relative; background: transparent; border: none; font-size: 1.1rem; padding: 2px 4px; }
+  .badge { position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px; padding: 0 4px;
+    background: var(--rose); color: #fff; border-radius: 999px; font-size: 0.62rem; line-height: 16px;
+    font-family: var(--font-mono); text-align: center; }
+  .ntext { font-size: 0.9rem; }
+  .ntext b { color: var(--ink); }
+  .drow.unread { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: #ffffff14; }
+
+  /* страница пользователя (шторка поверх ленты Сообщества) */
+  .cardback { position: fixed; inset: 0; z-index: 29; background: #0009; }
+  .sheet.upage { z-index: 30; }
+  .uhead { text-align: center; padding: 4px 0 14px; border-bottom: 1px solid var(--glass-brd); margin-bottom: 10px; }
   .uav { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px;
     display: block; border: 1px solid var(--glass-brd); }
   .uav.ph { display: flex; align-items: center; justify-content: center; font-size: 2rem;
     color: var(--accent); background: #ffffff10; }
-  .uname { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; }
+  .uname { font-family: var(--font-display); font-size: 1.2rem; font-weight: 600; }
   .ustats { display: flex; justify-content: center; gap: 14px; margin: 12px 0 16px;
     color: var(--ink-faint); font-size: 0.8rem; }
   .ustats b { color: var(--ink); font-size: 0.95rem; }
-  .ucard .btn.primary.following { background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-dim); }
-  .ux { position: absolute; top: 10px; right: 12px; background: transparent; border: none;
-    color: var(--ink-faint); font-size: 1rem; }
+  .follow.following { background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-dim); }
 </style>

@@ -143,14 +143,8 @@ async function likesFor(kind: 'discussion' | 'comment', ids: string[]):
   return map;
 }
 
-export async function listDiscussions(signature?: string | null, limit = 50): Promise<Discussion[]> {
-  let q = sb().from('discussions')
-    .select('*, profiles:author_id(display_name), comments(count)')
-    .order('created_at', { ascending: false }).limit(limit);
-  if (signature) q = q.eq('aspect_signature', signature);
-  const { data, error } = await q;
-  if (error) throw new Error(error.message);
-  const rows = (data ?? []) as Row[];
+// общий маппинг строк обсуждений (+ лайки пачкой) — для ленты и страницы автора
+async function decorate(rows: Row[]): Promise<Discussion[]> {
   const likes = await likesFor('discussion', rows.map((r) => r.id));
   return rows.map((r) => ({
     id: r.id, author_id: r.author_id, aspect_signature: r.aspect_signature,
@@ -159,6 +153,35 @@ export async function listDiscussions(signature?: string | null, limit = 50): Pr
     comments: r.comments?.[0]?.count ?? 0,
     likes: likes.get(r.id)?.n ?? 0, myLike: likes.get(r.id)?.my ?? false,
   }));
+}
+
+export async function listDiscussions(signature?: string | null, limit = 50): Promise<Discussion[]> {
+  let q = sb().from('discussions')
+    .select('*, profiles:author_id(display_name), comments(count)')
+    .order('created_at', { ascending: false }).limit(limit);
+  if (signature) q = q.eq('aspect_signature', signature);
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+  return decorate((data ?? []) as Row[]);
+}
+
+/** Одно обсуждение по id — для перехода из уведомления в тред. */
+export async function getDiscussion(id: string): Promise<Discussion | null> {
+  const { data, error } = await sb().from('discussions')
+    .select('*, profiles:author_id(display_name), comments(count)').eq('id', id).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  return (await decorate([data as Row]))[0] ?? null;
+}
+
+/** Темы конкретного автора — для страницы пользователя. */
+export async function listByAuthor(userId: string, limit = 30): Promise<Discussion[]> {
+  const { data, error } = await sb().from('discussions')
+    .select('*, profiles:author_id(display_name), comments(count)')
+    .eq('author_id', userId)
+    .order('created_at', { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return decorate((data ?? []) as Row[]);
 }
 
 export async function listComments(discussionId: string): Promise<CommunityComment[]> {
@@ -276,4 +299,40 @@ export async function isSubscribed(discussionId: string): Promise<boolean> {
   const { data } = await sb().from('thread_subs').select('user_id')
     .eq('user_id', me).eq('discussion_id', discussionId).maybeSingle();
   return !!data;
+}
+
+// --- Уведомления сообщества (колокольчик, В ПРИЛОЖЕНИИ) -----------------------
+// Строки в notifications создают триггеры БД (см. supabase/schema.sql). Пуш на
+// закрытое приложение — отдельный слой FCM (docs/TASK_COMMUNITY_PUSH.md); здесь
+// только чтение/пометка для внутриприложенческого списка.
+
+export interface CommunityNotif {
+  id: string; kind: string; actorName: string; body: string;
+  discussion_id: string | null; aspect_signature: string | null;
+  read: boolean; created_at: string;
+}
+
+export async function listNotifications(limit = 50): Promise<CommunityNotif[]> {
+  const me = await uidOf(); if (!me) return [];
+  const { data, error } = await sb().from('notifications')
+    .select('*, actor:actor_id(display_name)')
+    .eq('recipient_id', me).order('created_at', { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Row[]).map((r) => ({
+    id: r.id, kind: r.kind, actorName: r.actor?.display_name ?? 'кто-то',
+    body: r.body, discussion_id: r.discussion_id, aspect_signature: r.aspect_signature,
+    read: r.read, created_at: r.created_at,
+  }));
+}
+
+export async function unreadCount(): Promise<number> {
+  const me = await uidOf(); if (!me) return 0;
+  const { count } = await sb().from('notifications')
+    .select('*', { count: 'exact', head: true }).eq('recipient_id', me).eq('read', false);
+  return count ?? 0;
+}
+
+export async function markNotificationsRead(): Promise<void> {
+  const me = await uidOf(); if (!me) return;
+  await sb().from('notifications').update({ read: true }).eq('recipient_id', me).eq('read', false);
 }

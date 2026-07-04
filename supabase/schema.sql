@@ -138,3 +138,88 @@ end $$;
 drop trigger if exists trg_auto_sub_comment on public.comments;
 create trigger trg_auto_sub_comment after insert on public.comments
   for each row execute function public.auto_sub_comment();
+
+-- Уведомления сообщества (колокольчик В ПРИЛОЖЕНИИ; пуш на закрытое приложение —
+-- отдельный слой FCM, docs/TASK_COMMUNITY_PUSH.md, читает те же строки).
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references public.profiles(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  kind text not null,                 -- reply_own | reply_sub | follow_activity | like
+  discussion_id uuid references public.discussions(id) on delete cascade,
+  aspect_signature text,
+  body text not null default '',
+  read boolean not null default false,
+  pushed boolean not null default false,   -- для будущего FCM-слоя
+  created_at timestamptz not null default now()
+);
+create index if not exists notif_recipient_idx on public.notifications (recipient_id, read, created_at desc);
+alter table public.notifications enable row level security;
+-- вставляют ТОЛЬКО триггеры (security definer) → insert-политики для юзеров нет
+create policy "notifications: свои читать" on public.notifications
+  for select to authenticated using (auth.uid() = recipient_id);
+create policy "notifications: свои помечать" on public.notifications
+  for update to authenticated using (auth.uid() = recipient_id) with check (auth.uid() = recipient_id);
+create policy "notifications: свои удалять" on public.notifications
+  for delete to authenticated using (auth.uid() = recipient_id);
+
+-- Новый комментарий → подписчикам ветки (ответ в моей/подписанной) + подписчикам
+-- автора коммента (активность подписки), кроме самого автора и без дублей.
+create or replace function public.notify_comment() returns trigger
+  language plpgsql security definer as $$
+declare disc record;
+begin
+  select id, author_id, aspect_signature into disc from public.discussions where id = new.discussion_id;
+  insert into public.notifications (recipient_id, actor_id, kind, discussion_id, aspect_signature, body)
+  select s.user_id, new.author_id,
+         case when s.user_id = disc.author_id then 'reply_own' else 'reply_sub' end,
+         disc.id, disc.aspect_signature, left(new.body, 140)
+  from public.thread_subs s
+  where s.discussion_id = new.discussion_id and s.user_id <> new.author_id;
+  insert into public.notifications (recipient_id, actor_id, kind, discussion_id, aspect_signature, body)
+  select f.follower_id, new.author_id, 'follow_activity', disc.id, disc.aspect_signature, left(new.body, 140)
+  from public.follows f
+  where f.followee_id = new.author_id and f.follower_id <> new.author_id
+    and f.follower_id not in (select user_id from public.thread_subs where discussion_id = new.discussion_id);
+  return new;
+end $$;
+drop trigger if exists trg_notify_comment on public.comments;
+create trigger trg_notify_comment after insert on public.comments
+  for each row execute function public.notify_comment();
+
+-- Новая тема → подписчикам автора (активность того, на кого подписана).
+create or replace function public.notify_discussion() returns trigger
+  language plpgsql security definer as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, kind, discussion_id, aspect_signature, body)
+  select f.follower_id, new.author_id, 'follow_activity', new.id, new.aspect_signature, left(new.title, 140)
+  from public.follows f
+  where f.followee_id = new.author_id and f.follower_id <> new.author_id;
+  return new;
+end $$;
+drop trigger if exists trg_notify_discussion on public.discussions;
+create trigger trg_notify_discussion after insert on public.discussions
+  for each row execute function public.notify_discussion();
+
+-- Лайк → автору темы/комментария (кроме себя).
+create or replace function public.notify_like() returns trigger
+  language plpgsql security definer as $$
+declare owner uuid; disc uuid; sig text;
+begin
+  if new.target_kind = 'discussion' then
+    select author_id, id, aspect_signature into owner, disc, sig
+      from public.discussions where id = new.target_id;
+  else
+    select c.author_id, c.discussion_id, d.aspect_signature into owner, disc, sig
+      from public.comments c join public.discussions d on d.id = c.discussion_id
+      where c.id = new.target_id;
+  end if;
+  if owner is not null and owner <> new.user_id then
+    insert into public.notifications (recipient_id, actor_id, kind, discussion_id, aspect_signature, body)
+    values (owner, new.user_id, 'like', disc, sig, '');
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_notify_like on public.likes;
+create trigger trg_notify_like after insert on public.likes
+  for each row execute function public.notify_like();

@@ -3,6 +3,7 @@
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
+  import { FONTS } from '../lib/fonts.ts';
   import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
@@ -152,6 +153,16 @@
           <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
         {/each}
       </div>
+    </div>
+    <div class="lbl" style="margin-top:14px">Шрифт интерфейса</div>
+    <div class="fonts">
+      {#each FONTS as f}
+        <button class="fontrow" class:on={(cfg.font ?? 'default') === f.id}
+          style="font-family: {f.stack}" onclick={() => save({ font: f.id })}>
+          <span class="fsample">Аа Астра · 0°29′ Водолея</span>
+          <span class="fname">{f.label}</span>
+        </button>
+      {/each}
     </div>
   </div>
 
@@ -326,6 +337,14 @@
   .st-shimmer .sw { background: linear-gradient(90deg, #f3c969, #cdd6ff, #9b8cff); }
   .st-rainbow .sw { background: linear-gradient(90deg, #ff6b6b, #f3c969, #7fd99a, #7fd0ff, #b39bff); }
   .select { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 12px; font: inherit; }
+  /* выбор шрифта: каждая строка — живой образец В СВОЁМ шрифте */
+  .fonts { display: flex; flex-direction: column; gap: 6px; }
+  .fontrow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 12px; padding: 9px 12px; text-align: left; }
+  .fontrow.on { border-color: var(--accent); background: #ffffff1e; }
+  .fsample { font-size: 1.05rem; }
+  .fname { font-size: 0.72rem; color: var(--ink-faint); font-family: var(--font-mono); }
   .small { font-size: 0.78rem; color: var(--ink-faint); }
   .group { margin: 16px 2px 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
   .group:first-of-type { margin-top: 4px; }

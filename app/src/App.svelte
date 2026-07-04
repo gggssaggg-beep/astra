@@ -26,6 +26,7 @@
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
   import { rescheduleAll, onNotificationTap } from './lib/reminders.ts';
+  import { fontStack } from './lib/fonts.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
   let settings = $state(db.settings.get());
@@ -201,6 +202,11 @@
   // крупный шрифт — масштаб корня (см. app.css html[data-font='large'])
   $effect(() => {
     document.documentElement.dataset.font = settings.largeFont ? 'large' : 'normal';
+  });
+
+  // выбранный шрифт интерфейса — переопределяем --font-body на корне
+  $effect(() => {
+    document.documentElement.style.setProperty('--font-body', fontStack(settings.font ?? 'default'));
   });
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.

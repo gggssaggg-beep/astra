@@ -28,6 +28,7 @@ export interface Settings {
   dailyNotifyTime: string;    // 'HH:MM' для ежедневного уведомления
   notifyAspects: boolean;     // уведомления в момент точного аспекта
   largeFont: boolean;         // крупный шрифт (доступность)
+  font?: string;              // id шрифта интерфейса (lib/fonts.ts; нет = дефолт)
   seenWelcome: boolean;       // приветствие первого запуска уже показано
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
 }
@@ -95,5 +96,6 @@ export const DEFAULT_SETTINGS: Settings = {
   dailyNotifyTime: '09:00',
   notifyAspects: false,
   largeFont: false,
+  font: 'default',
   seenWelcome: false,
 };

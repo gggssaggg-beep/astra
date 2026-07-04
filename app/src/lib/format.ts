@@ -25,11 +25,11 @@ export function fmtDayFull(date: Date): string {
   return new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(date);
 }
 
-/** Компактная подпись даты для шапки: «30 июн., вт» (разгрузка строки, #4). */
+/** Компактная подпись даты для шапки: «30 июн. 2026, вт» (с годом — просьба владелицы). */
 export function fmtDayMid(date: Date): string {
   const d = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', day: 'numeric', month: 'short' }).format(date);
   const w = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(date);
-  return `${d}, ${w}`;
+  return `${d} ${date.getUTCFullYear()}, ${w}`;
 }
 
 // --- пояс-зависимые сутки (требование астролога: всё в одном поясе из настроек) ---

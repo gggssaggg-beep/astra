@@ -183,10 +183,12 @@
   .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }
   .moon .g { font-size: 1.8rem; color: var(--silver); }
   .moon .lbl { color: var(--ink-faint); font-size: 0.72rem; }
-  .moon .pos { font-size: 1.05rem; }
+  /* тот же моно-шрифт с кириллицей + tabular-nums, что и у чипов планет (.pp) —
+     иначе позиция Луны падала на body-фолбэк и выбивалась из общего оформления */
+  .moon .pos { font-size: 1.02rem; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .phase { display: flex; align-items: center; gap: 10px; margin-left: auto; }
   .pem { font-size: 1.5rem; }
-  .pname { font-size: 0.92rem; color: var(--ink-dim); }
+  .pname { font-size: 0.9rem; color: var(--ink-dim); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
   .positions { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(5, auto); grid-auto-flow: column; gap: 7px 16px; padding: 12px 14px; margin: 8px 0; }
   .chip { display: flex; align-items: center; gap: 8px; }
   .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }

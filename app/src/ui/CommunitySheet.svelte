@@ -471,7 +471,7 @@
     background: #ffffff10; border: 1px solid var(--glass-brd); border-radius: 999px;
     padding: 2px 10px; margin-bottom: 6px; }
   .hint { color: var(--ink-faint); font-size: 0.86rem; text-align: center; padding: 8px 0; }
-  .err { margin-top: 10px; padding: 8px 12px; background: #ff5a5a1e; color: #ffb3b3; border-radius: 10px; font-size: 0.86rem; }
+  .err { margin-top: 10px; padding: 8px 12px; background: color-mix(in srgb, var(--rose) 14%, transparent); color: var(--rose); border-radius: 10px; font-size: 0.86rem; }
   /* кликабельное имя автора */
   .who { background: transparent; border: none; color: var(--accent); font: inherit;
     font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; }

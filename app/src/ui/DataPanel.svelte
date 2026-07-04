@@ -374,7 +374,8 @@
   .btn.file { display: inline-flex; align-items: center; cursor: pointer; }
   .mode { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ink-dim); font-size: 0.82rem; }
   .msg { margin-top: 10px; padding: 8px 12px; background: #ffffff10; border-radius: 10px; font-size: 0.86rem; color: var(--ink-dim); }
-  .msg.err { background: #ff5a5a1e; color: #ffb3b3; }
+  /* тема-зависимо: на «Рассвете» светло-розовый текст сливался с белым (жалоба) */
+  .msg.err { background: color-mix(in srgb, var(--rose) 14%, transparent); color: var(--rose); }
   .maillink { display: inline-block; text-decoration: none; text-align: center; }
   footer { margin-top: 14px; text-align: center; color: var(--ink-faint); font-size: 0.74rem; }
 </style>

@@ -12,8 +12,9 @@
   import { discussionCounts } from '../lib/community.ts';
   import { tap, success } from '../lib/haptics.ts';
 
-  let { rec, engine, date, tz, onclose, ondiscuss, ongoto, oncommunity }:
-    { rec: AspectRecord; engine: Engine; date: Date; tz: string; onclose: () => void;
+  let { rec, engine, date, tz, orbOf, onclose, ondiscuss, ongoto, oncommunity }:
+    { rec: AspectRecord; engine: Engine; date: Date; tz: string;
+      orbOf?: (name: string) => number; onclose: () => void;
       ondiscuss?: (r: AspectRecord) => void; ongoto?: (d: Date) => void;
       oncommunity?: (sig: string, title: string) => void } = $props();
 
@@ -88,7 +89,9 @@
     try {
       const from = new Date(Date.UTC(y0, 0, 1));
       const to = new Date(Date.UTC(y1 + 1, 0, 1)); // конец года y1 включительно
-      const res = await findAspectOccurrences(engine, rec.p1, rec.p2, rec.aspect, from, to);
+      // орбис пары (больший из двух) — для окна вход/выход; нет резолвера → рек.орбис
+      const pairOrb = orbOf ? Math.max(orbOf(rec.p1), orbOf(rec.p2)) : (rec.exactOrb || 1);
+      const res = await findAspectOccurrences(engine, rec.p1, rec.p2, rec.aspect, from, to, pairOrb);
       occ = res.list; truncated = res.truncated;
     } catch { occ = []; }
     finally { searching = false; searched = true; }
@@ -181,7 +184,9 @@
         <div class="occ">
           {#each occ as o}
             <button class="occrow" onclick={() => goto(o)}>
-              <b>{fmtOcc(o.exact)}</b><span class="t">{fmtTime(o.exact, tz)}</span><span class="go">→</span>
+              <div class="occtop"><b>{fmtOcc(o.exact)}</b><span class="t">{fmtTime(o.exact, tz)}</span><span class="go">→</span></div>
+              <!-- аспект — интервал: вход→выход орбиса мелким шрифтом (правило астролога) -->
+              <small class="occwin">окно: {fmtOcc(o.begin)} {fmtTime(o.begin, tz)} → {fmtOcc(o.end)} {fmtTime(o.end, tz)}</small>
             </button>
           {/each}
         </div>
@@ -239,11 +244,13 @@
   .year { width: 5rem; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 10px; padding: 8px 10px; font: inherit; font-family: var(--font-mono); text-align: center; }
   .occ { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
-  .occrow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  .occrow { display: flex; flex-direction: column; gap: 2px; width: 100%; text-align: left;
     background: #ffffff0d; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 12px; padding: 10px 12px; font-size: 0.92rem; }
   .occrow:hover { background: #ffffff18; }
+  .occtop { display: flex; align-items: center; gap: 10px; }
   .occrow b { font-family: var(--font-display); }
   .occrow .t { color: var(--ink-dim); font-family: var(--font-mono); font-size: 0.82rem; }
   .occrow .go { margin-left: auto; color: var(--accent); font-size: 1.1rem; }
+  .occwin { color: var(--ink-faint); font-size: 0.7rem; font-family: var(--font-mono); }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte';
   import { parseDateInput } from '../lib/dateparse.ts';
+  import { maskDate } from '../lib/inputmask.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { db } from '../lib/db.ts';
 
@@ -59,8 +60,9 @@
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Выбор даты" use:bottomSheet={{ onclose }}>
   <div class="inputrow">
-    <input class="dinput" class:err placeholder="дата: 12.03.2026" bind:value={input}
-      oninput={() => (err = false)} onkeydown={(e) => e.key === 'Enter' && submitInput()} />
+    <input class="dinput" class:err inputmode="numeric" maxlength="10" placeholder="дата: 12.03.2026" value={input}
+      oninput={(e) => { input = maskDate((e.target as HTMLInputElement).value); err = false; }}
+      onkeydown={(e) => e.key === 'Enter' && submitInput()} />
     <button class="btn" onclick={submitInput}>Перейти</button>
   </div>
 

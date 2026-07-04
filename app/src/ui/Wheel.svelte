@@ -15,13 +15,17 @@
   import { aspectSignature } from '../lib/signature.ts';
   import { SIGN_PATHS } from './signIcons.ts';
 
-  // Транзитный режим (день) — как раньше: positions + aspects. Синастрия — двойное
-  // кольцо (positionsOuter = карта B) + staticAspects ВМЕСТО транзитных линий.
-  let { positions, aspects = [], positionsOuter = null, staticAspects = null,
+  // Транзитный режим (день) — как раньше: positions + aspects. Совмещённые карты:
+  //   двойное кольцо  — positionsOuter (карта B / транзит) + staticAspects;
+  //   тройное кольцо  — + positionsOuter2 (самое внешнее) + staticAspects2
+  //     (межаспекты СРЕДНЕГО кольца с внешним). Транзитные линии тогда не рисуем.
+  let { positions, aspects = [], positionsOuter = null, positionsOuter2 = null,
+        staticAspects = null, staticAspects2 = null,
         signStyle = 'gold', selectedSignature = null, selectedInfo = null,
         selectedStaticKey = null, oninfo, onstatictap }:
     { positions: BodyPosition[]; aspects?: AspectRecord[];
-      positionsOuter?: BodyPosition[] | null; staticAspects?: StaticAspect[] | null;
+      positionsOuter?: BodyPosition[] | null; positionsOuter2?: BodyPosition[] | null;
+      staticAspects?: StaticAspect[] | null; staticAspects2?: StaticAspect[] | null;
       signStyle?: SignStyle; selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       selectedStaticKey?: string | null;
       oninfo?: (info: WheelInfo) => void; onstatictap?: (key: string) => void } = $props();
@@ -55,10 +59,11 @@
   const ang = (lon: number) => ((180 - lon) * Math.PI) / 180;
   const pt = (lon: number, r: number) => ({ x: cx + r * Math.cos(ang(lon)), y: cy + r * Math.sin(ang(lon)) });
 
-  // двойное кольцо (синастрия): внутреннее = карта A (positions), внешнее = карта B
+  // двойное кольцо (синастрия/транзит+натал) / тройное (транзит+натал+натал)
   const double = $derived(!!positionsOuter);
+  const triple = $derived(!!positionsOuter2);
 
-  // лёгкий разнос налегающих планет по радиусу — общий алгоритм для обоих колец
+  // лёгкий разнос налегающих планет по радиусу — общий алгоритм для всех колец
   const placeRing = (poss: BodyPosition[], baseR: number, step: number): { p: BodyPosition; r: number }[] => {
     const sorted = [...poss].sort((a, b) => a.lon - b.lon);
     const out: { p: BodyPosition; r: number }[] = [];
@@ -71,17 +76,23 @@
     return out;
   };
 
-  // одиночный режим — как раньше (r 104, шаг 16); двойной — кольца A(72)/B(106), шаг 12
-  const placedInner = $derived(placeRing(positions, double ? 72 : rPlanet, double ? 12 : 16));
-  const placedOuter = $derived(double && positionsOuter ? placeRing(positionsOuter, 106, 12) : []);
-  const allPlaced = $derived([...placedInner, ...placedOuter]);
+  // радиусы колец: одиночное 104; двойное 72/106; тройное 58/84/110 (шаг тесней)
+  const rInner = $derived(triple ? 58 : double ? 72 : rPlanet);
+  const rMid = $derived(triple ? 84 : 106);
+  const rOut2 = 110;
+  const placedInner = $derived(placeRing(positions, rInner, triple ? 11 : double ? 12 : 16));
+  const placedMid = $derived(positionsOuter ? placeRing(positionsOuter, rMid, 11) : []);
+  const placedOut2 = $derived(triple && positionsOuter2 ? placeRing(positionsOuter2, rOut2, 11) : []);
+  const allPlaced = $derived([...placedInner, ...placedMid, ...placedOut2]);
 
-  // якорь линий аспектов ближе к центру, когда колец два
-  const rAspectUse = $derived(double ? 56 : rAspect);
+  // якорь линий аспектов ближе к центру, чем больше колец
+  const rAspectUse = $derived(triple ? 46 : double ? 56 : rAspect);
 
   const lonByName = $derived(new Map(positions.map((p) => [p.name, p.lon])));
-  // долготы второго кольца (карта B); в одиночном статичном режиме — те же positions
-  const lonOuter = $derived(new Map((double && positionsOuter ? positionsOuter : positions).map((p) => [p.name, p.lon])));
+  const lonMid = $derived(new Map((positionsOuter ?? []).map((p) => [p.name, p.lon])));
+  // самое внешнее кольцо (карта B / транзит); в одиночном статичном — те же positions
+  const lonOut = $derived(new Map(
+    (positionsOuter2 ?? positionsOuter ?? positions).map((p) => [p.name, p.lon])));
 
   const toneColor = (asp: string) =>
     aspectTone(asp) === 'harm' ? 'var(--gold)' : aspectTone(asp) === 'tense' ? 'var(--rose)' : 'var(--silver)';
@@ -100,21 +111,25 @@
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
 
-  // статичные линии (синастрия/натал): p1 из карты A, p2 из карты B (или той же
-  // карты в одиночном режиме); без applying/времени — только выделение по ключу
+  // статичные линии: p1/p2 берём из указанных колец; без applying/времени —
+  // только выделение по ключу. Набор 1 — внутреннее↔внешнее; набор 2 (тройная) —
+  // среднее↔внешнее.
   const anySelStatic = $derived(!!selectedStaticKey);
-  const slines = $derived(
-    (staticAspects ?? [])
-      .map((a) => {
-        const l1 = lonByName.get(a.p1), l2 = lonOuter.get(a.p2);
-        if (l1 == null || l2 == null) return null;
-        const A = pt(l1, rAspectUse), B = pt(l2, rAspectUse);
-        const key = staticKey(a);
-        return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect),
-          key, sel: key === selectedStaticKey };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null)
-  );
+  const buildStatic = (
+    list: StaticAspect[] | null,
+    m1: Map<string, number>, m2: Map<string, number>,
+  ) => (list ?? [])
+    .map((a) => {
+      const l1 = m1.get(a.p1), l2 = m2.get(a.p2);
+      if (l1 == null || l2 == null) return null;
+      const A = pt(l1, rAspectUse), B = pt(l2, rAspectUse);
+      const key = staticKey(a);
+      return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect),
+        key, sel: key === selectedStaticKey };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+  const slines = $derived(buildStatic(staticAspects, lonByName, lonOut));
+  const slines2 = $derived(triple ? buildStatic(staticAspects2, lonMid, lonOut) : []);
 
   // 12 секторов знаков (символ — SVG из Tabler, по центру сектора)
   const ICON = 19;
@@ -152,7 +167,11 @@
 
   <circle {cx} {cy} r={rOuter} class="ring" />
   <circle {cx} {cy} r={rZodiac} class="ring zodiac" />
-  {#if double}
+  {#if triple}
+    <!-- разделители между тремя кольцами -->
+    <circle {cx} {cy} r={71} class="ring faint" />
+    <circle {cx} {cy} r={97} class="ring faint" />
+  {:else if double}
     <!-- тонкий разделитель между кольцами карт A и B -->
     <circle {cx} {cy} r={88} class="ring faint" />
   {:else}
@@ -179,8 +198,8 @@
   {/each}
 
   {#if staticAspects}
-    <!-- статичный режим (синастрия): транзитные линии не рисуем -->
-    {#each slines as l}
+    <!-- статичный режим (совмещённые карты): транзитные линии не рисуем -->
+    {#each [...slines, ...slines2] as l}
       <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
         stroke-width={l.sel ? 2.8 : 1.2}
         opacity={l.sel ? 1 : anySelStatic ? 0.18 : 0.8}

@@ -23,17 +23,33 @@ function signedFn(E: Engine, n1: string, n2: string, target: number): (j: number
   return (j) => Math.abs(delta(j)) - target;
 }
 
-export interface AspectOccurrence { exact: Date; jd: number; }
+export interface AspectOccurrence { exact: Date; jd: number; begin: Date; end: Date; }
+
+/** Края окна орбиса вокруг точного момента jd: где |f| = orb (аспект — ИНТЕРВАЛ,
+ *  вход→точно→выход, требование астролога). |f| = отклонение от точного (°). */
+function windowEdges(f: (j: number) => number, jd: number, orb: number, fast: boolean): { begin: number; end: number } {
+  const g = (j: number) => Math.abs(f(j)) - orb;   // <0 внутри окна, >0 снаружи
+  const step = fast ? 1 / 48 : 1 / 8;              // Луна — 30мин, планеты — 3ч
+  const walk = (dir: 1 | -1): number => {
+    let inside = jd, outside = jd + dir * step, guard = 0;
+    // шагаем наружу, пока не выйдем из орбиса (кап — чтоб длинные окна не зациклили)
+    while (g(outside) < 0 && guard < 400) { inside = outside; outside += dir * step; guard++; }
+    let lo = inside, hi = outside;
+    for (let i = 0; i < 32; i++) { const mid = (lo + hi) / 2; if (g(mid) < 0) lo = mid; else hi = mid; }
+    return (lo + hi) / 2;
+  };
+  return { begin: walk(-1), end: walk(1) };
+}
 
 /**
- * Все точные моменты аспекта (пара p1/p2, тип `aspect`) в [from, to].
- * Шаг сетки адаптивен: с Луной — 1ч (быстрая), иначе 6ч (планеты). При каждом
- * смене знака f уточняем момент делением пополам (как exactTime). Результат
- * ограничен maxResults (для частых пар — Солнце/Меркурий и т.п.).
+ * Все точные моменты аспекта (пара p1/p2, тип `aspect`) в [from, to] + окно
+ * орбиса каждого (вход/выход). Шаг сетки адаптивен: с Луной — 1ч (быстрая), иначе
+ * 6ч (планеты). При смене знака f уточняем момент делением пополам (как exactTime).
+ * `orb` — орбис пары (больший из двух). Результат ограничен maxResults.
  */
 export async function findAspectOccurrences(
   E: Engine, p1: string, p2: string, aspect: string,
-  from: Date, to: Date, maxResults = 120,
+  from: Date, to: Date, orb = 1, maxResults = 120,
 ): Promise<{ list: AspectOccurrence[]; truncated: boolean }> {
   const spec = (ASPECTS as Record<string, { angle: number; symbol: string }>)[aspect];
   if (!spec || to <= from) return { list: [], truncated: false };
@@ -54,7 +70,8 @@ export async function findAspectOccurrences(
         if ((f(lo) <= 0) !== (f(mid) <= 0)) hi = mid; else lo = mid;
       }
       const jd = (lo + hi) / 2;
-      out.push({ jd, exact: E.fromJD(jd) });
+      const w = windowEdges(f, jd, orb, fast);
+      out.push({ jd, exact: E.fromJD(jd), begin: E.fromJD(w.begin), end: E.fromJD(w.end) });
       if (out.length >= maxResults) return { list: out, truncated: true };
     }
     prevJ = j; prevV = v;

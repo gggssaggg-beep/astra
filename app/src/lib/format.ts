@@ -62,8 +62,8 @@ export function zonedDayStartUTC(civil: Date, tz: string): Date {
  *  день перевода часов). Для момента рождения в совмещённых картах. */
 export function zonedTimeUTC(dateStr: string, timeStr: string, tz: string): Date {
   const [y, mo, d] = dateStr.split('-').map(Number);
-  const [h, mi] = timeStr.split(':').map(Number);
-  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  const [h, mi, se] = timeStr.split(':').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, mi, se || 0);
   const off = tzOffsetMs(new Date(guess), tz);
   let utc = guess - off;
   const off2 = tzOffsetMs(new Date(utc), tz);

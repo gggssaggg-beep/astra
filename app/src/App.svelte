@@ -16,7 +16,7 @@
   import InterpretationSheet from './ui/InterpretationSheet.svelte';
   import ArchetypesSheet from './ui/ArchetypesSheet.svelte';
   import TrackedSheet from './ui/TrackedSheet.svelte';
-  import SynastrySheet from './ui/SynastrySheet.svelte';
+  import ChartsSheet from './ui/ChartsSheet.svelte';
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
@@ -38,7 +38,7 @@
   let showJournal = $state(false);
   let showArch = $state(false);
   let showTracked = $state(false);
-  let showSynastry = $state(false);
+  let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
   let showChat = $state(false);
   let showLibrary = $state(false);
   let showInterp = $state(false);
@@ -126,7 +126,7 @@
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
-    if (showSynastry) { showSynastry = false; showLibrary = true; return; }
+    if (showCharts) { showCharts = false; return; }
     if (showCal) { showCal = false; return; }
     if (showJournal) { showJournal = false; return; }
     if (showLibrary) { showLibrary = false; return; }
@@ -137,8 +137,8 @@
 
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
-    showData = showJournal = showLibrary = showInterp = showArch = showTracked = showSynastry = showChat = false;
-    showCommunity = false; selRec = null; wheelInfo = null;
+    showData = showJournal = showLibrary = showInterp = showArch = showTracked = showChat = false;
+    showCharts = false; showCommunity = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -266,6 +266,7 @@
 <!-- Дата открывается тапом по дате в шапке; чат переехал в Библиотеку (просьба
      владелицы 2026-07-02) — в нижнем меню его место заняло Сообщество. -->
 <nav class="tabbar glass frost" aria-label="Меню">
+  <button onclick={() => (showCharts = {})} aria-label="Добавить"><span class="ti glyph">👥</span><span class="tl">Добавить</span></button>
   <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
@@ -282,7 +283,7 @@
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
-    onSynastry={() => { showLibrary = false; showSynastry = true; }}
+    onSynastry={() => { showLibrary = false; showCharts = { mode: 'synastry' }; }}
     onChat={() => { showLibrary = false; showChat = true; }} />
 {/if}
 
@@ -301,9 +302,10 @@
     onopen={(r) => { showTracked = false; pickAspect(r, 'tracked'); }} />
 {/if}
 
-{#if showSynastry && engine}
-  <SynastrySheet {engine} orbOf={orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
-    onclose={() => { showSynastry = false; showLibrary = true; }} />
+{#if showCharts && engine}
+  <ChartsSheet {engine} {orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
+    tz={settings.tz} initialMode={showCharts.mode ?? 'transitNatal'}
+    onclose={() => (showCharts = false)} />
 {/if}
 
 {#if showCommunity}
@@ -323,7 +325,7 @@
 {/if}
 
 {#if selRec && engine}
-  <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} onclose={closeAspect}
+  <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} {orbOf} onclose={closeAspect}
     oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; showCommunity = { signature: sig, title }; }}
     ongoto={(d) => { date = d; selRec = null; selFrom = 'day'; }}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `

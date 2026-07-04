@@ -49,7 +49,7 @@ export interface Person {
   id: string;
   name: string;
   birthDate: string;        // 'YYYY-MM-DD' — гражданская дата рождения
-  birthTime: string | null; // 'HH:MM' в поясе birthTz; null = время неизвестно
+  birthTime: string | null; // 'HH:MM:SS' в поясе birthTz; null = время неизвестно
   birthTz: string;          // IANA пояс МЕСТА рождения (перевод в UTC)
   place: { name: string; lat: number; lon: number } | null; // для домов (позже)
   unknownTime: boolean;     // true → берём полдень 12:00 (Луна/дома неточны)
@@ -87,9 +87,13 @@ export interface Reminder {
   atUtc?: string;             // вычисленный момент точного аспекта (ISO)
 }
 
-/** Орбис объекта: индивидуальный, иначе — по умолчанию. */
+/** Умолчания орбиса по объекту (когда пользователь не переопределил в настройках).
+ *  Луна быстрая (~13°/сут) — окно шире: по умолчанию 3° (просьба владелицы). */
+export const DEFAULT_ORBS: Record<string, number> = { 'Луна': 3 };
+
+/** Орбис объекта: индивидуальный → умолчание по объекту → общий по умолчанию. */
 export function orbFor(s: Settings, name: string): number {
-  return s.orbs?.[name] ?? s.defaultOrb;
+  return s.orbs?.[name] ?? DEFAULT_ORBS[name] ?? s.defaultOrb;
 }
 /** Резолвер орбиса для движка (пара берёт больший из двух — решение астролога). */
 export function orbResolver(s: Settings): (name: string) => number {

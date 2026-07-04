@@ -2,7 +2,7 @@
   import { db, file as dataFile, importText, onChange } from '../lib/db.ts';
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
-  import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
+  import { SIGN_STYLES, DEFAULT_ORBS, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
   import { FONTS } from '../lib/fonts.ts';
   import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -221,7 +221,7 @@
       {#each ORB_OBJ as o}
         <label class="orbcell">
           <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>
-          <input type="number" min="0.5" max="12" step="0.5" placeholder={String(cfg.defaultOrb)}
+          <input type="number" min="0.5" max="12" step="0.5" placeholder={String(DEFAULT_ORBS[o] ?? cfg.defaultOrb)}
             value={cfg.orbs[o] ?? ''} onchange={(e) => setOrb(o, (e.target as HTMLInputElement).value)} />
           <span class="u">°</span>
         </label>

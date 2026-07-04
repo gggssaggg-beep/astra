@@ -3,9 +3,9 @@
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onTracked, onChat }:
+  let { onclose, onInterpretations, onArchetypes, onTracked, onSynastry, onChat }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
-      onTracked: () => void; onChat: () => void } = $props();
+      onTracked: () => void; onSynastry: () => void; onChat: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -32,6 +32,13 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">★</span>
       <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onSynastry}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">👥</span>
+      <div class="txt"><b>Синастрия</b><small>межаспекты карт двух людей</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

@@ -8,7 +8,7 @@
  * API-ключ здесь НЕ хранится (только защищённое хранилище устройства).
  */
 import type {
-  Settings, JournalNote, TrackedAspect, Interpretation, DeityArchetype, Reminder,
+  Settings, JournalNote, TrackedAspect, Interpretation, DeityArchetype, Reminder, Person,
 } from './models.ts';
 import { DEFAULT_SETTINGS } from './models.ts';
 import { DATA_SCHEMA, LORE_VERSION } from './version.ts';
@@ -29,6 +29,7 @@ export interface AppData {
   reminders: Reminder[];
   interpretations: Interpretation[];
   archetypes: DeityArchetype[];
+  people: Person[];       // люди для совмещённых карт (синастрия/композит)
   settings: Settings;
   loreVersion?: number;   // версия вшитых архетипов (см. migrateLore)
 }
@@ -38,7 +39,7 @@ const LS_KEY = 'astra:data';
 function emptyData(): AppData {
   return {
     schema: DATA_SCHEMA, notes: [], tracked: [], reminders: [],
-    interpretations: [], archetypes: [], settings: { ...DEFAULT_SETTINGS },
+    interpretations: [], archetypes: [], people: [], settings: { ...DEFAULT_SETTINGS },
     // loreVersion НЕ ставим здесь: в adopt('replace') = {...emptyData(), ...incoming}
     // он должен браться из сохранённых данных (у старых — undefined → миграция сработает).
   };
@@ -143,6 +144,7 @@ function adopt(parsed: any, mode: 'merge' | 'replace') {
       reminders: byId(data.reminders, incoming.reminders),
       interpretations: byKey(data.interpretations, incoming.interpretations, (x) => x.signature),
       archetypes: byKey(data.archetypes, incoming.archetypes, (x) => x.object),
+      people: byId(data.people, incoming.people),
       settings: { ...data.settings, ...(incoming.settings ?? {}) },
       loreVersion: data.loreVersion ?? incoming.loreVersion,
     };
@@ -177,6 +179,7 @@ export const db = {
   notes: new Collection<JournalNote>(() => data.notes),
   tracked: new Collection<TrackedAspect>(() => data.tracked),
   reminders: new Collection<Reminder>(() => data.reminders),
+  people: new Collection<Person>(() => data.people),
 
   interpretations: {
     all: (): Interpretation[] => data.interpretations,

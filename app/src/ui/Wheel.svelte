@@ -7,17 +7,24 @@
    *
    * Ориентация: 0° Овна слева (9 часов). Если зеркально — поменять знак в ang().
    */
-  import type { BodyPosition, AspectRecord } from '../engine/index.ts';
+  import type { BodyPosition, AspectRecord, StaticAspect } from '../engine/index.ts';
+  import { staticKey } from '../engine/index.ts';
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
   import { aspectTone } from '../lib/format.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { SIGN_PATHS } from './signIcons.ts';
 
-  let { positions, aspects, signStyle = 'gold', selectedSignature = null, selectedInfo = null, oninfo }:
-    { positions: BodyPosition[]; aspects: AspectRecord[]; signStyle?: SignStyle;
-      selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
-      oninfo?: (info: WheelInfo) => void } = $props();
+  // Транзитный режим (день) — как раньше: positions + aspects. Синастрия — двойное
+  // кольцо (positionsOuter = карта B) + staticAspects ВМЕСТО транзитных линий.
+  let { positions, aspects = [], positionsOuter = null, staticAspects = null,
+        signStyle = 'gold', selectedSignature = null, selectedInfo = null,
+        selectedStaticKey = null, oninfo, onstatictap }:
+    { positions: BodyPosition[]; aspects?: AspectRecord[];
+      positionsOuter?: BodyPosition[] | null; staticAspects?: StaticAspect[] | null;
+      signStyle?: SignStyle; selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
+      selectedStaticKey?: string | null;
+      oninfo?: (info: WheelInfo) => void; onstatictap?: (key: string) => void } = $props();
 
   // выделение тапнутого элемента = подсветка САМОГО элемента (глиф планеты /
   // символ знака / линия аспекта). НИКОГДА не рамка (жёсткое правило владелицы).
@@ -48,20 +55,33 @@
   const ang = (lon: number) => ((180 - lon) * Math.PI) / 180;
   const pt = (lon: number, r: number) => ({ x: cx + r * Math.cos(ang(lon)), y: cy + r * Math.sin(ang(lon)) });
 
-  // лёгкий разнос налегающих планет по радиусу
-  const placed = $derived.by(() => {
-    const sorted = [...positions].sort((a, b) => a.lon - b.lon);
+  // двойное кольцо (синастрия): внутреннее = карта A (positions), внешнее = карта B
+  const double = $derived(!!positionsOuter);
+
+  // лёгкий разнос налегающих планет по радиусу — общий алгоритм для обоих колец
+  const placeRing = (poss: BodyPosition[], baseR: number, step: number): { p: BodyPosition; r: number }[] => {
+    const sorted = [...poss].sort((a, b) => a.lon - b.lon);
     const out: { p: BodyPosition; r: number }[] = [];
     let prevLon = -999, level = 0;
     for (const p of sorted) {
       if (p.lon - prevLon < 8) { level = (level + 1) % 3; } else { level = 0; }
-      out.push({ p, r: rPlanet - level * 16 });
+      out.push({ p, r: baseR - level * step });
       prevLon = p.lon;
     }
     return out;
-  });
+  };
+
+  // одиночный режим — как раньше (r 104, шаг 16); двойной — кольца A(72)/B(106), шаг 12
+  const placedInner = $derived(placeRing(positions, double ? 72 : rPlanet, double ? 12 : 16));
+  const placedOuter = $derived(double && positionsOuter ? placeRing(positionsOuter, 106, 12) : []);
+  const allPlaced = $derived([...placedInner, ...placedOuter]);
+
+  // якорь линий аспектов ближе к центру, когда колец два
+  const rAspectUse = $derived(double ? 56 : rAspect);
 
   const lonByName = $derived(new Map(positions.map((p) => [p.name, p.lon])));
+  // долготы второго кольца (карта B); в одиночном статичном режиме — те же positions
+  const lonOuter = $derived(new Map((double && positionsOuter ? positionsOuter : positions).map((p) => [p.name, p.lon])));
 
   const toneColor = (asp: string) =>
     aspectTone(asp) === 'harm' ? 'var(--gold)' : aspectTone(asp) === 'tense' ? 'var(--rose)' : 'var(--silver)';
@@ -76,6 +96,22 @@
         return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying,
           aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol,
           sel: !!effSig && aspectSignature(a.p1, a.p2, a.aspect) === effSig };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null)
+  );
+
+  // статичные линии (синастрия/натал): p1 из карты A, p2 из карты B (или той же
+  // карты в одиночном режиме); без applying/времени — только выделение по ключу
+  const anySelStatic = $derived(!!selectedStaticKey);
+  const slines = $derived(
+    (staticAspects ?? [])
+      .map((a) => {
+        const l1 = lonByName.get(a.p1), l2 = lonOuter.get(a.p2);
+        if (l1 == null || l2 == null) return null;
+        const A = pt(l1, rAspectUse), B = pt(l2, rAspectUse);
+        const key = staticKey(a);
+        return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect),
+          key, sel: key === selectedStaticKey };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
@@ -116,7 +152,12 @@
 
   <circle {cx} {cy} r={rOuter} class="ring" />
   <circle {cx} {cy} r={rZodiac} class="ring zodiac" />
-  <circle {cx} {cy} r={rAspect} class="ring faint" />
+  {#if double}
+    <!-- тонкий разделитель между кольцами карт A и B -->
+    <circle {cx} {cy} r={88} class="ring faint" />
+  {:else}
+    <circle {cx} {cy} r={rAspect} class="ring faint" />
+  {/if}
 
   {#each signs as s}
     <line x1={s.ix} y1={s.iy} x2={s.ex} y2={s.ey} class="spoke" />
@@ -137,25 +178,41 @@
     {/if}
   {/each}
 
-  {#each lines as l}
-    <!-- выбранный аспект подсвечивается САМОЙ линией: толще, ярче, с глоу;
-         остальные притухают. Глоу-фильтр ТОЛЬКО у выбранной линии: пачка
-         drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
-    <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
-      stroke-width={l.sel ? 2.8 : 1.2}
-      opacity={l.sel ? 1 : effSig ? 0.18 : l.dim ? 0.35 : 0.8}
-      class:selline={l.sel}
-      style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
-    {#if oninfo}
-      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
-      <!-- хит-зоны БЕЗ role/tabindex: фокусируемые элементы рисовали системную
-           фокус-рамку (скруглённый прямоугольник) на каждый тап -->
-      <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-        onclick={() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol })} />
-    {/if}
-  {/each}
+  {#if staticAspects}
+    <!-- статичный режим (синастрия): транзитные линии не рисуем -->
+    {#each slines as l}
+      <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
+        stroke-width={l.sel ? 2.8 : 1.2}
+        opacity={l.sel ? 1 : anySelStatic ? 0.18 : 0.8}
+        class:selline={l.sel}
+        style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
+      {#if onstatictap}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+          onclick={() => onstatictap(l.key)} />
+      {/if}
+    {/each}
+  {:else}
+    {#each lines as l}
+      <!-- выбранный аспект подсвечивается САМОЙ линией: толще, ярче, с глоу;
+           остальные притухают. Глоу-фильтр ТОЛЬКО у выбранной линии: пачка
+           drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
+      <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
+        stroke-width={l.sel ? 2.8 : 1.2}
+        opacity={l.sel ? 1 : effSig ? 0.18 : l.dim ? 0.35 : 0.8}
+        class:selline={l.sel}
+        style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
+      {#if oninfo}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
+        <!-- хит-зоны БЕЗ role/tabindex: фокусируемые элементы рисовали системную
+             фокус-рамку (скруглённый прямоугольник) на каждый тап -->
+        <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+          onclick={() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol })} />
+      {/if}
+    {/each}
+  {/if}
 
-  {#each placed as { p, r }}
+  {#each allPlaced as { p, r }}
     {@const pos = pt(p.lon, r)}
     {@const tick = pt(p.lon, rZodiac)}
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />

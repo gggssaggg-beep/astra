@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
-    "test:parity": "node test/parity.mjs"
+    "test:parity": "node test/parity.mjs",
+    "test:static": "node test/static.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

@@ -16,6 +16,7 @@
   import InterpretationSheet from './ui/InterpretationSheet.svelte';
   import ArchetypesSheet from './ui/ArchetypesSheet.svelte';
   import TrackedSheet from './ui/TrackedSheet.svelte';
+  import SynastrySheet from './ui/SynastrySheet.svelte';
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
@@ -37,6 +38,7 @@
   let showJournal = $state(false);
   let showArch = $state(false);
   let showTracked = $state(false);
+  let showSynastry = $state(false);
   let showChat = $state(false);
   let showLibrary = $state(false);
   let showInterp = $state(false);
@@ -124,6 +126,7 @@
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
+    if (showSynastry) { showSynastry = false; showLibrary = true; return; }
     if (showCal) { showCal = false; return; }
     if (showJournal) { showJournal = false; return; }
     if (showLibrary) { showLibrary = false; return; }
@@ -134,7 +137,7 @@
 
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
-    showData = showJournal = showLibrary = showInterp = showArch = showTracked = showChat = false;
+    showData = showJournal = showLibrary = showInterp = showArch = showTracked = showSynastry = showChat = false;
     showCommunity = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
@@ -279,6 +282,7 @@
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
+    onSynastry={() => { showLibrary = false; showSynastry = true; }}
     onChat={() => { showLibrary = false; showChat = true; }} />
 {/if}
 
@@ -295,6 +299,11 @@
 {#if showTracked}
   <TrackedSheet onclose={() => { showTracked = false; showLibrary = true; }}
     onopen={(r) => { showTracked = false; pickAspect(r, 'tracked'); }} />
+{/if}
+
+{#if showSynastry && engine}
+  <SynastrySheet {engine} orbOf={orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
+    onclose={() => { showSynastry = false; showLibrary = true; }} />
 {/if}
 
 {#if showCommunity}

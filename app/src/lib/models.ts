@@ -43,6 +43,19 @@ export interface JournalNote {
   aspectSignature?: string;   // опц. привязка к сигнатуре аспекта
 }
 
+/** Человек для совмещённых карт (синастрия/композит). Время и место — сразу
+ *  в модели (нужны для домов в будущей фазе), но опциональны. */
+export interface Person {
+  id: string;
+  name: string;
+  birthDate: string;        // 'YYYY-MM-DD' — гражданская дата рождения
+  birthTime: string | null; // 'HH:MM' в поясе birthTz; null = время неизвестно
+  birthTz: string;          // IANA пояс МЕСТА рождения (перевод в UTC)
+  place: { name: string; lat: number; lon: number } | null; // для домов (позже)
+  unknownTime: boolean;     // true → берём полдень 12:00 (Луна/дома неточны)
+  createdAt: string;
+}
+
 /** Закреплённый («отслеживаю») аспект (§3.3). */
 export interface TrackedAspect {
   id: string;

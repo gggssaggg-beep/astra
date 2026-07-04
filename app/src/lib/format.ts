@@ -57,6 +57,20 @@ export function zonedDayStartUTC(civil: Date, tz: string): Date {
   return new Date(utc);
 }
 
+/** UTC-инстант гражданских «дата + время» в поясе tz (DST-безопасно: та же
+ *  итерация смещения, что в zonedDayStartUTC — полночь+часы ошибалась бы на
+ *  день перевода часов). Для момента рождения в совмещённых картах. */
+export function zonedTimeUTC(dateStr: string, timeStr: string, tz: string): Date {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = timeStr.split(':').map(Number);
+  const guess = Date.UTC(y, mo - 1, d, h, mi);
+  const off = tzOffsetMs(new Date(guess), tz);
+  let utc = guess - off;
+  const off2 = tzOffsetMs(new Date(utc), tz);
+  if (off2 !== off) utc = guess - off2;
+  return new Date(utc);
+}
+
 /** Гражданская дата-якорь (UTC-полночь Y-M-D) для произвольного момента в поясе tz.
  *  Нужна, чтобы из точного времени аспекта получить «день», к которому листать. */
 export function civilOf(instant: Date, tz: string): Date {

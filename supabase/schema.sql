@@ -35,8 +35,13 @@ create policy "discussions: писать своё" on public.discussions
   for insert to authenticated with check (auth.uid() = author_id);
 create policy "discussions: править своё" on public.discussions
   for update to authenticated using (auth.uid() = author_id);
-create policy "discussions: удалять своё" on public.discussions
-  for delete to authenticated using (auth.uid() = author_id);
+-- Удалять тему может АВТОР или АДМИН (владелица проекта — по email).
+-- drop+create делает повторный прогон схемы идемпотентным.
+drop policy if exists "discussions: удалять своё" on public.discussions;
+drop policy if exists "discussions: удалять своё или админом" on public.discussions;
+create policy "discussions: удалять своё или админом" on public.discussions
+  for delete to authenticated
+  using (auth.uid() = author_id or (auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
 
 -- Комментарии
 create table if not exists public.comments (
@@ -52,8 +57,12 @@ create policy "comments: читают вошедшие" on public.comments
   for select to authenticated using (true);
 create policy "comments: писать своё" on public.comments
   for insert to authenticated with check (auth.uid() = author_id);
-create policy "comments: удалять своё" on public.comments
-  for delete to authenticated using (auth.uid() = author_id);
+-- Удалять комментарий может АВТОР или АДМИН (владелица — по email).
+drop policy if exists "comments: удалять своё" on public.comments;
+drop policy if exists "comments: удалять своё или админом" on public.comments;
+create policy "comments: удалять своё или админом" on public.comments
+  for delete to authenticated
+  using (auth.uid() = author_id or (auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
 
 -- Лайки (полиморфные: обсуждение или комментарий; один лайк на пользователя)
 create table if not exists public.likes (

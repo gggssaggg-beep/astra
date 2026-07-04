@@ -6,6 +6,7 @@
   import {
     configured, initCommunityAuth, signInGoogle, signInEmail, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
+    removeDiscussion, removeComment, isAdmin,
     type Discussion, type CommunityComment,
   } from '../lib/community.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -107,6 +108,26 @@
     finally { posting = false; }
   }
 
+  // удалять может автор своей темы/комментария ИЛИ админ-владелица (по email);
+  // сервер всё равно проверит через RLS — кнопка лишь показывает доступное
+  function canModify(authorId: string): boolean {
+    return !!session && (session.user.id === authorId || isAdmin(session));
+  }
+  async function deleteDiscussion(d: Discussion) {
+    if (!confirm('Удалить обсуждение целиком? Действие необратимо.')) return;
+    err = null;
+    try { await removeDiscussion(d.id); open = null; success(); await refresh(); }
+    catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+  async function deleteComment(c: CommunityComment) {
+    if (!open || !confirm('Удалить комментарий?')) return;
+    err = null;
+    try {
+      await removeComment(c.id);
+      comments = await listComments(open.id); open.comments = comments.length;
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+
   async function heart(d: Discussion) {
     buzz();
     d.myLike = !d.myLike; d.likes += d.myLike ? 1 : -1;   // оптимистично
@@ -172,16 +193,26 @@
       <div class="dtitle">{open.title}</div>
       <div class="dmeta">{open.authorName} · {fmt(open.created_at)}</div>
       {#if open.body}<div class="dbody">{open.body}</div>{/if}
-      <button class="heart" class:on={open.myLike} onclick={() => open && heart(open)}>
-        {open.myLike ? '♥' : '♡'} {open.likes}</button>
+      <div class="tactions">
+        <button class="heart" class:on={open.myLike} onclick={() => open && heart(open)}>
+          {open.myLike ? '♥' : '♡'} {open.likes}</button>
+        {#if canModify(open.author_id)}
+          <button class="del" onclick={() => open && deleteDiscussion(open)}>🗑 Удалить</button>
+        {/if}
+      </div>
     </div>
     <div class="lbl">Комментарии ({comments.length})</div>
     {#each comments as c (c.id)}
       <div class="cmt reveal" use:reveal>
         <div class="cmeta"><b>{c.authorName}</b> · {fmt(c.created_at)}</div>
         <div class="cbody">{c.body}</div>
-        <button class="heart small" class:on={c.myLike} onclick={() => heartComment(c)}>
-          {c.myLike ? '♥' : '♡'} {c.likes || ''}</button>
+        <div class="tactions">
+          <button class="heart small" class:on={c.myLike} onclick={() => heartComment(c)}>
+            {c.myLike ? '♥' : '♡'} {c.likes || ''}</button>
+          {#if canModify(c.author_id)}
+            <button class="del small" onclick={() => deleteComment(c)}>удалить</button>
+          {/if}
+        </div>
       </div>
     {:else}
       <div class="hint">Пока тихо — будь первой ✧</div>
@@ -284,6 +315,10 @@
     color: var(--ink-dim); padding: 5px 12px; margin-top: 10px; font-size: 0.88rem; }
   .heart.on { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 50%, transparent); }
   .heart.small { border: none; padding: 2px 0; margin-top: 4px; font-size: 0.82rem; }
+  .tactions { display: flex; align-items: center; gap: 12px; }
+  .del { background: transparent; border: 1px solid color-mix(in srgb, var(--rose) 45%, transparent);
+    color: var(--rose); border-radius: 999px; padding: 5px 12px; margin-top: 10px; font-size: 0.84rem; }
+  .del.small { border: none; padding: 2px 0; margin-top: 4px; font-size: 0.78rem; color: var(--ink-faint); }
   .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); margin: 12px 0 6px; }
   .cmt { padding: 8px 0; border-bottom: 1px solid var(--glass-brd); }
   .cmeta { font-size: 0.78rem; color: var(--ink-faint); }

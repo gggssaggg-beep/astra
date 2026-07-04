@@ -23,6 +23,12 @@ const NATIVE_REDIRECT = 'astra://auth';
 export const configured = (): boolean => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 const NATIVE = Capacitor.isNativePlatform();
 
+// Админ сообщества (владелица) — по email. Совпадает с RLS-политикой удаления в
+// supabase/schema.sql: админ может удалять любые темы/комментарии, автор — свои.
+const ADMIN_EMAIL = 'ggg.ssa.ggg@gmail.com';
+export const isAdmin = (session: Session | null): boolean =>
+  !!session && (session.user.email ?? '').toLowerCase() === ADMIN_EMAIL;
+
 // сессия Supabase должна переживать перезапуск → Preferences (localStorage ненадёжен)
 const prefStorage = {
   getItem: async (k: string) => (await Preferences.get({ key: k })).value,

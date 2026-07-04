@@ -5,10 +5,8 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
-  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onopen }: { onclose: () => void; onopen: (r: AspectRecord) => void } = $props();
-  let sheetEl = $state<HTMLElement | null>(null);
 
   let items = $state(db.tracked.all().slice());
   $effect(() => onChange(() => (items = db.tracked.all().slice())));
@@ -26,8 +24,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<ScrollThread target={sheetEl} zIndex={24} />
-<section class="sheet glass" aria-label="Отслеживаемые аспекты" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
+<section class="sheet glass" aria-label="Отслеживаемые аспекты" use:bottomSheet={{ onclose }}>
   <header><h2>Отслеживаю</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   {#if !items.length}

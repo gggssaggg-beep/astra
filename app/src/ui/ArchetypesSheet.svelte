@@ -9,10 +9,8 @@
   import { autogrow } from '../lib/autogrow.ts';
   import { success } from '../lib/haptics.ts';
   import GlowCard from './GlowCard.svelte';
-  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
-  let sheetEl = $state<HTMLElement | null>(null);
 
   const OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
   // подсказки-греческие соответствия — из встроенного контента (lore.ts)
@@ -67,8 +65,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<ScrollThread target={sheetEl} zIndex={26} />
-<section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
+<section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }}>
   <header><h2>Архетипы божеств</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Нажми планету, чтобы раскрыть архетип и отредактировать.</div>
   {#if loadErr}<div class="lerr">⚠ {loadErr}</div>{/if}

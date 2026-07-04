@@ -14,17 +14,19 @@ import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Engine } from '../engine/index.ts';
 import { aspectsOn, PLANET_GLYPH } from '../engine/index.ts';
-import { zonedDayStartUTC, todayCivil } from './format.ts';
+import { zonedDayStartUTC, todayCivil, fmtTime } from './format.ts';
 import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
 
 const NATIVE = Capacitor.isNativePlatform();
 const CH = 'care';
-const ID_DAILY = 1000;
-const ID_ASPECT_FROM = 1001;
-const ID_ASPECT_TO = 1099;
+const ID_DAILY_FROM = 1000;     // сводки: сегодня..+6 (одноразовые, свой текст на день)
+const ID_ASPECT_FROM = 1010;    // моменты точных аспектов
+const ID_ASPECT_TO = 1099;      // наш управляемый диапазон 1000..1099
 const ID_TEST_NOW = 9001;
 const ID_TEST_DELAYED = 9002;
+const DAILY_DAYS = 7;           // на сколько дней вперёд ставим сводки
+const SCAN_DAYS = 10;          // горизонт скана аспектов
 
 // — журнал шагов: каждый нативный вызов оставляет след —
 const MAX_LOG = 30;
@@ -105,7 +107,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
     try {
       const pd = await withTimeout(LocalNotifications.getPending(), 8000, 'getPending');
       const ours = pd.notifications
-        .filter(n => n.id >= ID_DAILY && n.id <= ID_ASPECT_TO)
+        .filter(n => n.id >= ID_DAILY_FROM && n.id <= ID_ASPECT_TO)
         .map(n => ({ id: n.id }));
       if (ours.length) {
         await withTimeout(LocalNotifications.cancel({ notifications: ours }), 6000, 'cancel');
@@ -122,49 +124,66 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
 
     const list: Parameters<typeof LocalNotifications.schedule>[0]['notifications'] = [];
 
-    if (settings.notifyDaily) {
-      const [hh, mm] = (settings.dailyNotifyTime || '09:00')
-        .split(':').map(x => parseInt(x, 10));
-      const dayStart = zonedDayStartUTC(todayCivil(tz), tz);
-      const at = new Date(
-        dayStart.getTime() +
-        ((isNaN(hh) ? 9 : hh) * 60 + (isNaN(mm) ? 0 : mm)) * 60_000);
-      list.push({
-        id: ID_DAILY,
-        title: 'Сводка неба',
-        body: 'Откройте Astra — аспекты и события сегодняшнего дня.',
-        channelId: CH,
-        schedule: { on: { hour: at.getHours(), minute: at.getMinutes() }, allowWhileIdle: true },
-      });
-      push(`сводка → ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')} (часы устройства)`);
-    }
+    // Один проход по дням: аспекты дня считаем ОДИН раз и используем и для
+    // ежедневной сводки (краткий дайджест «глиф-аспект-глиф ЧЧ:ММ»), и для
+    // отдельных уведомлений в момент точного аспекта. Сводки — одноразовые на
+    // каждый день (свой текст), а не одно повторяющееся с общей фразой.
+    const orb = orbResolver(settings);
+    const now = Date.now();
+    const [dhh, dmm] = (settings.dailyNotifyTime || '09:00').split(':').map(x => parseInt(x, 10));
+    const DH = isNaN(dhh) ? 9 : dhh, DM = isNaN(dmm) ? 0 : dmm;
+    const breathe = () => new Promise(r => setTimeout(r, 0));
+    let aid = ID_ASPECT_FROM, dailyCount = 0, aspectCount = 0;
 
-    if (settings.notifyAspects) {
-      const orb = orbResolver(settings);
-      const now = Date.now();
-      let id = ID_ASPECT_FROM;
-      const breathe = () => new Promise(r => setTimeout(r, 0));
-      for (let d = 0; d < 10 && id <= ID_ASPECT_TO; d++) {
-        await breathe();
-        if (stale()) { push('reschedule: прерван более свежим вызовом'); return; }
-        const civil = todayCivil(tz);
-        civil.setUTCDate(civil.getUTCDate() + d);
-        const dayStart = zonedDayStartUTC(civil, tz);
-        const res = aspectsOn(engine, dayStart, orb, false);
-        for (const a of [...res.fast, ...res.slow]) {
-          if (id > ID_ASPECT_TO) break;
+    for (let d = 0; d < SCAN_DAYS; d++) {
+      const needDaily = settings.notifyDaily && d < DAILY_DAYS;
+      const needAspects = settings.notifyAspects && aid <= ID_ASPECT_TO;
+      if (!needDaily && !needAspects) continue;
+      await breathe();
+      if (stale()) { push('reschedule: прерван более свежим вызовом'); return; }
+
+      const civil = todayCivil(tz);
+      civil.setUTCDate(civil.getUTCDate() + d);
+      const dayStart = zonedDayStartUTC(civil, tz);
+      const res = aspectsOn(engine, dayStart, orb, false);
+      const dayAspects = [...res.fast, ...res.slow];
+
+      if (needDaily) {
+        const at = new Date(dayStart.getTime() + (DH * 60 + DM) * 60_000);
+        if (at.getTime() > now + 60_000) {
+          const items = dayAspects
+            .filter(a => a.exactTime)
+            .sort((a, b) => (a.exactTime as Date).getTime() - (b.exactTime as Date).getTime())
+            .slice(0, 6)
+            .map(a => `${PLANET_GLYPH[a.p1] ?? a.p1}${a.symbol}${PLANET_GLYPH[a.p2] ?? a.p2} ${fmtTime(a.exactTime as Date, tz)}`);
+          list.push({
+            id: ID_DAILY_FROM + d,
+            title: 'Сводка неба',
+            body: items.length ? items.join(' · ') : 'Особых аспектов нет — спокойный день.',
+            channelId: CH,
+            schedule: { at, allowWhileIdle: true },
+          });
+          dailyCount++;
+        }
+      }
+
+      if (needAspects) {
+        for (const a of dayAspects) {
+          if (aid > ID_ASPECT_TO) break;
           if (!a.exactTime || a.exactTime.getTime() <= now + 60_000) continue;
           list.push({
-            id: id++,
+            id: aid++,
             title: `${PLANET_GLYPH[a.p1] ?? a.p1} ${a.symbol} ${PLANET_GLYPH[a.p2] ?? a.p2}`,
             body: `Точный аспект: ${a.p1} ${a.aspect} ${a.p2}`,
             channelId: CH,
             schedule: { at: a.exactTime, allowWhileIdle: true },
           });
+          aspectCount++;
         }
       }
-      push(`аспектов запланировано: ${id - ID_ASPECT_FROM}`);
     }
+    if (settings.notifyDaily) push(`сводок запланировано: ${dailyCount}`);
+    if (settings.notifyAspects) push(`аспектов запланировано: ${aspectCount}`);
 
     if (list.length && !stale()) {
       await withTimeout(

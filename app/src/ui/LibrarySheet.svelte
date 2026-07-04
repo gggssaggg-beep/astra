@@ -2,17 +2,14 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
-  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onInterpretations, onArchetypes, onTracked, onChat }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onTracked: () => void; onChat: () => void } = $props();
-  let sheetEl = $state<HTMLElement | null>(null);
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<ScrollThread target={sheetEl} zIndex={22} />
-<section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
+<section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }}>
   <header><h2>Библиотека</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Трактовки, архетипы божеств и отслеживаемые аспекты — в одном месте.</div>
 

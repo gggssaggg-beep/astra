@@ -7,10 +7,8 @@
   import { fmtRelDay } from '../lib/format.ts';
   import { success, tick } from '../lib/haptics.ts';
   import GlowCard from './GlowCard.svelte';
-  import ScrollThread from './ScrollThread.svelte';
 
   let { date, tz, onclose }: { date: Date; tz: string; onclose: () => void } = $props();
-  let sheetEl = $state<HTMLElement | null>(null);
 
   const OBJ = ['Луна', 'Солнце', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
   const PERIODS: [Period, string][] = [['day', 'День'], ['week', 'Неделя'], ['month', 'Месяц'], ['all', 'Всё']];
@@ -69,8 +67,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<ScrollThread target={sheetEl} zIndex={22} />
-<section class="sheet glass" aria-label="Журнал" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
+<section class="sheet glass" aria-label="Журнал" use:bottomSheet={{ onclose }}>
   <header><h2>Бортовой журнал</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   {#if !seenHelp}

@@ -48,6 +48,70 @@ function unlockScroll(): void {
   notifySheets();
 }
 
+/** Заблокировать прокрутку фона вручную — для оверлеев БЕЗ свайп-закрытия
+ *  (напр. приветствие): иначе фоновая лента проматывалась под окном. Возвращает
+ *  функцию-разблокировку; участвует в общем ref-count (можно вкладывать). */
+export function pushScrollLock(): () => void {
+  lockScroll();
+  let released = false;
+  return () => { if (!released) { released = true; unlockScroll(); } };
+}
+
+// --- боковая scroll-нить шторки (ЕДИНАЯ процедура на всю программу) ---
+// Любая шторка с use:bottomSheet автоматически получает нить прокрутки. Она
+// видна ТОЛЬКО когда: (а) содержимое реально прокручивается и (б) это ВЕРХНЯЯ
+// шторка — иначе нить из-под неё «просвечивала» в других меню (жалоба). Нить
+// главного экрана (ui/ScrollThread) при открытой шторке гасится в App.svelte.
+const openStack: HTMLElement[] = [];
+const threadMeasure = new Map<HTMLElement, () => void>();
+const threadCleanup = new Map<HTMLElement, () => void>();
+
+function remeasureThreads(): void { threadMeasure.forEach((m) => m()); }
+
+function attachThread(node: HTMLElement): void {
+  const el = document.createElement('div');
+  el.className = 'scroll-thread sheet-thread';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<div class="track"></div><div class="fill"></div>'
+    + '<div class="carrier"><div class="node"></div></div>';
+  document.body.appendChild(el);
+  const fill = el.querySelector('.fill') as HTMLElement;
+  const carrier = el.querySelector('.carrier') as HTMLElement;
+
+  const measure = () => {
+    const max = node.scrollHeight - node.clientHeight;
+    const isTop = openStack[openStack.length - 1] === node;
+    if (max <= 4 || !isTop) { el.style.display = 'none'; return; }   // «при надобности»
+    el.style.display = '';
+    const p = Math.min(1, Math.max(0, node.scrollTop / max));
+    fill.style.transform = `scaleY(${p})`;
+    carrier.style.transform = `translateY(${p * 100}%)`;
+    const r = node.getBoundingClientRect();   // подгон под реальную коробку шторки
+    el.style.top = `${r.top + 10}px`;
+    el.style.height = `${Math.max(0, r.height - 20)}px`;
+  };
+
+  const onScroll = () => measure();
+  node.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  node.addEventListener('transitionend', onScroll);   // шторка доехала снизу — домер
+  let ro: ResizeObserver | null = null;
+  if ('ResizeObserver' in window) { ro = new ResizeObserver(onScroll); ro.observe(node); }
+  const raf = requestAnimationFrame(measure);
+
+  threadMeasure.set(node, measure);
+  threadCleanup.set(node, () => {
+    node.removeEventListener('scroll', onScroll);
+    window.removeEventListener('resize', onScroll);
+    node.removeEventListener('transitionend', onScroll);
+    ro?.disconnect();
+    cancelAnimationFrame(raf);
+    el.remove();
+    threadMeasure.delete(node);
+    threadCleanup.delete(node);
+  });
+}
+
 export interface SheetParams { onclose: () => void; }
 
 /** use:bottomSheet={{ onclose }} на корневом <section> шторки (он же скролл-контейнер). */
@@ -131,6 +195,9 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
   node.addEventListener('touchend', onEnd);
   node.addEventListener('touchcancel', onEnd);
   lockScroll();
+  openStack.push(node);
+  attachThread(node);
+  remeasureThreads();      // прежняя верхняя нить гаснет, эта — становится активной
 
   return {
     update(p: SheetParams) { onclose = p.onclose; },
@@ -140,6 +207,10 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
       node.removeEventListener('touchend', onEnd);
       node.removeEventListener('touchcancel', onEnd);
       unlockScroll();
+      const i = openStack.indexOf(node);
+      if (i >= 0) openStack.splice(i, 1);
+      threadCleanup.get(node)?.();
+      remeasureThreads();  // вернуть нить нижележащей шторке, если она есть
     },
   };
 }

@@ -11,11 +11,20 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import { tick as buzz, success } from '../lib/haptics.ts';
-  import ScrollThread from './ScrollThread.svelte';
+  import { PLANET_GLYPH, ASPECTS } from '../engine/index.ts';
+  import { parseSignature } from '../lib/signature.ts';
 
   let { signature = null, title = '', onclose }:
     { signature?: string | null; title?: string; onclose: () => void } = $props();
-  let sheetEl = $state<HTMLElement | null>(null);
+
+  // краткая подпись аспекта, ИЗ КОТОРОГО написано обсуждение: «☉ □ ♂» — чтобы в
+  // ленте было видно, к чему тема (раньше сигнатура была, но не показывалась)
+  function aspectLabel(sig: string | null): string | null {
+    if (!sig) return null;
+    const { p1, p2, aspect } = parseSignature(sig);
+    const sym = ASPECTS[aspect]?.symbol ?? '';
+    return `${PLANET_GLYPH[p1] ?? p1} ${sym} ${PLANET_GLYPH[p2] ?? p2}`.trim();
+  }
 
   let session = $state<Session | null>(null);
   let err = $state<string | null>(null);
@@ -29,6 +38,7 @@
   let newBody = $state('');
   let newComment = $state('');
   let creating = $state(false);
+  let posting = $state(false);   // блокировка на время отправки — иначе двойной тап публиковал дважды
 
   const fmt = (iso: string) =>
     new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
@@ -75,24 +85,26 @@
   }
 
   async function submitDiscussion() {
-    const t = newTitle.trim(); if (!t) return;
-    err = null;
+    const t = newTitle.trim(); if (!t || posting) return;
+    err = null; posting = true;
     try {
       await createDiscussion({ title: t, body: newBody.trim(), signature });
       newTitle = ''; newBody = ''; creating = false; success();
       await refresh();
     } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    finally { posting = false; }
   }
 
   async function submitComment() {
-    const t = newComment.trim(); if (!t || !open) return;
-    err = null;
+    const t = newComment.trim(); if (!t || !open || posting) return;
+    err = null; posting = true;
     try {
       await addComment(open.id, t);
       newComment = ''; success();
       comments = await listComments(open.id);
       open.comments = comments.length;
     } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    finally { posting = false; }
   }
 
   async function heart(d: Discussion) {
@@ -110,8 +122,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<ScrollThread target={sheetEl} zIndex={26} />
-<section class="sheet glass" aria-label="Сообщество" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
+<section class="sheet glass" aria-label="Сообщество" use:bottomSheet={{ onclose }}>
   <header>
     {#if open}
       <button class="back" onclick={() => (open = null)}>‹ Лента</button>
@@ -155,6 +166,9 @@
   {:else if open}
     <!-- ТРЕД -->
     <div class="thread">
+      {#if aspectLabel(open.aspect_signature)}
+        <div class="achip glyph">{aspectLabel(open.aspect_signature)}</div>
+      {/if}
       <div class="dtitle">{open.title}</div>
       <div class="dmeta">{open.authorName} · {fmt(open.created_at)}</div>
       {#if open.body}<div class="dbody">{open.body}</div>{/if}
@@ -184,7 +198,8 @@
         <textarea bind:value={newBody} rows="3" placeholder="Что заметила, о чём спросить коллег…"></textarea>
         <div class="row">
           <button class="btn" onclick={() => (creating = false)}>Отмена</button>
-          <button class="btn primary" onclick={submitDiscussion} disabled={!newTitle.trim()}>Опубликовать</button>
+          <button class="btn primary" onclick={submitDiscussion} disabled={!newTitle.trim() || posting}>
+            {posting ? 'Публикую…' : 'Опубликовать'}</button>
         </div>
       </div>
     {:else}
@@ -195,6 +210,9 @@
     {#if loading}<div class="hint">✦ загружаю…</div>{/if}
     {#each feed as d (d.id)}
       <button class="drow reveal" use:reveal onclick={() => openThread(d)}>
+        {#if aspectLabel(d.aspect_signature)}
+          <div class="achip glyph">{aspectLabel(d.aspect_signature)}</div>
+        {/if}
         <div class="dtitle">{d.title}</div>
         {#if d.body}<div class="dprev">{d.body}</div>{/if}
         <div class="dmeta">{d.authorName} · {fmt(d.created_at)}
@@ -273,6 +291,10 @@
   .cbody { font-size: 0.92rem; margin-top: 3px; white-space: pre-wrap; }
   .inputrow { display: flex; gap: 8px; margin-top: 12px; }
   .inputrow textarea { flex: 1; resize: none; }
+  /* чип аспекта, из которого написано обсуждение */
+  .achip { display: inline-block; font-size: 0.95rem; letter-spacing: 2px; color: var(--silver);
+    background: #ffffff10; border: 1px solid var(--glass-brd); border-radius: 999px;
+    padding: 2px 10px; margin-bottom: 6px; }
   .hint { color: var(--ink-faint); font-size: 0.86rem; text-align: center; padding: 8px 0; }
   .err { margin-top: 10px; padding: 8px 12px; background: #ff5a5a1e; color: #ffb3b3; border-radius: 10px; font-size: 0.86rem; }
 </style>

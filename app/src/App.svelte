@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { Capacitor, registerPlugin } from '@capacitor/core';
+  import { App as CapApp } from '@capacitor/app';
   import type { Engine, AspectRecord } from './engine/index.ts';
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
@@ -59,6 +60,9 @@
   }
   let needReconnect = $state(false);
   let showWelcome = $state(false);
+  // открыта ли хоть одна шторка (событие из lib/sheet.ts) — прячем фоновую
+  // scroll-нить, чтобы она не просвечивала поверх затемнения под шторкой
+  let sheetsOpen = $state(false);
   let wheelInfo = $state<WheelInfo | null>(null);
   let chatSeed = $state<string | null>(null);
   // контекст, к которому привязан чат (аспект/объекты) — чтобы сохранить переписку
@@ -102,7 +106,35 @@
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // следим за открытием/закрытием любых шторок (ref-count в lib/sheet.ts)
+  $effect(() => {
+    const h = (e: Event) => { sheetsOpen = (e as CustomEvent).detail > 0; };
+    document.addEventListener('astra:sheets', h);
+    return () => document.removeEventListener('astra:sheets', h);
+  });
+
+  // Аппаратная кнопка/жест «Назад» на Android: закрываем ВЕРХНЮЮ открытую шторку,
+  // а не выходим из приложения. Если ничего не открыто — сворачиваем (не убиваем).
+  function onBack() {
+    if (selRec) { closeAspect(); return; }
+    if (wheelInfo) { wheelInfo = null; return; }
+    if (showChat) { showChat = false; chatSeed = null; chatSource = null; return; }
+    if (showCommunity) { showCommunity = false; return; }
+    if (showInterp) { showInterp = false; showLibrary = true; return; }
+    if (showArch) { showArch = false; showLibrary = true; return; }
+    if (showTracked) { showTracked = false; showLibrary = true; return; }
+    if (showCal) { showCal = false; return; }
+    if (showJournal) { showJournal = false; return; }
+    if (showLibrary) { showLibrary = false; return; }
+    if (showData) { showData = false; return; }
+    if (showWelcome) return;               // приветствие не закрываем «назад»
+    void CapApp.minimizeApp();
+  }
+
   onMount(async () => {
+    if (Capacitor.isNativePlatform()) {
+      void CapApp.addListener('backButton', onBack);
+    }
     // durable-данные устройства (Preferences) + встроенные архетипы — ДО UI,
     // чтобы заметки/архетипы/пояс/время уведомлений не «терялись» после перезапуска.
     try {
@@ -179,7 +211,7 @@
 <svelte:window onkeydown={onKey} />
 
 <Starfield />
-{#if engine && !error}<ScrollThread />{/if}
+{#if engine && !error && !sheetsOpen}<ScrollThread />{/if}
 
 <main ontouchstart={onStart} ontouchend={onEnd}>
   <header class="glass frost">

@@ -142,6 +142,12 @@ body::before {
 /* скролл внутри шторки НЕ передаётся фоновой ленте (перемотка главного экрана) */
 section.sheet { overscroll-behavior: contain; }
 
+/* ЕДИНАЯ высота всех шторок (унификация — просьба владелицы: аспекты/настройки
+   были ниже Сообщества). Селектор .sheet.glass специфичнее per-component
+   scoped-стилей, поэтому перекрывает их max-height без !important. max-height
+   лишь ПОТОЛОК: короткие шторки (дата, символ) остаются по содержимому. */
+section.sheet.glass { max-height: 90vh; }
+
 .glyph { font-family: "Segoe UI Symbol", "Noto Sans Symbols2", "DejaVu Sans", sans-serif; }
 
 /* Акцентный дисплейный шрифт (Unbounded) — заголовки шторок и «геройский» текст.
@@ -194,5 +200,34 @@ textarea.seamless { field-sizing: content; min-height: 3lh; }
    Без transform (он конфликтует с reveal-анимацией) — только свет. */
 button:active { filter: brightness(1.25) saturate(1.1); }
 :root[data-theme='light'] button:active { filter: brightness(0.93); }
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-thumb { background: #ffffff22; border-radius: 8px; }
+/* Свой индикатор прокрутки — боковая scroll-нить (ui/ScrollThread + экшен
+   use:bottomSheet). Нативный бегунок справа дублировал её (жалоба «прокрутка
+   дублируется справа») — прячем на всех платформах; прокрутка пальцем/колесом
+   работает как прежде. */
+* { scrollbar-width: none; }
+::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Боковая scroll-нить — ОБЩИЕ стили (глобальные, т.к. для шторок элемент
+   создаётся в JS экшеном lib/sheet.ts, а для главного экрана — ui/ScrollThread).
+   Главный экран берёт top/bottom отсюда (учёт таб-бара и safe-area); нить
+   шторки (.sheet-thread) ставит top/height инлайном под реальную коробку. */
+.scroll-thread {
+  position: fixed; left: 5px; width: 2px; pointer-events: none; z-index: 30;
+  top: calc(64px + var(--safe-top)); bottom: calc(84px + var(--safe-bottom));
+}
+.scroll-thread.sheet-thread { z-index: 45; }   /* выше любой открытой шторки */
+.scroll-thread .track {
+  position: absolute; inset: 0; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink-faint) 35%, transparent);
+}
+.scroll-thread .fill {
+  position: absolute; inset: 0; transform-origin: top; border-radius: 999px;
+  background: linear-gradient(to bottom, var(--neon-violet), var(--neon-cyan));
+  transition: transform 0.08s linear;
+}
+.scroll-thread .carrier { position: absolute; inset: 0; transition: transform 0.08s linear; }
+.scroll-thread .node {
+  position: absolute; top: 0; left: 50%; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  border-radius: 50%; background: var(--neon-cyan);
+  box-shadow: 0 0 6px 2px color-mix(in srgb, var(--neon-cyan) 65%, transparent);
+}

@@ -19,6 +19,7 @@
 import { Capacitor } from '@capacitor/core';
 import { CapacitorUpdater } from '@capgo/capacitor-updater';
 import { APP_VERSION } from './version.ts';
+import { flushNow } from './db.ts';
 
 const REPO = 'gggssaggg-beep/astra';
 const MANIFEST_URL = `https://raw.githubusercontent.com/${REPO}/main/apk/latest.json`;
@@ -165,6 +166,7 @@ export async function checkOtaUpdate(): Promise<OtaStatus> {
  */
 export async function applyQueuedNow(): Promise<OtaStatus> {
   try {
+    await flushNow();   // не потерять несохранённые правки (дебаунс) при reload
     await CapacitorUpdater.reload();
     return getOtaStatus();   // сюда обычно уже не дойдём
   } catch (e) {

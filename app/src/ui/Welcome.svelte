@@ -2,7 +2,11 @@
   /** Приветствие первого запуска (раунд 5): какая школа и по каким правилам
    *  считаем. Показывается, пока settings.seenWelcome=false; повторно — из настроек. */
   import { WELCOME } from '../lib/lore.ts';
+  import { pushScrollLock } from '../lib/sheet.ts';
   let { onclose }: { onclose: () => void } = $props();
+
+  // пока приветствие открыто — фоновая лента дней не должна проматываться под ним
+  $effect(() => pushScrollLock());
 </script>
 
 <div class="wrap">

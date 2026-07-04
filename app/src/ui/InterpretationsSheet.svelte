@@ -6,10 +6,8 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
-  import ScrollThread from './ScrollThread.svelte';
 
   let { onclose, onopen }: { onclose: () => void; onopen: (r: AspectRecord) => void } = $props();
-  let sheetEl = $state<HTMLElement | null>(null);
 
   // slice — иначе Svelte не заметит мутацию db на месте (см. lib/db.ts)
   let items = $state(db.interpretations.all().slice());
@@ -28,8 +26,7 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<ScrollThread target={sheetEl} zIndex={24} />
-<section class="sheet glass" aria-label="Трактовки" use:bottomSheet={{ onclose }} bind:this={sheetEl}>
+<section class="sheet glass" aria-label="Трактовки" use:bottomSheet={{ onclose }}>
   <header><h2>Трактовки</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   {#if !list.length}

@@ -105,6 +105,18 @@ function persist() {
   notify();
 }
 
+/** Немедленно (await) сбросить данные в durable-хранилище, минуя дебаунс.
+ *  Нужно ПЕРЕД OTA-reload: nativeSave отложен на 300 мс, и если применить
+ *  обновление сразу после правки, изменение не успевало записаться в
+ *  Preferences → после перезапуска «слетала галочка/настройка». */
+export async function flushNow(): Promise<void> {
+  if (prefTimer) { clearTimeout(prefTimer); prefTimer = null; }
+  try { localStorage.setItem(LS_KEY, serialize()); } catch { /* quota */ }
+  if (NATIVE) {
+    try { await Preferences.set({ key: LS_KEY, value: serialize() }); } catch { /* нет места — осталось в localStorage */ }
+  }
+}
+
 export function serialize(): string {
   return JSON.stringify({ app: 'astra', schema: DATA_SCHEMA, savedAt: new Date().toISOString(), data }, null, 2);
 }

@@ -5,7 +5,6 @@
    * внешних библиотек. Не создаёт дополнительных DOM-узлов на кадр.
    */
   import { onMount } from 'svelte';
-  import { anySheetOpen } from '../lib/sheet.ts';
 
   const COUNT = 81;
   const BIG_R = 1.7;      // радиус, начиная с которого рисуем гало
@@ -53,21 +52,11 @@
 
     let raf = 0;
     let last = performance.now();
-    let lastLight: boolean | null = null;
 
-    // Пока открыта шторка — канвас замирает: над ним висит backdrop-blur, и
-    // каждая перерисовка фона заставляла GPU пересчитывать размытие → «тупит
-    // при открытии аспектов». Замерший кадр браузер кэширует, шторка плавная.
-    let paused = false;
-    const onSheets = (e: Event) => {
-      const open = ((e as CustomEvent).detail as number) > 0;
-      if (open === paused) return;
-      paused = open;
-      if (paused) cancelAnimationFrame(raf);
-      else { last = performance.now(); raf = requestAnimationFrame(frame); }
-    };
-    document.addEventListener('astra:sheets', onSheets);
-    paused = anySheetOpen();
+    // Пылинки/блёстки просвечивают ВСЁ приложение (просьба владелицы), не только
+    // главный экран: канвас лежит ПОВЕРХ шторок (z-index в стиле). Раз он больше
+    // не под backdrop-blur шторки — его перерисовка не заставляет GPU пересчитывать
+    // размытие, поэтому прежней паузы «пока открыта шторка» не нужно (перф ок).
 
     function frame(t: number) {
       if (t - last < MIN_FRAME_MS) { raf = requestAnimationFrame(frame); return; }
@@ -76,12 +65,6 @@
       ctx!.clearRect(0, 0, w, h);
       // на светлой теме «Рассвет» — тёплые блёстки с лучиками; на тёмной — белая пыль
       const light = document.documentElement.dataset.theme === 'light';
-      // светлые блёстки всплывают ПОВЕРХ карточек (z-index:5, но под шапкой/шторками
-      // на z-index:20+); ночная пыль остаётся позади контента (z-index:-1)
-      if (light !== lastLight) {
-        canvas.style.zIndex = light ? '5' : '-1';
-        lastLight = light;
-      }
       for (const p of dust) {
         if (!reduced) {
           p.x += p.vx * dt; p.y += p.vy * dt;
@@ -132,12 +115,11 @@
       }
       raf = requestAnimationFrame(frame);
     }
-    if (!paused) raf = requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', resize);
-      document.removeEventListener('astra:sheets', onSheets);
     };
   });
 </script>
@@ -145,5 +127,8 @@
 <canvas bind:this={canvas} class="stardust" aria-hidden="true"></canvas>
 
 <style>
-  .stardust { position: fixed; inset: 0; z-index: -1; pointer-events: none; display: block; }
+  /* z-index 35: поверх шторок (z ≤ 27) и их затемнения — блёстки видны во всех
+     меню; но под боковой нитью прокрутки (45) и приветствием (40). Не ловит
+     касания (pointer-events:none) — просто мерцающая пыль над всем приложением. */
+  .stardust { position: fixed; inset: 0; z-index: 35; pointer-events: none; display: block; }
 </style>

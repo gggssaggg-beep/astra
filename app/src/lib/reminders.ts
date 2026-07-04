@@ -2,8 +2,16 @@
  * Напоминания — порт принципа MENS/FemCycle.
  * Один канал «care» (importance DEFAULT=3), без кастомной иконки,
  * журнал шагов вместо тихих catch.
+ *
+ * ВАЖНО: плагин импортируется СТАТИЧЕСКИ (как @capacitor/preferences), НЕ через
+ * динамический import(). В офлайн-WebView (нет сети + service worker PWA) ленивый
+ * чанк плагина не достаётся — `await import()` висел и отваливался по таймауту
+ * («Загрузка плагина: нет ответа за 8 с»), из-за чего НИ разрешение, НИ показ
+ * никогда не вызывались. Статический импорт кладёт регистрацию плагина в главный
+ * бандл, который уже загружен, — грузить нечего.
  */
 import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Engine } from '../engine/index.ts';
 import { aspectsOn, PLANET_GLYPH } from '../engine/index.ts';
 import { zonedDayStartUTC, todayCivil } from './format.ts';
@@ -31,19 +39,13 @@ const withTimeout = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
   Promise.race([p, new Promise<never>((_, rej) =>
     setTimeout(() => rej(new Error(`${what}: нет ответа за ${Math.round(ms / 1000)} с`)), ms))]);
 
-async function LN() {
-  return (await import('@capacitor/local-notifications')).LocalNotifications;
-}
-
 let _initDone = false;
 async function ensureInit(): Promise<void> {
   if (_initDone) return;
   try {
-    const ln = await withTimeout(LN(), 8000, 'Загрузка плагина');
-    push('плагин загружен ✓');
     if (NATIVE) {
       await withTimeout(
-        ln.createChannel({ id: CH, name: 'Напоминания', importance: 3, vibration: true }),
+        LocalNotifications.createChannel({ id: CH, name: 'Напоминания', importance: 3, vibration: true }),
         6000, 'Создание канала');
       push('канал создан ✓');
     }
@@ -57,7 +59,7 @@ async function ensureInit(): Promise<void> {
 export async function granted(): Promise<boolean> {
   if (!NATIVE) return typeof Notification !== 'undefined' && Notification.permission === 'granted';
   try {
-    const c = await withTimeout((await LN()).checkPermissions(), 6000, 'checkPermissions');
+    const c = await withTimeout(LocalNotifications.checkPermissions(), 6000, 'checkPermissions');
     return c.display === 'granted';
   } catch (e) {
     push('granted() error: ' + (e instanceof Error ? e.message : String(e)));
@@ -73,16 +75,15 @@ export async function requestPermission(): Promise<'granted' | 'denied' | 'unsup
     return p === 'granted' ? 'granted' : 'denied';
   }
   try {
-    const ln = await LN();
     push('requestPermission: проверяю текущее состояние');
-    const cur = await withTimeout(ln.checkPermissions(), 6000, 'checkPermissions');
+    const cur = await withTimeout(LocalNotifications.checkPermissions(), 6000, 'checkPermissions');
     push(`разрешение сейчас: ${cur.display}`);
     if (cur.display === 'granted') {
       push('уже granted — системный диалог не зову');
       return 'granted';
     }
     push('зову системный диалог...');
-    const r = await withTimeout(ln.requestPermissions(), 30000, 'requestPermissions');
+    const r = await withTimeout(LocalNotifications.requestPermissions(), 30000, 'requestPermissions');
     push(`результат: ${r.display}`);
     return r.display === 'granted' ? 'granted' : 'denied';
   } catch (e) {
@@ -100,15 +101,14 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
   push(`rescheduleAll #${gen} start`);
   try {
     await ensureInit();
-    const ln = await LN();
 
     try {
-      const pd = await withTimeout(ln.getPending(), 8000, 'getPending');
+      const pd = await withTimeout(LocalNotifications.getPending(), 8000, 'getPending');
       const ours = pd.notifications
         .filter(n => n.id >= ID_DAILY && n.id <= ID_ASPECT_TO)
         .map(n => ({ id: n.id }));
       if (ours.length) {
-        await withTimeout(ln.cancel({ notifications: ours }), 6000, 'cancel');
+        await withTimeout(LocalNotifications.cancel({ notifications: ours }), 6000, 'cancel');
         push(`отменено ${ours.length} старых`);
       }
     } catch (e) { push('cancel warn: ' + (e instanceof Error ? e.message : String(e))); }
@@ -120,7 +120,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
     if (!ok) { push('skip: нет разрешения'); return; }
     if (stale()) return;
 
-    const list: unknown[] = [];
+    const list: Parameters<typeof LocalNotifications.schedule>[0]['notifications'] = [];
 
     if (settings.notifyDaily) {
       const [hh, mm] = (settings.dailyNotifyTime || '09:00')
@@ -168,7 +168,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
 
     if (list.length && !stale()) {
       await withTimeout(
-        (await LN()).schedule({ notifications: list as Parameters<typeof ln.schedule>[0]['notifications'] }),
+        LocalNotifications.schedule({ notifications: list }),
         10000, 'schedule');
       push(`schedule(${list.length} шт) ✓`);
     }
@@ -188,14 +188,13 @@ export async function sendTest(): Promise<string> {
   }
   try {
     await ensureInit();
-    const ln = await LN();
     const ok = await granted();
     push(`разрешение: ${ok ? 'granted' : 'НЕТ'}`);
     if (!ok) {
       return 'Разрешения нет. Включите: Настройки Android → Приложения → Astra → Уведомления.';
     }
     // Ступень 1: мгновенное БЕЗ расписания — мимо AlarmManager
-    await withTimeout(ln.schedule({ notifications: [{
+    await withTimeout(LocalNotifications.schedule({ notifications: [{
       id: ID_TEST_NOW,
       title: '🔔 Astra — сразу',
       body: 'Мгновенное уведомление (мимо будильника) — если нет, система блокирует.',
@@ -203,7 +202,7 @@ export async function sendTest(): Promise<string> {
     }] }), 8000, 'Мгновенное уведомление');
     push('мгновенное ✓');
     // Ступень 2: через 10 с через AlarmManager (+10 с как в FemCycle; +1.5 с было в прошлом)
-    await withTimeout(ln.schedule({ notifications: [{
+    await withTimeout(LocalNotifications.schedule({ notifications: [{
       id: ID_TEST_DELAYED,
       title: '🔔 Astra — через 10 с',
       body: 'Отложенное (будильник) — так придёт сводка дня. Сверните приложение.',

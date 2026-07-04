@@ -305,6 +305,8 @@
 {#if showCharts && engine}
   <ChartsSheet {engine} {orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
     tz={settings.tz} initialMode={showCharts.mode ?? 'transitNatal'}
+    onchat={(seed, source) => openChat(seed, source)}
+    oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}
     onclose={() => (showCharts = false)} />
 {/if}
 

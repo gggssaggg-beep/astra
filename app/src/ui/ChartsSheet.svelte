@@ -15,18 +15,30 @@
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
   import { synastryAspects, staticKey } from '../engine/index.ts';
+  import type { StaticAspect } from '../engine/index.ts';
   import { natalPositions } from '../lib/charts.ts';
   import { fmtPos } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
   import { searchCities, type City } from '../lib/cities.ts';
   import Wheel from './Wheel.svelte';
   import StaticAspectRow from './StaticAspectRow.svelte';
+  import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
 
   type Mode = 'transitNatal' | 'triple' | 'synastry';
 
-  let { engine, orbOf, signStyle, defaultTz, tz, initialMode = 'transitNatal', onclose }:
+  let { engine, orbOf, signStyle, defaultTz, tz, initialMode = 'transitNatal', onclose, onchat, oncommunity }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
-      defaultTz: string; tz: string; initialMode?: Mode; onclose: () => void } = $props();
+      defaultTz: string; tz: string; initialMode?: Mode; onclose: () => void;
+      onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
+      oncommunity?: (sig: string, title: string) => void } = $props();
+
+  // открытый межаспект (детальная шторка «как на главном»)
+  let detail = $state<StaticAspect | null>(null);
+  let detailA = $state<string | null>(null);
+  let detailB = $state<string | null>(null);
+  function openDetail(a: StaticAspect, oa: string | null, ob: string | null): void {
+    selKey = staticKey(a); detail = a; detailA = oa; detailB = ob;
+  }
 
   let view = $state<'list' | 'form' | 'chart'>('list');
   let mode = $state<Mode>(untrack(() => initialMode));
@@ -300,26 +312,26 @@
       {#if crossSyn.length === 0}<div class="empty">Нет мажорных аспектов в орбисе.</div>{/if}
       {#each crossSyn as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={personB?.name}
-          selected={staticKey(a) === selKey} ontap={() => onStatic(staticKey(a))} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, personB?.name ?? null)} />
       {/each}
     {:else if mode === 'transitNatal'}
       {#if crossTA.length === 0}<div class="empty">Транзит сейчас не делает мажорных аспектов к карте в орбисе.</div>{/if}
       {#each crossTA as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => onStatic(staticKey(a))} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит')} />
       {/each}
     {:else}
       <div class="grp">Транзит → {personA?.name}</div>
       {#if crossTA.length === 0}<div class="empty">Нет аспектов в орбисе.</div>{/if}
       {#each crossTA as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => onStatic(staticKey(a))} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит')} />
       {/each}
       <div class="grp">Транзит → {personB?.name}</div>
       {#if crossTB.length === 0}<div class="empty">Нет аспектов в орбисе.</div>{/if}
       {#each crossTB as a}
         <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => onStatic(staticKey(a))} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит')} />
       {/each}
     {/if}
 
@@ -338,6 +350,13 @@
     </details>
   {/if}
 </section>
+
+{#if detail}
+  <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz}
+    onclose={() => (detail = null)}
+    onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}
+    oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
+{/if}
 
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 20; }

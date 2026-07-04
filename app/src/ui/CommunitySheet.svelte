@@ -7,7 +7,8 @@
     configured, initCommunityAuth, signInGoogle, signInEmail, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     removeDiscussion, removeComment, isAdmin,
-    type Discussion, type CommunityComment,
+    follow, getProfileCard, subscribeThread, isSubscribed,
+    type Discussion, type CommunityComment, type ProfileCard,
   } from '../lib/community.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
@@ -34,6 +35,9 @@
   let feed = $state<Discussion[]>([]);
   let open = $state<Discussion | null>(null);      // открытый тред
   let comments = $state<CommunityComment[]>([]);
+  let subbed = $state(false);                      // подписана ли на открытую ветку
+  let card = $state<ProfileCard | null>(null);     // открытая карточка пользователя
+  let cardBusy = $state(false);
 
   let newTitle = $state('');
   let newBody = $state('');
@@ -79,10 +83,45 @@
     finally { mailBusy = false; }
   }
 
+  // Закрытие «на пункт выше»: карточка → тред → лента → закрыть шторку. Свайп-вниз
+  // и ✕ идут сюда же — «при закрытии ветки возвращать к списку сообщений».
+  function handleClose() {
+    if (card) { card = null; return; }
+    if (open) { open = null; return; }
+    onclose();
+  }
+
   async function openThread(d: Discussion) {
     open = d; comments = []; buzz();
-    try { comments = await listComments(d.id); }
+    try {
+      comments = await listComments(d.id);
+      subbed = await isSubscribed(d.id);
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+
+  async function toggleSub() {
+    if (!open) return;
+    const next = !subbed; subbed = next; buzz();     // оптимистично
+    try { await subscribeThread(open.id, next); }
+    catch (e) { subbed = !next; err = e instanceof Error ? e.message : String(e); }
+  }
+
+  // карточка пользователя (тап по имени автора): аватар, счётчики, подписка
+  async function openCard(userId: string) {
+    buzz(); err = null;
+    try { card = await getProfileCard(userId); }
     catch (e) { err = e instanceof Error ? e.message : String(e); }
+  }
+  async function toggleFollow() {
+    if (!card || cardBusy) return;
+    cardBusy = true;
+    const next = !card.iFollow;
+    try {
+      await follow(card.id, next);
+      card = { ...card, iFollow: next, followers: card.followers + (next ? 1 : -1) };
+      success();
+    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    finally { cardBusy = false; }
   }
 
   async function submitDiscussion() {
@@ -142,8 +181,8 @@
   }
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Сообщество" use:bottomSheet={{ onclose }}>
+<div class="backdrop" onclick={handleClose} role="presentation"></div>
+<section class="sheet glass" aria-label="Сообщество" use:bottomSheet={{ onclose: handleClose }}>
   <header>
     {#if open}
       <button class="back" onclick={() => (open = null)}>‹ Лента</button>
@@ -151,8 +190,13 @@
       <h2>Сообщество{signature ? ' · аспект' : ''}</h2>
     {/if}
     <div class="hbtns">
+      {#if open}
+        <button class="link" class:on={subbed} onclick={toggleSub}
+          title="Уведомлять о новых комментариях в этой ветке">
+          {subbed ? '🔔 Подписана' : '🔕 Подписаться'}</button>
+      {/if}
       {#if session && !open}<button class="link" onclick={() => signOut()}>выйти</button>{/if}
-      <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
+      <button class="x" onclick={handleClose} aria-label="Закрыть">✕</button>
     </div>
   </header>
   {#if signature && title && !open}<div class="subt">{title}</div>{/if}
@@ -191,7 +235,9 @@
         <div class="achip glyph">{aspectLabel(open.aspect_signature)}</div>
       {/if}
       <div class="dtitle">{open.title}</div>
-      <div class="dmeta">{open.authorName} · {fmt(open.created_at)}</div>
+      <div class="dmeta">
+        <button class="who" onclick={() => open && openCard(open.author_id)}>{open.authorName}</button>
+        · {fmt(open.created_at)}</div>
       {#if open.body}<div class="dbody">{open.body}</div>{/if}
       <div class="tactions">
         <button class="heart" class:on={open.myLike} onclick={() => open && heart(open)}>
@@ -246,7 +292,10 @@
         {/if}
         <div class="dtitle">{d.title}</div>
         {#if d.body}<div class="dprev">{d.body}</div>{/if}
-        <div class="dmeta">{d.authorName} · {fmt(d.created_at)}
+        <div class="dmeta">
+          <span class="who" role="button" tabindex="-1" onkeydown={() => {}}
+            onclick={(e) => { e.stopPropagation(); openCard(d.author_id); }}>{d.authorName}</span>
+          · {fmt(d.created_at)}
           <span class="spacer"></span>
           <span class="cnt">💬 {d.comments}</span>
           <span class="cnt" class:liked={d.myLike}
@@ -265,6 +314,30 @@
   {#if err}<div class="err">⚠ {err}</div>{/if}
 </section>
 
+{#if card}
+  <div class="cardback" onclick={() => (card = null)} role="presentation"></div>
+  <div class="ucard glass" role="dialog" aria-modal="true" aria-label="Карточка пользователя" tabindex="-1">
+    {#if card.avatar}
+      <img class="uav" src={card.avatar} alt="" referrerpolicy="no-referrer" />
+    {:else}
+      <div class="uav ph glyph">✧</div>
+    {/if}
+    <div class="uname">{card.name}</div>
+    <div class="ustats">
+      <span><b>{card.posts}</b> тем</span>
+      <span><b>{card.followers}</b> подписчиков</span>
+      <span><b>{card.following}</b> подписок</span>
+    </div>
+    {#if !card.isMe}
+      <button class="btn primary" class:following={card.iFollow} disabled={cardBusy} onclick={toggleFollow}>
+        {card.iFollow ? '✓ Вы подписаны' : '+ Подписаться'}</button>
+    {:else}
+      <div class="hint">Это вы ✧</div>
+    {/if}
+    <button class="ux" onclick={() => (card = null)} aria-label="Закрыть">✕</button>
+  </div>
+{/if}
+
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
@@ -277,6 +350,7 @@
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .hbtns { display: flex; align-items: center; gap: 10px; }
   .link { background: transparent; border: none; color: var(--ink-faint); font-size: 0.8rem; text-decoration: underline; }
+  .link.on { color: var(--gold); text-decoration: none; }
   .back { background: transparent; border: none; color: var(--accent); font-size: 0.95rem; padding: 4px 0; }
 
   .stub { text-align: center; padding: 26px 14px; color: var(--ink-dim); }
@@ -332,4 +406,22 @@
     padding: 2px 10px; margin-bottom: 6px; }
   .hint { color: var(--ink-faint); font-size: 0.86rem; text-align: center; padding: 8px 0; }
   .err { margin-top: 10px; padding: 8px 12px; background: #ff5a5a1e; color: #ffb3b3; border-radius: 10px; font-size: 0.86rem; }
+  /* кликабельное имя автора */
+  .who { background: transparent; border: none; color: var(--accent); font: inherit;
+    font-size: inherit; padding: 0; text-decoration: underline; text-underline-offset: 2px; }
+  /* оверлей-карточка пользователя (подписка на человека) */
+  .cardback { position: fixed; inset: 0; z-index: 46; background: #0009; }
+  .ucard { position: fixed; z-index: 47; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: min(340px, calc(100% - 40px)); border-radius: 20px; padding: 22px 20px; text-align: center; }
+  .uav { width: 76px; height: 76px; border-radius: 50%; object-fit: cover; margin: 0 auto 10px;
+    display: block; border: 1px solid var(--glass-brd); }
+  .uav.ph { display: flex; align-items: center; justify-content: center; font-size: 2rem;
+    color: var(--accent); background: #ffffff10; }
+  .uname { font-family: var(--font-display); font-size: 1.15rem; font-weight: 600; }
+  .ustats { display: flex; justify-content: center; gap: 14px; margin: 12px 0 16px;
+    color: var(--ink-faint); font-size: 0.8rem; }
+  .ustats b { color: var(--ink); font-size: 0.95rem; }
+  .ucard .btn.primary.following { background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-dim); }
+  .ux { position: absolute; top: 10px; right: 12px; background: transparent; border: none;
+    color: var(--ink-faint); font-size: 1rem; }
 </style>

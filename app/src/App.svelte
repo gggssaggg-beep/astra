@@ -25,7 +25,7 @@
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
-  import { rescheduleAll } from './lib/reminders.ts';
+  import { rescheduleAll, onNotificationTap } from './lib/reminders.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
   let settings = $state(db.settings.get());
@@ -131,10 +131,20 @@
     void CapApp.minimizeApp();
   }
 
+  // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
+  function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
+    showData = showJournal = showLibrary = showInterp = showArch = showTracked = showChat = false;
+    showCommunity = false; selRec = null; wheelInfo = null;
+    if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
+    if (info.signature) selSig = info.signature;
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+  }
+
   onMount(async () => {
     if (Capacitor.isNativePlatform()) {
       void CapApp.addListener('backButton', onBack);
     }
+    onNotificationTap(openFromNotification);
     // durable-данные устройства (Preferences) + встроенные архетипы — ДО UI,
     // чтобы заметки/архетипы/пояс/время уведомлений не «терялись» после перезапуска.
     try {

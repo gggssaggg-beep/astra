@@ -210,3 +210,70 @@ export async function removeDiscussion(id: string): Promise<void> {
 export async function removeComment(id: string): Promise<void> {
   await sb().from('comments').delete().eq('id', id);
 }
+
+// --- Подписки на людей (follow) и на ветки -----------------------------------
+
+export interface ProfileCard {
+  id: string; name: string; avatar: string | null;
+  followers: number; following: number; posts: number; iFollow: boolean; isMe: boolean;
+}
+
+export async function follow(followeeId: string, on: boolean): Promise<void> {
+  const me = await uidOf(); if (!me) throw new Error('Нужно войти.');
+  if (on) {
+    const { error } = await sb().from('follows')
+      .upsert({ follower_id: me, followee_id: followeeId }, { ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+  } else {
+    await sb().from('follows').delete().eq('follower_id', me).eq('followee_id', followeeId);
+  }
+}
+
+/** id всех, на кого я подписана (для метки «подписка» в ленте). */
+export async function followingIds(): Promise<Set<string>> {
+  const me = await uidOf(); if (!me) return new Set();
+  const { data } = await sb().from('follows').select('followee_id').eq('follower_id', me);
+  return new Set((data ?? []).map((r: Row) => r.followee_id));
+}
+
+/** Карточка пользователя: имя, аватар, счётчики, подписана ли я. */
+export async function getProfileCard(userId: string): Promise<ProfileCard> {
+  const me = await uidOf();
+  const cnt = (q: any) => q.select('*', { count: 'exact', head: true });
+  const [prof, followers, following, posts, mine] = await Promise.all([
+    sb().from('profiles').select('display_name,avatar_url').eq('id', userId).maybeSingle(),
+    cnt(sb().from('follows')).eq('followee_id', userId),
+    cnt(sb().from('follows')).eq('follower_id', userId),
+    cnt(sb().from('discussions')).eq('author_id', userId),
+    me ? sb().from('follows').select('follower_id').eq('follower_id', me).eq('followee_id', userId).maybeSingle()
+       : Promise.resolve({ data: null }),
+  ]);
+  return {
+    id: userId,
+    name: (prof.data as Row)?.display_name ?? '…',
+    avatar: (prof.data as Row)?.avatar_url ?? null,
+    followers: followers.count ?? 0,
+    following: following.count ?? 0,
+    posts: posts.count ?? 0,
+    iFollow: !!(mine as { data: unknown }).data,
+    isMe: me === userId,
+  };
+}
+
+export async function subscribeThread(discussionId: string, on: boolean): Promise<void> {
+  const me = await uidOf(); if (!me) throw new Error('Нужно войти.');
+  if (on) {
+    const { error } = await sb().from('thread_subs')
+      .upsert({ user_id: me, discussion_id: discussionId }, { ignoreDuplicates: true });
+    if (error) throw new Error(error.message);
+  } else {
+    await sb().from('thread_subs').delete().eq('user_id', me).eq('discussion_id', discussionId);
+  }
+}
+
+export async function isSubscribed(discussionId: string): Promise<boolean> {
+  const me = await uidOf(); if (!me) return false;
+  const { data } = await sb().from('thread_subs').select('user_id')
+    .eq('user_id', me).eq('discussion_id', discussionId).maybeSingle();
+  return !!data;
+}

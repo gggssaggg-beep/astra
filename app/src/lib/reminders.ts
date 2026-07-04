@@ -17,6 +17,7 @@ import { aspectsOn, PLANET_GLYPH } from '../engine/index.ts';
 import { zonedDayStartUTC, todayCivil, fmtTime } from './format.ts';
 import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
+import { aspectSignature } from './signature.ts';
 
 const NATIVE = Capacitor.isNativePlatform();
 const CH = 'care';
@@ -148,19 +149,26 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       const res = aspectsOn(engine, dayStart, orb, false);
       const dayAspects = [...res.fast, ...res.slow];
 
+      // extra.dayAnchor/signature — чтобы тап по уведомлению открыл нужный день и
+      // выделил аспект (App.svelte слушает localNotificationActionPerformed)
+      const anchor = civil.toISOString();
+
       if (needDaily) {
         const at = new Date(dayStart.getTime() + (DH * 60 + DM) * 60_000);
         if (at.getTime() > now + 60_000) {
-          const items = dayAspects
+          const withTime = dayAspects
             .filter(a => a.exactTime)
-            .sort((a, b) => (a.exactTime as Date).getTime() - (b.exactTime as Date).getTime())
-            .slice(0, 6)
+            .sort((a, b) => (a.exactTime as Date).getTime() - (b.exactTime as Date).getTime());
+          const items = withTime.slice(0, 6)
             .map(a => `${PLANET_GLYPH[a.p1] ?? a.p1}${a.symbol}${PLANET_GLYPH[a.p2] ?? a.p2} ${fmtTime(a.exactTime as Date, tz)}`);
+          const firstSig = withTime.length
+            ? aspectSignature(withTime[0].p1, withTime[0].p2, withTime[0].aspect) : null;
           list.push({
             id: ID_DAILY_FROM + d,
             title: 'Сводка неба',
             body: items.length ? items.join(' · ') : 'Особых аспектов нет — спокойный день.',
             channelId: CH,
+            extra: { dayAnchor: anchor, signature: firstSig },
             schedule: { at, allowWhileIdle: true },
           });
           dailyCount++;
@@ -176,6 +184,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
             title: `${PLANET_GLYPH[a.p1] ?? a.p1} ${a.symbol} ${PLANET_GLYPH[a.p2] ?? a.p2}`,
             body: `Точный аспект: ${a.p1} ${a.aspect} ${a.p2}`,
             channelId: CH,
+            extra: { dayAnchor: anchor, signature: aspectSignature(a.p1, a.p2, a.aspect) },
             schedule: { at: a.exactTime, allowWhileIdle: true },
           });
           aspectCount++;
@@ -194,6 +203,18 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
   } catch (e) {
     push('ОШИБКА rescheduleAll: ' + (e instanceof Error ? e.message : String(e)));
   }
+}
+
+/** Тап по уведомлению → колбэк с extra (день + сигнатура аспекта), чтобы App
+ *  открыл нужный день и выделил аспект. Регистрировать один раз на старте. */
+export function onNotificationTap(
+  cb: (info: { dayAnchor?: string; signature?: string }) => void,
+): void {
+  if (!NATIVE) return;
+  void LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
+    const ex = action.notification?.extra as { dayAnchor?: string; signature?: string } | undefined;
+    if (ex && (ex.dayAnchor || ex.signature)) { push('тап по уведомлению'); cb(ex); }
+  });
 }
 
 export async function sendTest(): Promise<string> {

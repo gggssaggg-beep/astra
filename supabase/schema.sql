@@ -80,3 +80,61 @@ create policy "likes: ставить свой" on public.likes
   for insert to authenticated with check (auth.uid() = user_id);
 create policy "likes: снимать свой" on public.likes
   for delete to authenticated using (auth.uid() = user_id);
+
+-- Подписки на ПОЛЬЗОВАТЕЛЕЙ (follow): follower видит активность followee.
+create table if not exists public.follows (
+  follower_id uuid not null references public.profiles(id) on delete cascade,
+  followee_id uuid not null references public.profiles(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+create index if not exists follows_followee_idx on public.follows (followee_id);
+alter table public.follows enable row level security;
+create policy "follows: читают вошедшие" on public.follows
+  for select to authenticated using (true);
+create policy "follows: подписываться самому" on public.follows
+  for insert to authenticated with check (auth.uid() = follower_id);
+create policy "follows: отписываться самому" on public.follows
+  for delete to authenticated using (auth.uid() = follower_id);
+
+-- Подписки на ВЕТКИ (thread): уведомлять о новых комментариях в теме. Автор темы
+-- и любой комментатор подписываются автоматически (триггеры ниже); можно отписаться.
+create table if not exists public.thread_subs (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  discussion_id uuid not null references public.discussions(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, discussion_id)
+);
+create index if not exists thread_subs_disc_idx on public.thread_subs (discussion_id);
+alter table public.thread_subs enable row level security;
+create policy "thread_subs: читают вошедшие" on public.thread_subs
+  for select to authenticated using (true);
+create policy "thread_subs: подписываться самому" on public.thread_subs
+  for insert to authenticated with check (auth.uid() = user_id);
+create policy "thread_subs: отписываться самому" on public.thread_subs
+  for delete to authenticated using (auth.uid() = user_id);
+
+-- Автоподписка: создал тему или прокомментировал → подписан на ветку.
+-- security definer, чтобы вставка прошла под RLS (проверяем автора вручную).
+create or replace function public.auto_sub_discussion() returns trigger
+  language plpgsql security definer as $$
+begin
+  insert into public.thread_subs (user_id, discussion_id)
+  values (new.author_id, new.id) on conflict do nothing;
+  return new;
+end $$;
+drop trigger if exists trg_auto_sub_discussion on public.discussions;
+create trigger trg_auto_sub_discussion after insert on public.discussions
+  for each row execute function public.auto_sub_discussion();
+
+create or replace function public.auto_sub_comment() returns trigger
+  language plpgsql security definer as $$
+begin
+  insert into public.thread_subs (user_id, discussion_id)
+  values (new.author_id, new.discussion_id) on conflict do nothing;
+  return new;
+end $$;
+drop trigger if exists trg_auto_sub_comment on public.comments;
+create trigger trg_auto_sub_comment after insert on public.comments
+  for each row execute function public.auto_sub_comment();

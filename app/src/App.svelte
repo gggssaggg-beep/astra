@@ -24,7 +24,7 @@
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
-  import { syncNotifications, requestNotifyOnFirstRun, requestNotifyIfNeverAsked } from './lib/notifications.ts';
+  import { rescheduleAll } from './lib/reminders.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
   let settings = $state(db.settings.get());
@@ -67,13 +67,8 @@
 
   function dismissWelcome() {
     showWelcome = false;
-    const first = !db.settings.get().seenWelcome;
     db.settings.set({ ...db.settings.get(), seenWelcome: true });
     settings = db.settings.get();
-    // первый запуск: системный запрос разрешения на уведомления — «зачем»
-    // человек только что прочёл в приветствии; повторные открытия из настроек
-    // диалог не дёргают
-    if (first) void requestNotifyOnFirstRun();
   }
   // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
   function openChat(seed: string, source: typeof chatSource = null) {
@@ -120,10 +115,6 @@
 
     try { engine = await getEngine('swieph'); reschedule(); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
-    // подстраховка: если система ещё ни разу не спрашивала разрешение на
-    // уведомления — спросить при старте (welcome могли пропустить: бэкап/OTA).
-    // При первом запуске не дублируем: диалог позовёт dismissWelcome.
-    if (!showWelcome) void requestNotifyIfNeverAsked();
     // подхватить файл данных с диска (если доступ уже разрешён — тихо; только веб)
     try {
       const ok = await dataFile.reconnectSilently();
@@ -138,7 +129,7 @@
     } catch { /* отказ — оставим как есть */ }
   }
 
-  function reschedule() { if (engine) void syncNotifications(engine, db.settings.get(), db.settings.get().tz); }
+  function reschedule() { if (engine) void rescheduleAll(engine, db.settings.get(), db.settings.get().tz); }
   function onPanelChanged() { settings = { ...db.settings.get() }; reschedule(); }
 
   // тема: ставим data-theme на корень; «авто» — по системной, со слежением.
@@ -288,7 +279,7 @@
 {/if}
 
 {#if showWelcome}
-  <Welcome onclose={dismissWelcome} firstRun={!settings.seenWelcome} />
+  <Welcome onclose={dismissWelcome} />
 {/if}
 
 {#if showChat && engine}

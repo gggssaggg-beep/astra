@@ -3,8 +3,7 @@
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
-  import { testNotify, notifyDiagnostics, requestExactAlarms, requestNotify,
-    openNotifySettings, type NotifyDiag } from '../lib/notifications.ts';
+  import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { getOtaStatus, checkOtaUpdate, applyQueuedNow } from '../lib/ota.ts';
@@ -40,47 +39,26 @@
     return f ? f('timeZone') : ['UTC', 'Europe/Moscow', 'Europe/Kyiv', 'Europe/Berlin', 'Asia/Almaty', 'Asia/Yekaterinburg'];
   })();
 
-  let notifyMsg = $state<string | null>(null);
-  let notifyBusy = $state(false);
-  async function checkNotify() {
-    if (notifyBusy) return;
-    notifyBusy = true;
-    try { notifyMsg = await testNotify('Astra', 'Тест уведомления — на телефоне так придёт сводка дня.'); }
-    finally { notifyBusy = false; }
-    void loadDiag();      // после запроса разрешения статус мог поменяться
+  let testMsg = $state<string | null>(null);
+  let testBusy = $state(false);
+
+  async function onNotifyToggle(field: 'notifyDaily' | 'notifyAspects', val: boolean) {
+    if (val) {
+      const r = await requestPermission();
+      if (r === 'denied')
+        testMsg = 'Разрешение отклонено. Включите вручную: Настройки Android → Приложения → Astra → Уведомления.';
+      else if (r === 'unsupported')
+        testMsg = 'Уведомления недоступны в этом окружении.';
+    }
+    if (field === 'notifyDaily') save({ notifyDaily: val });
+    else save({ notifyAspects: val });
   }
 
-  // диагностика «почему не приходят»: разрешение + точные будильники (Android 12+)
-  let diag = $state<NotifyDiag | null>(null);
-  async function loadDiag() { diag = await notifyDiagnostics(); }
-  void loadDiag();
-  const RU_PERM: Record<string, string> = { granted: 'да ✓', denied: 'НЕТ ✗', prompt: 'ещё не спрашивали' };
-  async function fixExact() { await requestExactAlarms(); void loadDiag(); }
-  // системный экран настроек уведомлений приложения (как у «других приложений»)
-  async function openSys() {
-    const ok = await openNotifySettings();
-    if (!ok) notifyMsg = 'Не удалось открыть (старый APK без плагина). Вручную: '
-      + 'Настройки Android → Приложения → Astra → Уведомления.';
-    void loadDiag();
-  }
-  // явный запрос разрешения (просьба 2026-07-02: «попробуй запросить разрешения»)
-  let permBusy = $state(false);
-  async function askPerm() {
-    if (permBusy) return;
-    permBusy = true;
-    notifyMsg = 'Запрашиваю разрешение…';   // мгновенная реакция — видно, что нажалось
-    try {
-      const r = await requestNotify();
-      notifyMsg = r === 'granted' ? 'Разрешение выдано ✓ — расписание пересоберётся.'
-        : r === 'denied' ? 'Система ответила «нет». Включите вручную: Настройки Android → Приложения → Astra → Уведомления.'
-        : 'Уведомления недоступны в этом окружении.';
-    } catch (e) {
-      notifyMsg = '⚠ ' + (e instanceof Error ? e.message : String(e));
-    } finally {
-      permBusy = false;
-    }
-    onchanged();       // пересобрать расписание с новым разрешением
-    void loadDiag();
+  async function runTest() {
+    if (testBusy) return;
+    testBusy = true;
+    try { testMsg = await sendTest(); }
+    finally { testBusy = false; }
   }
 
   let status = $state(dataFile.status());
@@ -177,7 +155,7 @@
     </div>
   </div>
 
-  <div class="group">Часовой пояс и уведомления</div>
+  <div class="group">Часовой пояс</div>
   <div class="block">
     <div class="lbl">Часовой пояс</div>
     <select class="select" value={cfg.tz} onchange={(e) => save({ tz: (e.target as HTMLSelectElement).value })}>
@@ -188,11 +166,11 @@
       офлайн, без интернета и GPS; можно изменить вручную здесь.</div>
   </div>
 
+  <div class="group">Уведомления</div>
   <div class="block">
-    <div class="lbl">Уведомления</div>
     <label class="toggle">
       <input type="checkbox" checked={cfg.notifyDaily}
-        onchange={(e) => save({ notifyDaily: (e.target as HTMLInputElement).checked })} />
+        onchange={(e) => onNotifyToggle('notifyDaily', (e.target as HTMLInputElement).checked)} />
       Ежедневная сводка дня
     </label>
     <div class="orb" style="margin-top:8px">
@@ -202,38 +180,19 @@
     </div>
     <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyAspects}
-        onchange={(e) => save({ notifyAspects: (e.target as HTMLInputElement).checked })} />
+        onchange={(e) => onNotifyToggle('notifyAspects', (e.target as HTMLInputElement).checked)} />
       В момент точного аспекта (планеты)
     </label>
-    <div class="row" style="margin-top:10px">
-      <button class="btn" disabled={notifyBusy} onclick={checkNotify}>
-        {notifyBusy ? 'Отправляю…' : 'Тест уведомления'}</button>
-      <button class="btn" disabled={permBusy} onclick={askPerm}>
-        {permBusy ? 'Запрашиваю…' : 'Запросить разрешение'}</button>
+    <div style="margin-top:10px">
+      <button class="btn" disabled={testBusy} onclick={runTest}>
+        {testBusy ? 'Проверяю…' : 'Проверить'}</button>
     </div>
-    {#if diag}
-      <div class="row" style="margin-top:6px">
-        <button class="btn" onclick={openSys}>Открыть настройки уведомлений…</button>
-      </div>
-      <div class="hint small">Системный экран уведомлений Astra — включите
-        «Показывать уведомления», если диалог не появляется.</div>
-    {/if}
-    {#if notifyMsg}<div class="msg">{notifyMsg}</div>{/if}
-    {#if diag}
-      <div class="hint small" style="margin-top:8px">
-        Разрешение на уведомления: <b>{RU_PERM[diag.display] ?? diag.display}</b>
-        {#if diag.exact} · точные будильники: <b>{RU_PERM[diag.exact] ?? diag.exact}</b>
-        {/if} · запланировано: <b>{diag.pending}</b>
-      </div>
-      {#if diag.exact && diag.exact !== 'granted'}
-        <div class="row" style="margin-top:6px">
-          <button class="btn" onclick={fixExact}>Разрешить точные будильники…</button>
-        </div>
-        <div class="hint small">Без этого Android присылает уведомления с опозданием
-          или теряет их. Откроются системные настройки — включите для Astra.</div>
-      {/if}
-    {/if}
-    <div class="hint small">На Xiaomi/MIUI ещё нужно: Автозапуск ВКЛ и Батарея →
+    {#if testMsg}<div class="msg" style="white-space:pre-line">{testMsg}</div>{/if}
+    <details style="margin-top:10px">
+      <summary class="small" style="cursor:pointer">Журнал шагов</summary>
+      <div class="msg small" style="margin-top:6px;font-family:var(--font-mono);white-space:pre-wrap;font-size:0.72rem">{reminderLog().join('\n') || '(пусто)'}</div>
+    </details>
+    <div class="hint small" style="margin-top:10px">На Xiaomi/MIUI ещё нужно: Автозапуск ВКЛ и Батарея →
       «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
   </div>
 

@@ -9,10 +9,13 @@ create table if not exists public.profiles (
   created_at timestamptz not null default now()
 );
 alter table public.profiles enable row level security;
+drop policy if exists "profiles: читают вошедшие" on public.profiles;
 create policy "profiles: читают вошедшие" on public.profiles
   for select to authenticated using (true);
+drop policy if exists "profiles: завести свой" on public.profiles;
 create policy "profiles: завести свой" on public.profiles
   for insert to authenticated with check (auth.uid() = id);
+drop policy if exists "profiles: править свой" on public.profiles;
 create policy "profiles: править свой" on public.profiles
   for update to authenticated using (auth.uid() = id);
 
@@ -29,10 +32,13 @@ create table if not exists public.discussions (
 create index if not exists discussions_sig_idx on public.discussions (aspect_signature, created_at desc);
 create index if not exists discussions_created_idx on public.discussions (created_at desc);
 alter table public.discussions enable row level security;
+drop policy if exists "discussions: читают вошедшие" on public.discussions;
 create policy "discussions: читают вошедшие" on public.discussions
   for select to authenticated using (true);
+drop policy if exists "discussions: писать своё" on public.discussions;
 create policy "discussions: писать своё" on public.discussions
   for insert to authenticated with check (auth.uid() = author_id);
+drop policy if exists "discussions: править своё" on public.discussions;
 create policy "discussions: править своё" on public.discussions
   for update to authenticated using (auth.uid() = author_id);
 -- Удалять тему может АВТОР или АДМИН (владелица проекта — по email).
@@ -53,8 +59,10 @@ create table if not exists public.comments (
 );
 create index if not exists comments_disc_idx on public.comments (discussion_id, created_at);
 alter table public.comments enable row level security;
+drop policy if exists "comments: читают вошедшие" on public.comments;
 create policy "comments: читают вошедшие" on public.comments
   for select to authenticated using (true);
+drop policy if exists "comments: писать своё" on public.comments;
 create policy "comments: писать своё" on public.comments
   for insert to authenticated with check (auth.uid() = author_id);
 -- Удалять комментарий может АВТОР или АДМИН (владелица — по email).
@@ -74,10 +82,13 @@ create table if not exists public.likes (
 );
 create index if not exists likes_target_idx on public.likes (target_kind, target_id);
 alter table public.likes enable row level security;
+drop policy if exists "likes: читают вошедшие" on public.likes;
 create policy "likes: читают вошедшие" on public.likes
   for select to authenticated using (true);
+drop policy if exists "likes: ставить свой" on public.likes;
 create policy "likes: ставить свой" on public.likes
   for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "likes: снимать свой" on public.likes;
 create policy "likes: снимать свой" on public.likes
   for delete to authenticated using (auth.uid() = user_id);
 
@@ -91,10 +102,13 @@ create table if not exists public.follows (
 );
 create index if not exists follows_followee_idx on public.follows (followee_id);
 alter table public.follows enable row level security;
+drop policy if exists "follows: читают вошедшие" on public.follows;
 create policy "follows: читают вошедшие" on public.follows
   for select to authenticated using (true);
+drop policy if exists "follows: подписываться самому" on public.follows;
 create policy "follows: подписываться самому" on public.follows
   for insert to authenticated with check (auth.uid() = follower_id);
+drop policy if exists "follows: отписываться самому" on public.follows;
 create policy "follows: отписываться самому" on public.follows
   for delete to authenticated using (auth.uid() = follower_id);
 
@@ -108,10 +122,13 @@ create table if not exists public.thread_subs (
 );
 create index if not exists thread_subs_disc_idx on public.thread_subs (discussion_id);
 alter table public.thread_subs enable row level security;
+drop policy if exists "thread_subs: читают вошедшие" on public.thread_subs;
 create policy "thread_subs: читают вошедшие" on public.thread_subs
   for select to authenticated using (true);
+drop policy if exists "thread_subs: подписываться самому" on public.thread_subs;
 create policy "thread_subs: подписываться самому" on public.thread_subs
   for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "thread_subs: отписываться самому" on public.thread_subs;
 create policy "thread_subs: отписываться самому" on public.thread_subs
   for delete to authenticated using (auth.uid() = user_id);
 
@@ -156,10 +173,13 @@ create table if not exists public.notifications (
 create index if not exists notif_recipient_idx on public.notifications (recipient_id, read, created_at desc);
 alter table public.notifications enable row level security;
 -- вставляют ТОЛЬКО триггеры (security definer) → insert-политики для юзеров нет
+drop policy if exists "notifications: свои читать" on public.notifications;
 create policy "notifications: свои читать" on public.notifications
   for select to authenticated using (auth.uid() = recipient_id);
+drop policy if exists "notifications: свои помечать" on public.notifications;
 create policy "notifications: свои помечать" on public.notifications
   for update to authenticated using (auth.uid() = recipient_id) with check (auth.uid() = recipient_id);
+drop policy if exists "notifications: свои удалять" on public.notifications;
 create policy "notifications: свои удалять" on public.notifications
   for delete to authenticated using (auth.uid() = recipient_id);
 

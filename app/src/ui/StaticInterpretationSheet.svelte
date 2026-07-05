@@ -20,11 +20,16 @@
   import { discussionCounts } from '../lib/community.ts';
   import { tap, success } from '../lib/haptics.ts';
 
-  let { a, ownerA = null, ownerB = null, tz, onclose, onchat, oncommunity }:
+  let { a, ownerA = null, ownerB = null, tz, win = null, onclose, onchat, oncommunity }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null; tz: string;
+      win?: { begin: Date; exact: Date; end: Date } | null;
       onclose: () => void;
       onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
       oncommunity?: (sig: string, title: string) => void } = $props();
+
+  // окно транзитного аспекта (вход орбиса → точно → выход) — аспект это ИНТЕРВАЛ
+  const fmtWin = (d: Date): string => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: tz, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d);
 
   const sig = untrack(() => aspectSignature(a.p1, a.p2, a.aspect));
   const n1 = $derived(ownerA ? `${a.p1} (${ownerA})` : a.p1);
@@ -97,7 +102,12 @@
     </div>
   </header>
 
-  <div class="exact">Орбис {a.orb.toFixed(2)}° · снимок (без времени)</div>
+  {#if win}
+    <div class="exact">Орбис {a.orb.toFixed(2)}° · точно {fmtWin(win.exact)}</div>
+    <div class="winrow">окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
+  {:else}
+    <div class="exact">Орбис {a.orb.toFixed(2)}° · снимок (без времени)</div>
+  {/if}
 
   <div class="block">
     <div class="lbl">Взаимодействие</div>
@@ -167,6 +177,8 @@
   .star.on { color: var(--gold); text-shadow: 0 0 10px color-mix(in srgb, var(--gold) 70%, transparent); }
   .okflash { background: var(--gold) !important; color: #201a08 !important; }
   .exact { color: var(--gold); font-size: 0.84rem; margin: 6px 0 2px; }
+  .winrow { color: var(--ink-dim); font-size: 0.78rem; margin: 0 0 4px; }
+  .winrow b { color: var(--gold); font-weight: 600; }
   .ptext { font-size: 0.92rem; margin-bottom: 8px; }
   .lshort { font-weight: 600; margin-bottom: 4px; }
   .ltext { font-size: 0.88rem; color: var(--ink-dim); margin-bottom: 10px; }

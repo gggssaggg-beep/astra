@@ -14,19 +14,20 @@
   import { db, uid } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
-  import { synastryAspects, staticKey } from '../engine/index.ts';
+  import { synastryAspects, staticAspects, staticKey } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
   import { fmtPos, zonedTimeUTC } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
+  import { parseDateInput } from '../lib/dateparse.ts';
   import { searchCities, type City } from '../lib/cities.ts';
-  import { forecastTransits, type TransitHit } from '../lib/forecast.ts';
+  import { forecastTransits, transitWindow, type TransitHit, type TransitWindow } from '../lib/forecast.ts';
+  import type { BodyPosition } from '../engine/index.ts';
   import Wheel from './Wheel.svelte';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
-  import TransitDial from './TransitDial.svelte';
 
-  type Mode = 'transitNatal' | 'triple' | 'synastry';
+  type Mode = 'natal' | 'transitNatal' | 'triple' | 'synastry';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'placidus',
         initialMode = 'transitNatal', onclose, onchat, oncommunity }:
@@ -40,8 +41,18 @@
   let detail = $state<StaticAspect | null>(null);
   let detailA = $state<string | null>(null);
   let detailB = $state<string | null>(null);
-  function openDetail(a: StaticAspect, oa: string | null, ob: string | null): void {
-    selKey = staticKey(a); detail = a; detailA = oa; detailB = ob;
+  let detailWin = $state<TransitWindow | null>(null);
+  // natalPos — набор натальных позиций (для транзит-режимов: p1 из натала, p2 —
+  // транзитная планета) → считаем ОКНО аспекта (вход орбиса → точно → выход).
+  function openDetail(a: StaticAspect, oa: string | null, ob: string | null, natalPos: BodyPosition[] | null = null): void {
+    selKey = staticKey(a); detail = a; detailA = oa; detailB = ob; detailWin = null;
+    if (ob === 'транзит' && natalPos) {
+      const n = natalPos.find((p) => p.name === a.p1);
+      if (n) {
+        try { detailWin = transitWindow(engine, a.p2, n.lon, a.angle, Math.max(orbOf(a.p1), orbOf(a.p2)), transitAt); }
+        catch { detailWin = null; }
+      }
+    }
   }
 
   let view = $state<'list' | 'form' | 'chart'>('list');
@@ -52,6 +63,7 @@
   let selKey = $state<string | null>(null);     // выделенная линия в колесе
 
   const MODES: { id: Mode; label: string; need: number; hint: string }[] = [
+    { id: 'natal', label: 'Натал', need: 1, hint: 'одна карта — её аспекты и положения' },
     { id: 'transitNatal', label: 'Транзит + натал', need: 1, hint: 'небо сейчас к карте человека' },
     { id: 'triple', label: 'Транзит + 2 натала', need: 2, hint: 'небо сейчас к двум людям' },
     { id: 'synastry', label: 'Синастрия', need: 2, hint: 'межаспекты карт двух людей' },
@@ -87,6 +99,8 @@
     { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(transitAt));
   function refreshTransit(): void { transitAt = new Date(); }
   function stepTransit(ms: number): void { transitAt = new Date(transitAt.getTime() + ms); }
+  // прокрутка прямо в основном колесе: оборот = сутки (см. Wheel.onscrub)
+  function scrubTransit(deltaMs: number): void { transitAt = new Date(transitAt.getTime() + deltaMs); }
 
   // поля даты/времени транзита в поясе вывода — зеркалят transitAt (шаги/диск их
   // обновляют), правка поля применяется в transitAt
@@ -97,9 +111,12 @@
     tTime = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(transitAt);
   });
   function applyTransitFields(): void {
-    const iso = isoFromMasked(tDate);
-    const tm = normTime(tTime);
-    if (iso && tm) transitAt = zonedTimeUTC(iso, tm, tz);
+    // терпимый разбор: «1.6.1990», «01.06.1990», ISO — всё принимаем
+    const d = parseDateInput(tDate);
+    const tm = normTime(tTime) ?? (tTime.trim() ? null : '12:00:00');
+    if (!d || !tm) return;
+    const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    transitAt = zonedTimeUTC(iso, tm, tz);
   }
 
   // --- прогноз: ближайшие точные транзиты к наталу(ам) ---
@@ -123,6 +140,7 @@
     { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
 
   // межаспекты по режиму (p1 всегда из первого набора)
+  const natalAsp = $derived(posA.length ? staticAspects(posA, orbOf) : []);
   const crossSyn = $derived(posA.length && posB.length ? synastryAspects(posA, posB, orbOf) : []);
   const crossTA = $derived(posA.length ? synastryAspects(posA, transitPos, orbOf) : []);
   const crossTB = $derived(posB.length ? synastryAspects(posB, transitPos, orbOf) : []);
@@ -227,7 +245,8 @@
   function openChart(): void { transitAt = new Date(); selKey = null; view = 'chart'; }
 
   const chartTitle = $derived(
-    mode === 'synastry' ? `${personA?.name} ✕ ${personB?.name}`
+    mode === 'natal' ? `Натал · ${personA?.name}`
+    : mode === 'synastry' ? `${personA?.name} ✕ ${personB?.name}`
     : mode === 'triple' ? `Транзит · ${personA?.name} + ${personB?.name}`
     : `Транзит · ${personA?.name}`);
 </script>
@@ -334,29 +353,36 @@
     {#snippet transitCtl()}
       <div class="tctl">
         <button class="mini" onclick={() => stepTransit(-86_400_000)} aria-label="День назад">‹ день</button>
-        <input class="tin" inputmode="numeric" maxlength="10" value={tDate} aria-label="Дата транзита"
-          oninput={(e) => (tDate = maskDate((e.target as HTMLInputElement).value))} onchange={applyTransitFields} />
+        <input class="tin" inputmode="numeric" maxlength="10" value={tDate} placeholder="ДД.ММ.ГГГГ" aria-label="Дата транзита"
+          oninput={(e) => (tDate = (e.target as HTMLInputElement).value)}
+          onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
         <input class="tin tt" inputmode="numeric" maxlength="5" value={tTime} aria-label="Время транзита"
-          oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value))} onchange={applyTransitFields} />
+          oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value))}
+          onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
+        <button class="mini" onclick={applyTransitFields} aria-label="Применить">↵</button>
         <button class="mini" onclick={() => stepTransit(86_400_000)} aria-label="День вперёд">день ›</button>
         <button class="mini now" onclick={refreshTransit}>сейчас</button>
       </div>
-      <TransitDial value={transitAt} {tz} onchange={(d) => (transitAt = d)} />
+      <div class="cap">крути колесо пальцем — сутки за оборот</div>
     {/snippet}
 
-    {#if mode === 'synastry'}
+    {#if mode === 'natal'}
+      <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
+        selectedStaticKey={selKey} onstatictap={onStatic} />
+      <div class="legend">натальная карта {personA?.name}</div>
+    {:else if mode === 'synastry'}
       <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
         selectedStaticKey={selKey} onstatictap={onStatic} />
       <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name}</div>
     {:else if mode === 'transitNatal'}
       <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} onstatictap={onStatic} />
+        selectedStaticKey={selKey} onstatictap={onStatic} onscrub={scrubTransit} />
       <div class="legend">внутри — {personA?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
     {:else}
       <Wheel positions={posA} positionsOuter={posB} positionsOuter2={transitPos}
         staticAspects={crossTA} staticAspects2={crossTB} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} onstatictap={onStatic} />
+        selectedStaticKey={selKey} onstatictap={onStatic} onscrub={scrubTransit} />
       <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
     {/if}
@@ -368,7 +394,13 @@
       <div class="warn">⚠ У {personB.name} время рождения не задано — взят полдень, Луна и быстрые точки неточны.</div>
     {/if}
 
-    {#if mode === 'synastry'}
+    {#if mode === 'natal'}
+      {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
+      {#each natalAsp as a}
+        <StaticAspectRow {a} ownerA={personA?.name} ownerB={personA?.name}
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, personA?.name ?? null)} />
+      {/each}
+    {:else if mode === 'synastry'}
       {#if crossSyn.length === 0}<div class="empty">Нет мажорных аспектов в орбисе.</div>{/if}
       {#each crossSyn as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={personB?.name}
@@ -378,20 +410,20 @@
       {#if crossTA.length === 0}<div class="empty">Транзит сейчас не делает мажорных аспектов к карте в орбисе.</div>{/if}
       {#each crossTA as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит')} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
       {/each}
     {:else}
       <div class="grp">Транзит → {personA?.name}</div>
       {#if crossTA.length === 0}<div class="empty">Нет аспектов в орбисе.</div>{/if}
       {#each crossTA as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит')} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
       {/each}
       <div class="grp">Транзит → {personB?.name}</div>
       {#if crossTB.length === 0}<div class="empty">Нет аспектов в орбисе.</div>{/if}
       {#each crossTB as a}
         <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит')} />
+          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит', posB)} />
       {/each}
     {/if}
 
@@ -428,7 +460,7 @@
         <div class="posgrp">{personB?.name}</div>
         {#each posB as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
       {/if}
-      {#if mode !== 'synastry'}
+      {#if mode === 'transitNatal' || mode === 'triple'}
         <div class="posgrp">Транзит ({transitLabel})</div>
         {#each transitPos as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
       {/if}
@@ -437,7 +469,7 @@
 </section>
 
 {#if detail}
-  <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz}
+  <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz} win={detailWin}
     onclose={() => (detail = null)}
     onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
@@ -526,6 +558,7 @@
     border-radius: 10px; padding: 6px 8px; font: inherit; font-family: var(--font-mono);
     font-variant-numeric: tabular-nums; text-align: center; width: 6.4rem; }
   .tin.tt { width: 4rem; }
+  .cap { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin: 2px 0 6px; }
   /* прогноз транзитов */
   .fc { margin-top: 14px; }
   .fchead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }

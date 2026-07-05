@@ -266,9 +266,9 @@
 <!-- Дата открывается тапом по дате в шапке; чат переехал в Библиотеку (просьба
      владелицы 2026-07-02) — в нижнем меню его место заняло Сообщество. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button onclick={() => (showCharts = {})} aria-label="Добавить"><span class="ti glyph">👥</span><span class="tl">Добавить</span></button>
-  <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
+  <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
+  <button class="mid" onclick={() => (showCharts = {})} aria-label="Добавить"><span class="ti glyph">👥</span><span class="tl">Добавить</span></button>
   <button onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
   <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
@@ -375,6 +375,9 @@
     display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }
   .tabbar button:hover { background: #ffffff14; color: var(--ink); }
   .tabbar .ti { font-size: 1.25rem; line-height: 1; }
+  /* «Добавить» — центральная, главная точка входа: акцент + чуть крупнее */
+  .tabbar .mid .ti { color: var(--accent); font-size: 1.5rem; }
+  .tabbar .mid .tl { color: var(--accent); }
   .tabbar .tl { font-size: 0.7rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }
   .state { padding: 24px; text-align: center; color: var(--ink-dim); margin-top: 20px; }

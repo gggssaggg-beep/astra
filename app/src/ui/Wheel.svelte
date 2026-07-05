@@ -22,14 +22,44 @@
   let { positions, aspects = [], positionsOuter = null, positionsOuter2 = null,
         staticAspects = null, staticAspects2 = null, houses = null,
         signStyle = 'gold', selectedSignature = null, selectedInfo = null,
-        selectedStaticKey = null, oninfo, onstatictap }:
+        selectedStaticKey = null, oninfo, onstatictap, onscrub }:
     { positions: BodyPosition[]; aspects?: AspectRecord[];
       positionsOuter?: BodyPosition[] | null; positionsOuter2?: BodyPosition[] | null;
       staticAspects?: StaticAspect[] | null; staticAspects2?: StaticAspect[] | null;
       houses?: { cusps: number[]; asc: number; mc: number } | null;
       signStyle?: SignStyle; selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       selectedStaticKey?: string | null;
-      oninfo?: (info: WheelInfo) => void; onstatictap?: (key: string) => void } = $props();
+      oninfo?: (info: WheelInfo) => void; onstatictap?: (key: string) => void;
+      onscrub?: (deltaMs: number) => void } = $props();
+
+  // Прокрутка времени ПРЯМО в колесе (транзитные карты): тянешь по кругу — момент
+  // транзита едет, полный оборот = сутки (суточное вращение неба). Малое смещение
+  // считается тапом, поэтому касания планет/знаков/линий сохраняются.
+  let svgEl: SVGSVGElement;
+  let scrubbing = false, lastAng = 0;
+  let dragged = $state(false);
+  const angAt = (e: PointerEvent): number => {
+    const b = svgEl.getBoundingClientRect();
+    return Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) * 180 / Math.PI;
+  };
+  function scrubDown(e: PointerEvent): void {
+    if (!onscrub) return;
+    scrubbing = true; dragged = false; lastAng = angAt(e);
+    svgEl.setPointerCapture?.(e.pointerId);
+  }
+  function scrubMove(e: PointerEvent): void {
+    if (!onscrub || !scrubbing) return;
+    const a = angAt(e);
+    let d = a - lastAng;
+    if (d > 180) d -= 360; else if (d < -180) d += 360;
+    if (Math.abs(d) < 0.01) return;
+    lastAng = a;
+    if (Math.abs(d) > 1.2) dragged = true;   // заметный поворот → прокрутка, не тап
+    onscrub?.((d / 360) * 86_400_000);
+  }
+  function scrubUp(): void { scrubbing = false; }
+  // касание засчитываем только если НЕ было прокрутки (иначе тап после драга ложный)
+  const tapGuard = (fn: () => void) => () => { if (dragged) { dragged = false; return; } fn(); };
 
   // выделение тапнутого элемента = подсветка САМОГО элемента (глиф планеты /
   // символ знака / линия аспекта). НИКОГДА не рамка (жёсткое правило владелицы).
@@ -159,7 +189,10 @@
   });
 </script>
 
-<svg viewBox="0 0 {SZ} {SZ}" class="wheel" role="img" aria-label="Колесо транзитов">
+<svg bind:this={svgEl} viewBox="0 0 {SZ} {SZ}" class="wheel" class:scrub={!!onscrub}
+  role="img" aria-label="Колесо транзитов"
+  onpointerdown={scrubDown} onpointermove={scrubMove}
+  onpointerup={scrubUp} onpointercancel={scrubUp}>
   <defs>
     <linearGradient id="sgShimmer" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0%" style="stop-color:#f3c969" />
@@ -222,7 +255,7 @@
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <circle class="hit" cx={s.gx} cy={s.gy} r="15"
-        onclick={() => oninfo({ kind: 'sign', index: s.i })} />
+        onclick={tapGuard(() => oninfo({ kind: 'sign', index: s.i }))} />
     {/if}
   {/each}
 
@@ -237,7 +270,7 @@
       {#if onstatictap}
         <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
         <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-          onclick={() => onstatictap(l.key)} />
+          onclick={tapGuard(() => onstatictap(l.key))} />
       {/if}
     {/each}
   {:else}
@@ -255,7 +288,7 @@
         <!-- хит-зоны БЕЗ role/tabindex: фокусируемые элементы рисовали системную
              фокус-рамку (скруглённый прямоугольник) на каждый тап -->
         <line class="hit" x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-          onclick={() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol })} />
+          onclick={tapGuard(() => oninfo({ kind: 'aspect', aspect: l.aspect, p1: l.p1, p2: l.p2, symbol: l.symbol }))} />
       {/if}
     {/each}
   {/if}
@@ -270,13 +303,17 @@
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <circle class="hit" cx={pos.x} cy={pos.y} r="14"
-        onclick={() => oninfo({ kind: 'planet', name: p.name })} />
+        onclick={tapGuard(() => oninfo({ kind: 'planet', name: p.name }))} />
     {/if}
   {/each}
 </svg>
 
 <style>
   .wheel { width: 100%; max-width: 360px; display: block; margin: 0 auto; }
+  /* прокрутка времени в колесе: вертикальный скролл экрана не перехватываем,
+     но круговое перетаскивание крутит время (grab-курсор + touch-action) */
+  .wheel.scrub { cursor: grab; touch-action: pan-y; }
+  .wheel.scrub:active { cursor: grabbing; }
   .ring { fill: none; stroke: var(--glass-brd); stroke-width: 1; }
   .ring.faint { stroke: color-mix(in srgb, var(--glass-brd) 50%, transparent); }
   .ring.zodiac {

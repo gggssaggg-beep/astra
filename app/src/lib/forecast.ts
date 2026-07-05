@@ -31,6 +31,52 @@ export interface TransitHit {
   aspect: string; symbol: string;
 }
 
+export interface TransitWindow { begin: Date; exact: Date; end: Date; }
+
+/** Окно транзитного аспекта к ФИКСИРОВАННОЙ натальной точке (вход орбиса → точно
+ *  → выход) вокруг момента `center`. Аспект — это интервал (правило проекта), а
+ *  транзит к наталу как раз таков: натал стоит, транзитная планета проходит орбис.
+ *  natalLon — долгота натальной точки; tBody — транзитная планета; angle — угол
+ *  аспекта; orb — орбис пары. Ищем в ±40 сут от center; null — если рядом нет
+ *  точного (планета уже вне окна, только «расходящийся хвост»). */
+export function transitWindow(
+  E: Engine, tBody: string, natalLon: number, angle: number, orb: number, center: Date,
+): TransitWindow | null {
+  const f = signedFixed(E, tBody, natalLon, angle);
+  const c = E.toJD(center);
+  const step = 0.125, span = 40;   // шаг 3ч, окно ±40 сут
+  // 1) exact — ближайшая к center смена знака f
+  let exactJd: number | null = null, best = Infinity;
+  let prevJ = c - span, prevV = f(prevJ);
+  for (let j = c - span + step; j <= c + span; j += step) {
+    const v = f(j);
+    if ((prevV <= 0) !== (v <= 0) && Math.abs(prevV - v) < 30) {
+      let lo = prevJ, hi = j;
+      for (let i = 0; i < 44; i++) { const m = (lo + hi) / 2; if ((f(lo) <= 0) !== (f(m) <= 0)) hi = m; else lo = m; }
+      const root = (lo + hi) / 2;
+      if (Math.abs(root - c) < best) { best = Math.abs(root - c); exactJd = root; }
+    }
+    prevJ = j; prevV = v;
+  }
+  if (exactJd == null) return null;
+  // 2) края орбиса: |f| = orb слева и справа от exact
+  const err = (j: number) => Math.abs(f(j));
+  const edge = (dir: -1 | 1): number => {
+    let j = exactJd!;
+    for (let k = 0; k < (span / step) * 2; k++) {
+      const nj = j + dir * step;
+      if (err(nj) > orb) {
+        let lo = j, hi = nj;
+        for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (err(m) <= orb) lo = m; else hi = m; }
+        return (lo + hi) / 2;
+      }
+      j = nj;
+    }
+    return j;
+  };
+  return { begin: E.fromJD(edge(-1)), exact: E.fromJD(exactJd), end: E.fromJD(edge(1)) };
+}
+
 /** targets — по человеку: { owner: имя, pos: натальные позиции }. Возвращает
  *  ближайшие точные транзиты в [from, from+days], отсортированные по дате. */
 export async function forecastTransits(

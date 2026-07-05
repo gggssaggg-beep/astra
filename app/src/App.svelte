@@ -27,6 +27,7 @@
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
   import { rescheduleAll, onNotificationTap } from './lib/reminders.ts';
+  import { initPush } from './lib/push.ts';
   import { fontStack } from './lib/fonts.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
@@ -168,6 +169,12 @@
       void CapApp.addListener('backButton', onBack);
     }
     onNotificationTap(openFromNotification);
+    // пуши сообщества (FCM): регистрация токена при сессии; тап по пушу —
+    // обсуждение → шторка Сообщества (колокольчик), аспект → выделить на дне
+    initPush((info) => {
+      if (info.discussionId) { openFromNotification({}); showCommunity = {}; }
+      else if (info.signature) openFromNotification({ signature: info.signature });
+    });
     // durable-данные устройства (Preferences) + встроенные архетипы — ДО UI,
     // чтобы заметки/архетипы/пояс/время уведомлений не «терялись» после перезапуска.
     try {

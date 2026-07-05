@@ -223,3 +223,40 @@ end $$;
 drop trigger if exists trg_notify_like on public.likes;
 create trigger trg_notify_like after insert on public.likes
   for each row execute function public.notify_like();
+
+-- ============================================================================
+-- СЛОЙ 2: пуш-уведомления FCM (2026-07-06). Работает ПОВЕРХ notifications:
+-- триггер зовёт Edge Function `push`, та шлёт FCM v1 на токены получателя.
+-- ============================================================================
+
+-- FCM-токены устройств (одно на устройство; у юзера может быть несколько)
+create table if not exists public.device_tokens (
+  token text primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  updated_at timestamptz not null default now()
+);
+alter table public.device_tokens enable row level security;
+drop policy if exists "device_tokens: свои" on public.device_tokens;
+create policy "device_tokens: свои" on public.device_tokens
+  for all to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Вызов Edge Function на каждую новую строку notifications (pg_net, асинхронно).
+-- Заголовок x-push-key — простая защита от постороннего вызова; функция сама
+-- читает строку по id и шлёт только pushed=false (повторная отправка невозможна).
+create extension if not exists pg_net;
+create or replace function public.call_push() returns trigger
+  language plpgsql security definer set search_path = public as $$
+begin
+  perform net.http_post(
+    url := 'https://vbaysgzdvdyljlwlnivq.supabase.co/functions/v1/push',
+    headers := jsonb_build_object('Content-Type', 'application/json',
+                                  'x-push-key', 'astra-push-7c41d9ae'),
+    body := jsonb_build_object('id', new.id)
+  );
+  return new;
+exception when others then
+  return new;   -- пуш не должен ломать вставку уведомления
+end $$;
+drop trigger if exists trg_call_push on public.notifications;
+create trigger trg_call_push after insert on public.notifications
+  for each row execute function public.call_push();

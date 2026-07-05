@@ -346,6 +346,13 @@ export async function listNotifications(limit = 50): Promise<CommunityNotif[]> {
   }));
 }
 
+/** Сохранить FCM-токен устройства (слой 2 пушей). RLS: только своя строка. */
+export async function saveDeviceToken(token: string): Promise<void> {
+  const me = await uidOf(); if (!me) return;
+  await sb().from('device_tokens')
+    .upsert({ token, user_id: me, updated_at: new Date().toISOString() });
+}
+
 export async function unreadCount(): Promise<number> {
   const me = await uidOf(); if (!me) return 0;
   const { count } = await sb().from('notifications')

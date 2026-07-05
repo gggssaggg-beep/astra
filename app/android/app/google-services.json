@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "616873528839",
+    "project_id": "astra-78e5b",
+    "storage_bucket": "astra-78e5b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:616873528839:android:59a86dc148507c010c64a2",
+        "android_client_info": {
+          "package_name": "app.astra.sky"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyALTlx9R3e9qMEnmlBtvDI5G9GQpsGwTjk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -12,18 +12,24 @@
  */
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import type { Engine } from '../engine/index.ts';
-import { aspectsOn, PLANET_GLYPH } from '../engine/index.ts';
-import { zonedDayStartUTC, todayCivil, fmtTime } from './format.ts';
+import type { Engine, BodyPosition } from '../engine/index.ts';
+import { aspectsOn, PLANET_GLYPH, signOf } from '../engine/index.ts';
+import { zonedDayStartUTC, todayCivil, fmtTime, civilOf } from './format.ts';
 import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
 import { aspectSignature } from './signature.ts';
+import { db } from './db.ts';
+import { natalPositions, birthInstantUTC } from './charts.ts';
+import { forecastTransits } from './forecast.ts';
 
 const NATIVE = Capacitor.isNativePlatform();
 const CH = 'care';
 const ID_DAILY_FROM = 1000;     // сводки: сегодня..+6 (одноразовые, свой текст на день)
 const ID_ASPECT_FROM = 1010;    // моменты точных аспектов
-const ID_ASPECT_TO = 1099;      // наш управляемый диапазон 1000..1099
+const ID_ASPECT_TO = 1099;
+const ID_TRANSIT_FROM = 1100;   // транзиты к натальной карте
+const ID_TRANSIT_TO = 1199;
+const ID_MANAGED_TO = 1199;     // наш управляемый диапазон 1000..1199
 const ID_TEST_NOW = 9001;
 const ID_TEST_DELAYED = 9002;
 const DAILY_DAYS = 7;           // на сколько дней вперёд ставим сводки
@@ -108,7 +114,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
     try {
       const pd = await withTimeout(LocalNotifications.getPending(), 8000, 'getPending');
       const ours = pd.notifications
-        .filter(n => n.id >= ID_DAILY_FROM && n.id <= ID_ASPECT_TO)
+        .filter(n => n.id >= ID_DAILY_FROM && n.id <= ID_MANAGED_TO)
         .map(n => ({ id: n.id }));
       if (ours.length) {
         await withTimeout(LocalNotifications.cancel({ notifications: ours }), 6000, 'cancel');
@@ -116,7 +122,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       }
     } catch (e) { push('cancel warn: ' + (e instanceof Error ? e.message : String(e))); }
 
-    const want = settings.notifyDaily || settings.notifyAspects;
+    const want = settings.notifyDaily || settings.notifyAspects || settings.notifyTransits;
     if (!want || stale()) { push('skip: ничего не включено'); return; }
 
     const ok = await granted();
@@ -193,6 +199,45 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
     }
     if (settings.notifyDaily) push(`сводок запланировано: ${dailyCount}`);
     if (settings.notifyAspects) push(`аспектов запланировано: ${aspectCount}`);
+
+    // транзиты к натальной карте («моя карта») — планеты и/или куспиды домов
+    if (settings.notifyTransits && !stale()) {
+      const self = settings.transitSelfId ? db.people.get(settings.transitSelfId) : null;
+      if (!self) {
+        push('транзиты: не выбрана «моя карта»');
+      } else {
+        const targets: { owner: string; pos: BodyPosition[] }[] =
+          [{ owner: self.name, pos: natalPositions(engine, self, settings.objects) }];
+        if (settings.transitCusps && self.place && !self.unknownTime
+          && (self.place.lat !== 0 || self.place.lon !== 0)) {
+          const h = engine.houses(engine.toJD(birthInstantUTC(self)),
+            self.place.lat, self.place.lon, settings.houseSystem ?? 'placidus');
+          if (h) {
+            targets.push({ owner: self.name, pos: h.cusps.map((lon, i) => {
+              const s = signOf(lon);
+              return { name: `Дом ${i + 1}`, glyph: `${i + 1}`, lon,
+                sign: s.sign, signGlyph: s.glyph, degInSign: s.deg, speed: 0, retro: false };
+            }) });
+          }
+        }
+        const hits = await forecastTransits(engine, targets, new Date(), 21, settings.objects, 40);
+        let tid = ID_TRANSIT_FROM, tcount = 0;
+        for (const hh of hits) {
+          if (tid > ID_TRANSIT_TO) break;
+          if (hh.when.getTime() <= now + 60_000) continue;
+          list.push({
+            id: tid++,
+            title: `${hh.tGlyph} ${hh.symbol} ${hh.nGlyph}`,
+            body: `Транзит к ${hh.owner}: ${hh.tName} ${hh.aspect} ${hh.nName}`,
+            channelId: CH,
+            extra: { dayAnchor: civilOf(hh.when, tz).toISOString() },
+            schedule: { at: hh.when, allowWhileIdle: true },
+          });
+          tcount++;
+        }
+        push(`транзитов запланировано: ${tcount}`);
+      }
+    }
 
     if (list.length && !stale()) {
       await withTimeout(

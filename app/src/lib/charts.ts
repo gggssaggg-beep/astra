@@ -11,6 +11,6 @@ export function birthInstantUTC(p: Person): Date {
   return zonedTimeUTC(p.birthDate, t, p.birthTz);
 }
 
-export function natalPositions(E: Engine, p: Person): BodyPosition[] {
-  return E.positions(birthInstantUTC(p));
+export function natalPositions(E: Engine, p: Person, objects?: string[]): BodyPosition[] {
+  return E.positions(birthInstantUTC(p), objects);
 }

@@ -31,8 +31,9 @@
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
-  let { engine, date, orbOf, tz, signStyle = 'gold', selectedSignature = null, selectedInfo = null, onAspect, oninfo }:
-    { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string; signStyle?: SignStyle;
+  let { engine, date, orbOf, tz, objects = null, signStyle = 'gold', selectedSignature = null, selectedInfo = null, onAspect, oninfo }:
+    { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string;
+      objects?: string[] | null; signStyle?: SignStyle;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void } = $props();
 
@@ -53,7 +54,7 @@
     return new Date(dayStart.getTime() + tod);
   });
 
-  const positions = $derived(engine.positions(snapshot));
+  const positions = $derived(engine.positions(snapshot, objects ?? undefined));
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
   const sun = $derived(positions.find((p) => p.name === 'Солнце'));
 
@@ -84,8 +85,10 @@
   // ключ кэша аспектов включает орбисы (настройка меняет результат); события
   // от орбисов не зависят — ключ только день+режим движка
   const orbKey = $derived(['Луна', ...ORDER].map((n) => orbOf(n)).join(','));
-  const day = $derived(cached(aspCache, `${engine.mode}|${dayStart.getTime()}|${orbKey}`,
-    () => aspectsOn(engine, dayStart, orbOf, true)));
+  // ключ кэша учитывает и набор объектов (тумблеры меняют результат)
+  const objKey = $derived(objects ? objects.join(',') : 'all');
+  const day = $derived(cached(aspCache, `${engine.mode}|${dayStart.getTime()}|${orbKey}|${objKey}`,
+    () => aspectsOn(engine, dayStart, orbOf, true, objects ?? undefined)));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
 
   // метка «в сообществе есть обсуждение» — тихий сетевой запрос по сигнатурам дня

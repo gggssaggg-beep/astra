@@ -79,7 +79,8 @@ function orbEdge(m: (j: number) => number, orb: number, jdFrom: number,
  *  dayStart — точный момент начала суток (UTC-полночь для UTC-дня ИЛИ 00:00
  *  выбранного пояса, переведённое в UTC; см. zonedDayStartUTC). */
 export function aspectsOn(E: Engine, dayStart: Date,
-  orb: number | ((name: string) => number) = 1.0, includeMoon = true): DayAspects {
+  orb: number | ((name: string) => number) = 1.0, includeMoon = true,
+  objects?: string[]): DayAspects {
   const day0 = dayStart;
   const jd0 = E.toJD(day0);
   const jd1 = jd0 + 1;
@@ -88,8 +89,10 @@ export function aspectsOn(E: Engine, dayStart: Date,
   // орбис объекта; для пары берём БОЛЬШИЙ из двух (решение астролога 2026-06-30)
   const orbOf: (n: string) => number = typeof orb === 'function' ? orb : () => orb;
 
-  const names = [...Object.keys(BODIES), 'Кету'];
+  let names = [...Object.keys(BODIES), 'Кету'];
   if (includeMoon) names.unshift(MOON);
+  // тумблеры объектов из настроек (нет списка → все базовые, как раньше)
+  if (objects) { const on = new Set(objects); names = names.filter((n) => on.has(n)); }
 
   const slow: AspectRecord[] = [], fast: AspectRecord[] = [], moon: AspectRecord[] = [];
   const sep = (jd: number, a: string, b: string) => Math.abs(angdiff(E.lon(jd, a), E.lon(jd, b)));

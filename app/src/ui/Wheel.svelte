@@ -20,12 +20,13 @@
   //   тройное кольцо  — + positionsOuter2 (самое внешнее) + staticAspects2
   //     (межаспекты СРЕДНЕГО кольца с внешним). Транзитные линии тогда не рисуем.
   let { positions, aspects = [], positionsOuter = null, positionsOuter2 = null,
-        staticAspects = null, staticAspects2 = null,
+        staticAspects = null, staticAspects2 = null, houses = null,
         signStyle = 'gold', selectedSignature = null, selectedInfo = null,
         selectedStaticKey = null, oninfo, onstatictap }:
     { positions: BodyPosition[]; aspects?: AspectRecord[];
       positionsOuter?: BodyPosition[] | null; positionsOuter2?: BodyPosition[] | null;
       staticAspects?: StaticAspect[] | null; staticAspects2?: StaticAspect[] | null;
+      houses?: { cusps: number[]; asc: number; mc: number } | null;
       signStyle?: SignStyle; selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       selectedStaticKey?: string | null;
       oninfo?: (info: WheelInfo) => void; onstatictap?: (key: string) => void } = $props();
@@ -131,6 +132,23 @@
   const slines = $derived(buildStatic(staticAspects, lonByName, lonOut));
   const slines2 = $derived(triple ? buildStatic(staticAspects2, lonMid, lonOut) : []);
 
+  // дома: 12 куспидов-спиц + номера в середине сектора + метки Asc/MC
+  const houseGeo = $derived.by(() => {
+    if (!houses) return null;
+    const cl = houses.cusps;
+    const lines = cl.map((lon, i) => {
+      const a = pt(lon, 26), b = pt(lon, rZodiac);
+      return { x1: a.x, y1: a.y, x2: b.x, y2: b.y, axis: i === 0 || i === 9 };
+    });
+    const nums = cl.map((lon, i) => {
+      const span = ((cl[(i + 1) % 12] - lon) % 360 + 360) % 360;
+      const p = pt(lon + span / 2, 33);
+      return { x: p.x, y: p.y, n: i + 1 };
+    });
+    const asc = pt(houses.asc, rZodiac - 7), mc = pt(houses.mc, rZodiac - 7);
+    return { lines, nums, asc, mc };
+  });
+
   // 12 секторов знаков (символ — SVG из Tabler, по центру сектора)
   const ICON = 19;
   const signs = Array.from({ length: 12 }, (_, i) => {
@@ -176,6 +194,17 @@
     <circle {cx} {cy} r={88} class="ring faint" />
   {:else}
     <circle {cx} {cy} r={rAspect} class="ring faint" />
+  {/if}
+
+  {#if houseGeo}
+    {#each houseGeo.lines as h}
+      <line x1={h.x1} y1={h.y1} x2={h.x2} y2={h.y2} class="cusp" class:axis={h.axis} />
+    {/each}
+    {#each houseGeo.nums as hn}
+      <text x={hn.x} y={hn.y} class="hnum">{hn.n}</text>
+    {/each}
+    <text x={houseGeo.asc.x} y={houseGeo.asc.y} class="axislbl">Asc</text>
+    <text x={houseGeo.mc.x} y={houseGeo.mc.y} class="axislbl">MC</text>
   {/if}
 
   {#each signs as s}
@@ -255,6 +284,11 @@
     filter: drop-shadow(0 0 3px color-mix(in srgb, var(--neon-violet) 55%, transparent));
   }
   .spoke { stroke: var(--glass-brd); stroke-width: 0.6; opacity: 0.5; }
+  /* дома: тонкие спицы куспидов; оси Asc/MC ярче */
+  .cusp { stroke: color-mix(in srgb, var(--neon-cyan) 35%, var(--glass-brd)); stroke-width: 0.7; opacity: 0.45; }
+  .cusp.axis { stroke: var(--gold); stroke-width: 1.3; opacity: 0.85; stroke-dasharray: 3 2; }
+  .hnum { fill: var(--ink-faint); font-size: 7px; text-anchor: middle; dominant-baseline: central; opacity: 0.7; }
+  .axislbl { fill: var(--gold); font-size: 7.5px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
   .signicon { opacity: 0.95; overflow: visible; }
   .signicon.glow { filter: url(#sgGlow); }
   .signicon.sel { opacity: 1; filter: drop-shadow(0 0 5px var(--neon-cyan)); }

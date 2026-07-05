@@ -28,10 +28,21 @@ export interface Engine {
   solEclipse(jdStart: number): EclipseInfo;
   /** Следующее ЛУННОЕ затмение от jdStart (вперёд): время максимума + Сарос. */
   lunEclipse(jdStart: number): EclipseInfo;
+  /** Дома: 12 куспидов (°) + Asc/MC на момент jd для места lat/lon (система домов).
+   *  null, если swe_houses недоступна в этой сборке WASM (деградируем без домов). */
+  houses(jd: number, lat: number, lon: number, system: string): HousesInfo | null;
   /** Низкоуровневый доступ (для aspects.ts и расширений). */
   readonly flag: number;
   raw: any;
 }
+
+export interface HousesInfo { cusps: number[]; asc: number; mc: number; }
+
+/** id системы домов → буква Swiss Ephemeris (equalMC считаем вручную от MC). */
+export const HOUSE_SYS: Record<string, string> = {
+  horizontal: 'H', placidus: 'P', koch: 'K', porphyry: 'O', regiomontanus: 'R',
+  campanus: 'C', equalAsc: 'A', morinus: 'M', alcabitus: 'B',
+};
 
 export interface EclipseInfo {
   retflag: number;   // биты типа затмения (ECL.*)
@@ -149,5 +160,23 @@ export async function createEngine(mode: EphemerisMode = 'swieph'): Promise<Engi
     return out;
   };
 
-  return { mode, toJD, fromJD, lon, lonSpeed, positions, audit, solEclipse, lunEclipse, flag, raw: swe };
+  // --- дома (swe_houses через ccall; equalMC — вручную от MC) ---
+  const norm360 = (x: number): number => ((x % 360) + 360) % 360;
+  const houses = (jd: number, lat: number, lon: number, system: string): HousesInfo | null => {
+    try {
+      const char = HOUSE_SYS[system] ?? 'P';
+      const cuspsP = dblArr(13), ascmcP = dblArr(10);
+      m.ccall('swe_houses', 'number',
+        ['number', 'number', 'number', 'number', 'number', 'number'],
+        [jd, lat, lon, char.charCodeAt(0), cuspsP, ascmcP]);
+      const asc = rd(ascmcP, 0), mc = rd(ascmcP, 1);
+      let cusps = Array.from({ length: 12 }, (_, i) => rd(cuspsP, i + 1));
+      if (system === 'equalMC') cusps = Array.from({ length: 12 }, (_, i) => norm360(mc + (i + 1 - 10) * 30));
+      [cuspsP, ascmcP].forEach((p) => m._free(p));
+      if (!isFinite(asc) || !isFinite(mc)) return null;
+      return { cusps, asc, mc };
+    } catch { return null; }   // swe_houses не экспортирована в этой сборке — без домов
+  };
+
+  return { mode, toJD, fromJD, lon, lonSpeed, positions, audit, solEclipse, lunEclipse, houses, flag, raw: swe };
 }

@@ -36,10 +36,11 @@ export interface TransitHit {
 export async function forecastTransits(
   E: Engine,
   targets: { owner: string; pos: BodyPosition[] }[],
-  from: Date, days: number, maxResults = 100,
+  from: Date, days: number, objects?: string[], maxResults = 100,
 ): Promise<TransitHit[]> {
-  // транзитные тела — все базовые, КРОМЕ Луны (слишком часто)
-  const tBodies = [...Object.keys(BODIES), 'Кету'];
+  // транзитные тела — все базовые, КРОМЕ Луны (слишком часто); учитываем тумблеры
+  let tBodies = [...Object.keys(BODIES), 'Кету'];
+  if (objects) { const on = new Set(objects); tBodies = tBodies.filter((n) => on.has(n)); }
   const jd0 = E.toJD(from), jd1 = jd0 + days;
   const hits: TransitHit[] = [];
   let sinceYield = 0;

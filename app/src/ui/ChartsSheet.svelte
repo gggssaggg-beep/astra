@@ -16,7 +16,7 @@
   import type { Engine } from '../engine/index.ts';
   import { synastryAspects, staticKey } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
-  import { natalPositions } from '../lib/charts.ts';
+  import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
   import { fmtPos, zonedTimeUTC } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
   import { searchCities, type City } from '../lib/cities.ts';
@@ -28,9 +28,11 @@
 
   type Mode = 'transitNatal' | 'triple' | 'synastry';
 
-  let { engine, orbOf, signStyle, defaultTz, tz, initialMode = 'transitNatal', onclose, onchat, oncommunity }:
+  let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'placidus',
+        initialMode = 'transitNatal', onclose, onchat, oncommunity }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
-      defaultTz: string; tz: string; initialMode?: Mode; onclose: () => void;
+      defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
+      initialMode?: Mode; onclose: () => void;
       onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
       oncommunity?: (sig: string, title: string) => void } = $props();
 
@@ -67,12 +69,20 @@
   const personB = $derived(people.find((p) => p.id === pair[1]) ?? null);
 
   // расчёт: движок зовём при смене людей/режима/момента (не при выделении линии)
-  const posA = $derived(personA ? natalPositions(engine, personA) : []);
-  const posB = $derived(personB ? natalPositions(engine, personB) : []);
+  const posA = $derived(personA ? natalPositions(engine, personA, objects ?? undefined) : []);
+  const posB = $derived(personB ? natalPositions(engine, personB, objects ?? undefined) : []);
+
+  // дома внутренней карты (человек A) — нужны место (координаты) и известное время
+  const hasPlace = (p: typeof personA): boolean =>
+    !!p?.place && (p.place.lat !== 0 || p.place.lon !== 0);
+  const housesA = $derived.by(() => {
+    if (!personA || personA.unknownTime || !hasPlace(personA)) return null;
+    return engine.houses(engine.toJD(birthInstantUTC(personA)), personA.place!.lat, personA.place!.lon, houseSystem);
+  });
 
   // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск)
   let transitAt = $state(new Date());
-  const transitPos = $derived(engine.positions(transitAt));
+  const transitPos = $derived(engine.positions(transitAt, objects ?? undefined));
   const transitLabel = $derived(new Intl.DateTimeFormat('ru-RU',
     { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(transitAt));
   function refreshTransit(): void { transitAt = new Date(); }
@@ -97,14 +107,14 @@
   let forecastList = $state<TransitHit[]>([]);
   let forecastBusy = $state(false);
   let forecastRan = $state(false);
+  // прогноз транзитов доступен во ВСЕХ вариантах (синастрия — к обоим наталам)
   const forecastTargets = $derived(
-    mode === 'triple' && personA && personB
-      ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
-      : mode === 'transitNatal' && personA ? [{ owner: personA.name, pos: posA }] : []);
+    personA && personB ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
+      : personA ? [{ owner: personA.name, pos: posA }] : []);
   async function runForecast(): Promise<void> {
     if (forecastBusy || !forecastTargets.length) return;
     forecastBusy = true; forecastRan = false;
-    try { forecastList = await forecastTransits(engine, forecastTargets, transitAt, forecastDays); }
+    try { forecastList = await forecastTransits(engine, forecastTargets, transitAt, forecastDays, objects ?? undefined); }
     catch { forecastList = []; }
     finally { forecastBusy = false; forecastRan = true; }
   }
@@ -335,17 +345,17 @@
     {/snippet}
 
     {#if mode === 'synastry'}
-      <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle}
+      <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
         selectedStaticKey={selKey} onstatictap={onStatic} />
       <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name}</div>
     {:else if mode === 'transitNatal'}
-      <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle}
+      <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
         selectedStaticKey={selKey} onstatictap={onStatic} />
       <div class="legend">внутри — {personA?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
     {:else}
       <Wheel positions={posA} positionsOuter={posB} positionsOuter2={transitPos}
-        staticAspects={crossTA} staticAspects2={crossTB} {signStyle}
+        staticAspects={crossTA} staticAspects2={crossTB} {signStyle} houses={housesA}
         selectedStaticKey={selKey} onstatictap={onStatic} />
       <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
@@ -385,7 +395,7 @@
       {/each}
     {/if}
 
-    {#if mode !== 'synastry'}
+    {#if forecastTargets.length}
       <div class="fc">
         <div class="fchead">
           <span class="grp">Прогноз транзитов</span>

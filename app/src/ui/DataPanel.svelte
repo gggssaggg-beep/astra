@@ -2,7 +2,7 @@
   import { db, file as dataFile, importText, onChange } from '../lib/db.ts';
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
-  import { SIGN_STYLES, DEFAULT_ORBS, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
+  import { SIGN_STYLES, DEFAULT_ORBS, HOUSE_SYSTEMS, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
   import { FONTS } from '../lib/fonts.ts';
   import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -25,6 +25,14 @@
   const setSign = (id: SignStyle) => save({ signStyle: id });
   const setTheme = (t: ThemeMode) => save({ theme: t });
 
+  // тумблеры объектов: вкл/выкл в расчётах (аспекты дня, карты, прогноз)
+  function toggleObject(o: string) {
+    const has = cfg.objects.includes(o);
+    const next = has ? cfg.objects.filter((x) => x !== o) : [...cfg.objects, o];
+    if (!next.length) return;            // хотя бы один объект должен остаться
+    save({ objects: next });
+  }
+
   // индивидуальный орбис: пусто = убрать переопределение (тогда берётся «по умолчанию»)
   function setOrb(o: string, raw: string) {
     const next = { ...cfg.orbs };
@@ -43,7 +51,10 @@
   let testMsg = $state<string | null>(null);
   let testBusy = $state(false);
 
-  async function onNotifyToggle(field: 'notifyDaily' | 'notifyAspects', val: boolean) {
+  // люди для выбора «моей карты» (снимок — шторка настроек живёт недолго)
+  const people = db.people.all().slice();
+
+  async function onNotifyToggle(field: 'notifyDaily' | 'notifyAspects' | 'notifyTransits', val: boolean) {
     if (val) {
       const r = await requestPermission();
       if (r === 'denied')
@@ -51,8 +62,7 @@
       else if (r === 'unsupported')
         testMsg = 'Уведомления недоступны в этом окружении.';
     }
-    if (field === 'notifyDaily') save({ notifyDaily: val });
-    else save({ notifyAspects: val });
+    save({ [field]: val });
   }
 
   async function runTest() {
@@ -194,6 +204,28 @@
         onchange={(e) => onNotifyToggle('notifyAspects', (e.target as HTMLInputElement).checked)} />
       В момент точного аспекта (планеты)
     </label>
+
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.notifyTransits}
+        onchange={(e) => onNotifyToggle('notifyTransits', (e.target as HTMLInputElement).checked)} />
+      Транзиты к моей натальной карте
+    </label>
+    {#if cfg.notifyTransits}
+      <div style="margin-top:8px">
+        <select class="select" value={cfg.transitSelfId ?? ''}
+          onchange={(e) => save({ transitSelfId: (e.target as HTMLSelectElement).value || undefined })}>
+          <option value="">— выбери человека («моя карта») —</option>
+          {#each people as p}<option value={p.id}>{p.name}</option>{/each}
+        </select>
+        <label class="toggle" style="margin-top:8px">
+          <input type="checkbox" checked={cfg.transitCusps}
+            onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
+          + куспиды домов (нужны место и время рождения)
+        </label>
+        {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека в нижнем меню «Добавить».</div>{/if}
+      </div>
+    {/if}
+
     <div style="margin-top:10px">
       <button class="btn" disabled={testBusy} onclick={runTest}>
         {testBusy ? 'Проверяю…' : 'Проверить'}</button>
@@ -205,6 +237,30 @@
     </details>
     <div class="hint small" style="margin-top:10px">На Xiaomi/MIUI ещё нужно: Автозапуск ВКЛ и Батарея →
       «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
+  </div>
+
+  <div class="group">Объекты</div>
+  <div class="block">
+    <div class="hint small">Что участвует в расчётах: аспекты дня, колесо, совмещённые карты, прогноз.
+      Выключенное не считается и не рисуется.</div>
+    <div class="objgrid">
+      {#each ORB_OBJ as o}
+        <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
+          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
+        </button>
+      {/each}
+    </div>
+  </div>
+
+  <div class="group">Дома</div>
+  <div class="block">
+    <div class="lbl">Система домов</div>
+    <select class="select" value={cfg.houseSystem ?? 'placidus'}
+      onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
+      {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
+    </select>
+    <div class="hint small" style="margin-top:8px">Дома рисуются в натальных картах, где задано место
+      рождения (координаты). Без места — колесо без домов.</div>
   </div>
 
   <div class="group">Орбис</div>
@@ -349,6 +405,14 @@
   .group { margin: 16px 2px 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
   .group:first-of-type { margin-top: 4px; }
   .two { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  /* тумблеры объектов */
+  .objgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+  .objchip { display: flex; align-items: center; gap: 6px; background: #ffffff0c;
+    border: 1px solid var(--glass-brd); border-radius: 10px; padding: 8px 10px;
+    color: var(--ink-faint); font-size: 0.84rem; }
+  .objchip .g { font-size: 1.05rem; color: var(--silver); width: 1.3rem; text-align: center; opacity: 0.5; }
+  .objchip.on { color: var(--ink); border-color: var(--accent); background: #ffffff1a; }
+  .objchip.on .g { opacity: 1; }
   .orbgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
   .orbcell { display: flex; align-items: center; gap: 6px; background: #ffffff0c; border: 1px solid var(--glass-brd); border-radius: 10px; padding: 6px 8px; }
   .orbcell .g { font-size: 1.05rem; color: var(--silver); width: 1.3rem; text-align: center; }

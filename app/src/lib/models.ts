@@ -27,11 +27,29 @@ export interface Settings {
   notifyDaily: boolean;       // ежедневное уведомление-сводка
   dailyNotifyTime: string;    // 'HH:MM' для ежедневного уведомления
   notifyAspects: boolean;     // уведомления в момент точного аспекта
+  notifyTransits?: boolean;   // уведомления о транзитах к натальной карте
+  transitSelfId?: string;     // id человека = «моя карта» (чей натал отслеживаем)
+  transitCusps?: boolean;     // включать куспиды домов (не только планеты)
   largeFont: boolean;         // крупный шрифт (доступность)
   font?: string;              // id шрифта интерфейса (lib/fonts.ts; нет = дефолт)
   seenWelcome: boolean;       // приветствие первого запуска уже показано
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
+  houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = placidus)
 }
+
+/** Системы домов для выбора в настройках (id → engine HOUSE_SYS; equalMC особо). */
+export const HOUSE_SYSTEMS: { id: string; label: string }[] = [
+  { id: 'placidus', label: 'Плацидус' },
+  { id: 'koch', label: 'Кох' },
+  { id: 'porphyry', label: 'Порфирий' },
+  { id: 'regiomontanus', label: 'Региомонтанус' },
+  { id: 'campanus', label: 'Кампанус' },
+  { id: 'equalAsc', label: 'Равнодомная от Asc' },
+  { id: 'equalMC', label: 'Равнодомная от MC' },
+  { id: 'morinus', label: 'Моринус' },
+  { id: 'alcabitus', label: 'Алькабитус' },
+  { id: 'horizontal', label: 'Горизонтальная (вертексная)' },
+];
 
 /** Запись бортового журнала = наблюдение (§3.5 + раунд 3). */
 export interface JournalNote {
@@ -112,7 +130,10 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyDaily: false,
   dailyNotifyTime: '09:00',
   notifyAspects: false,
+  notifyTransits: false,
+  transitCusps: false,
   largeFont: false,
   font: 'default',
   seenWelcome: false,
+  houseSystem: 'placidus',
 };

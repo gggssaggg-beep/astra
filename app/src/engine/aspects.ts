@@ -97,17 +97,35 @@ export function aspectsOn(E: Engine, dayStart: Date,
   const slow: AspectRecord[] = [], fast: AspectRecord[] = [], moon: AspectRecord[] = [];
   const sep = (jd: number, a: string, b: string) => Math.abs(angdiff(E.lon(jd, a), E.lon(jd, b)));
 
+  // Кэш долгот на почасовой сетке суток: каждая пара×аспект бегала по ТЕМ ЖЕ
+  // 25 точкам с двумя WASM-вызовами на точку (~16 500 вызовов на день).
+  // С кэшем — по одному прогону на объект (~300 вызовов), математика та же:
+  // те же точки сетки, тот же E.lon (движок детерминирован).
+  const GRID: number[] = [];
+  for (let jd = jd0; jd <= jd1 + 1e-9; jd += 1 / 24) GRID.push(jd); // +1e-9 — не терять последний час (float)
+  const gridLon = new Map<string, Float64Array>();
+  const lonsOf = (n: string): Float64Array => {
+    let arr = gridLon.get(n);
+    if (!arr) {
+      arr = new Float64Array(GRID.length);
+      for (let k = 0; k < GRID.length; k++) arr[k] = E.lon(GRID[k], n);
+      gridLon.set(n, arr);
+    }
+    return arr;
+  };
+
   for (let i = 0; i < names.length; i++) {
     for (let jx = i + 1; jx < names.length; jx++) {
       const n1 = names[i], n2 = names[jx];
       if ((n1 === 'Раху' && n2 === 'Кету') || (n1 === 'Кету' && n2 === 'Раху')) continue;
       const pairOrb = Math.max(orbOf(n1), orbOf(n2));
+      const L1 = lonsOf(n1), L2 = lonsOf(n2);
       for (const [asp, { angle, symbol }] of Object.entries(ASPECTS)) {
-        // минимальный орбис за сутки (сетка — час)
+        // минимальный орбис за сутки (сетка — час, из кэша долгот)
         let minOrb: number | null = null, minJd = jdNoon;
-        for (let jd = jd0; jd <= jd1 + 1e-9; jd += 1 / 24) { // +1e-9 — не терять последний час (float)
-          const o = Math.abs(sep(jd, n1, n2) - angle);
-          if (minOrb === null || o < minOrb) { minOrb = o; minJd = jd; }
+        for (let k = 0; k < GRID.length; k++) {
+          const o = Math.abs(Math.abs(angdiff(L1[k], L2[k])) - angle);
+          if (minOrb === null || o < minOrb) { minOrb = o; minJd = GRID[k]; }
         }
         if (minOrb === null || minOrb > pairOrb) continue;
 

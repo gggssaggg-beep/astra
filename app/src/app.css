@@ -30,7 +30,8 @@
   --neon-violet: #9b6bff;
   /* Space Grotesk не содержит кириллицы — русский текст сам упадёт на фолбэк
      стек, латиница/цифры/пунктуация возьмутся из Space Grotesk. */
-  --font-body: 'Space Grotesk', "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  /* пара: латиница/цифры — Space Grotesk (нет кириллицы!), кириллица — Golos */
+  --font-body: 'Space Grotesk', 'Golos Text Variable', "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
   --font-display: 'Unbounded', 'Space Grotesk', "Segoe UI", system-ui, sans-serif;
   /* Отступы системных баров. Android WebView отдаёт env(safe-area-inset-*)=0
@@ -182,6 +183,8 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .seamless {
   background: transparent !important;
   border: none !important;
+  /* едва заметный пунктир и в покое — видно, что поле можно редактировать */
+  border-bottom: 1px dashed color-mix(in srgb, var(--glass-brd) 85%, transparent) !important;
   border-radius: 0 !important;
   padding: 2px 0 !important;
   width: 100%;

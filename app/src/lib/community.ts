@@ -53,10 +53,12 @@ export function sb(): SupabaseClient {
 // --- Вход/выход -------------------------------------------------------------
 
 let deepLinkReady = false;
-/** Один раз подписаться на deep link `astra://auth?code=…` (возврат из Google). */
-export function initCommunityAuth(onChange: (s: Session | null) => void): void {
-  if (!configured()) return;
-  sb().auth.onAuthStateChange((_e, session) => onChange(session));
+/** Подписка на изменения auth + один раз deep link `astra://auth?code=…`
+ *  (возврат из Google). Возвращает cleanup-функцию: без снятия подписки
+ *  слушатели копились при каждом открытии шторки Сообщества. */
+export function initCommunityAuth(onChange: (s: Session | null) => void): (() => void) | undefined {
+  if (!configured()) return undefined;
+  const { data: sub } = sb().auth.onAuthStateChange((_e, session) => onChange(session));
   void sb().auth.getSession().then(({ data }) => onChange(data.session));
   if (NATIVE && !deepLinkReady) {
     deepLinkReady = true;
@@ -67,6 +69,7 @@ export function initCommunityAuth(onChange: (s: Session | null) => void): void {
       try { await Browser.close(); } catch { /* уже закрыт */ }
     });
   }
+  return () => sub.subscription.unsubscribe();
 }
 
 export async function signInGoogle(): Promise<void> {

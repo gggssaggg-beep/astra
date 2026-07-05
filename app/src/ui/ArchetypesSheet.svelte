@@ -47,7 +47,7 @@
   async function loadMyth(i: number) {
     if (loadingObj) return;
     const key = getKey();
-    if (!key) { loadErr = 'Сначала введите ключ Claude во вкладке «Чат».'; return; }
+    if (!key) { loadErr = 'Сначала введи ключ Claude во вкладке «Чат».'; return; }
     const it = items[i];
     loadErr = null; loadingObj = it.object;
     try {
@@ -67,8 +67,7 @@
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }}>
   <header><h2>Архетипы божеств</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Нажми планету, чтобы раскрыть архетип и отредактировать.</div>
-  {#if loadErr}<div class="lerr">⚠ {loadErr}</div>{/if}
+  <div class="hint">Нажми планету, чтобы раскрыть архетип и отредактировать его.</div>
 
   {#each items as it, i (it.object)}
     {@const opened = open === it.object}
@@ -96,6 +95,8 @@
               {loadingObj === it.object ? '…подгружаю…' : '✨ Подгрузить миф (Claude)'}
             </button>
           </div>
+          <!-- ошибка — прямо у кнопки, из-за которой случилась (не наверху списка) -->
+          {#if loadErr}<div class="lerr" style="margin-top:6px">⚠ {loadErr}</div>{/if}
         </div>
       {:else if it.text}
         <button class="preview" onclick={() => toggle(it.object)}>{it.text}</button>
@@ -131,9 +132,12 @@
 
   /* свёрнутый текст архетипа: ВЕСЬ виден (не резать до 2–3 строк — просьба
      «текст должен влазить полностью», 2026-07-02) */
-  .preview { display: block; width: 100%; text-align: left; background: transparent; border: none;
+  /* свёрнутый текст — 3 строки с многоточием (весь список иначе бесконечный);
+     полностью — по тапу, в раскрытом виде */
+  .preview { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical;
+    width: 100%; text-align: left; background: transparent; border: none;
     border-top: 1px solid var(--glass-brd); padding: 8px 14px; color: var(--ink-faint);
-    font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; }
+    font-size: 0.8rem; line-height: 1.45; white-space: pre-wrap; overflow: hidden; }
 
   .body { padding: 0 14px 12px; }
   .fld { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }

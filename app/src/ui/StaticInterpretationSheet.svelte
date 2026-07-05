@@ -87,10 +87,17 @@
       + `в приложении архетипы участников — что это сочетание значит для отношений и на что обратить внимание?`,
       { objects: [a.p1, a.p2], aspectSignature: sig, title });
   }
+
+  // закрытие: недописанная «своя трактовка» не должна пропасть при свайпе
+  function handleClose(): void {
+    const stored = db.interpretations.get(sig)?.text ?? '';
+    if (interpText.trim() !== stored.trim()) saveInterp();
+    onclose();
+  }
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Трактовка межаспекта" use:bottomSheet={{ onclose }}>
+<div class="backdrop" onclick={handleClose} role="presentation"></div>
+<section class="sheet glass" aria-label="Трактовка межаспекта" use:bottomSheet={{ onclose: handleClose }}>
   <header>
     <div class="ttl glyph">
       {PLANET_GLYPH[a.p1] ?? a.p1}<span class="asp">{a.symbol}</span>{PLANET_GLYPH[a.p2] ?? a.p2}
@@ -98,15 +105,16 @@
     </div>
     <div class="hbtns">
       <button class="star" class:on={tracked} onclick={toggleTrack} title="Отслеживать">{tracked ? '★' : '☆'}</button>
-      <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
+      <button class="x" onclick={handleClose} aria-label="Закрыть">✕</button>
     </div>
   </header>
 
   {#if win}
     <div class="exact">Орбис {a.orb.toFixed(2)}° · точно {fmtWin(win.exact)}</div>
-    <div class="winrow">окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
+    <div class="winrow">Окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
   {:else}
-    <div class="exact">Орбис {a.orb.toFixed(2)}° · снимок (без времени)</div>
+    <div class="exact">Орбис {a.orb.toFixed(2)}° ·
+      {ownerA && ownerB && ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}</div>
   {/if}
 
   <div class="block">

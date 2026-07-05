@@ -101,10 +101,18 @@
 
   // переход к полной картинке дня, в который состоится выбранный аспект
   function goto(o: AspectOccurrence) { ongoto?.(civilOf(o.exact, tz)); }
+
+  // закрытие (свайп/бекдроп/✕): недописанная «своя трактовка» не должна пропасть —
+  // textarea сохраняется по blur, но свайп-закрытие blur не гарантирует
+  function handleClose() {
+    const stored = db.interpretations.get(sig)?.text ?? '';
+    if (interpText.trim() !== stored.trim()) saveInterp();
+    onclose();
+  }
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Трактовка аспекта" use:bottomSheet={{ onclose }}>
+<div class="backdrop" onclick={handleClose} role="presentation"></div>
+<section class="sheet glass" aria-label="Трактовка аспекта" use:bottomSheet={{ onclose: handleClose }}>
   <header>
     <div class="title glyph">
       {PLANET_GLYPH[rec.p1] ?? rec.p1}<span class="asp">{rec.symbol}</span>{PLANET_GLYPH[rec.p2] ?? rec.p2}
@@ -112,11 +120,12 @@
     </div>
     <div class="hbtns">
       <button class="star" class:on={tracked} onclick={toggleTrack} title="Отслеживать">{tracked ? '★' : '☆'}</button>
-      <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
+      <button class="x" onclick={handleClose} aria-label="Закрыть">✕</button>
     </div>
   </header>
 
-  {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}°</div>{/if}
+  {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}°</div>
+  {:else}<div class="exact">Пара и аспект без привязки ко дню — общий разбор</div>{/if}
 
   <div class="block">
     <div class="lbl">Трактовка</div>
@@ -175,15 +184,15 @@
     <div class="lbl">Когда ещё этот аспект</div>
     <div class="rangerow">
       <span class="hint">с</span>
-      <input class="year" type="number" bind:value={fromYear} min="1800" max="2200" />
+      <input class="year" type="number" bind:value={fromYear} min="1800" max="2200" placeholder="2025" aria-label="Год с" />
       <span class="hint">по</span>
-      <input class="year" type="number" bind:value={toYear} min="1800" max="2200" />
+      <input class="year" type="number" bind:value={toYear} min="1800" max="2200" placeholder="2027" aria-label="Год по" />
       <button class="btn" onclick={runSearch} disabled={searching}>{searching ? 'Ищу…' : 'Найти'}</button>
     </div>
     {#if searched}
       {#if occ.length}
         <div class="hint" style="margin:10px 0 6px">
-          Найдено: {occ.length}{truncated ? '+ (первые)' : ''} — нажми дату, чтобы открыть тот день.</div>
+          Найдено: {occ.length}{truncated ? '+ (показаны первые)' : ''} — нажми дату, чтобы открыть тот день.</div>
         <div class="occ">
           {#each occ as o}
             <button class="occrow" onclick={() => goto(o)}>
@@ -194,11 +203,11 @@
           {/each}
         </div>
       {:else}
-        <div class="hint" style="margin-top:8px">В диапазоне {fromYear}–{toYear} этот аспект не находится.</div>
+        <div class="hint" style="margin-top:8px">В диапазоне {fromYear}–{toYear} этот аспект не встречается.</div>
       {/if}
     {:else}
       <div class="hint" style="margin-top:6px">Точные даты, когда <b>{rec.p1} {rec.aspect} {rec.p2}</b>
-        повторяется в выбранном диапазоне. Даты кликабельны — откроют картинку того дня.</div>
+        повторяется в выбранном диапазоне. По дате можно нажать — откроется картинка того дня.</div>
     {/if}
   </div>
 </section>

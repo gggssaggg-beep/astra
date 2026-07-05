@@ -14,8 +14,9 @@
   import { db, uid } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
-  import { synastryAspects, staticAspects, staticKey } from '../engine/index.ts';
+  import { synastryAspects, staticAspects, staticKey, sunRank } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
+  import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
   import { fmtPos, zonedTimeUTC } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
@@ -95,20 +96,42 @@
   // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск)
   let transitAt = $state(new Date());
   const transitPos = $derived(engine.positions(transitAt, objects ?? undefined));
-  const transitLabel = $derived(new Intl.DateTimeFormat('ru-RU',
-    { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(transitAt));
+  // кэш Intl-форматтеров: создание Intl.DateTimeFormat дорогое, а скраб дёргает
+  // подписи десятки раз в секунду — пересоздаём только при смене пояса
+  let fmtCache: { tz: string; label: Intl.DateTimeFormat; d: Intl.DateTimeFormat; t: Intl.DateTimeFormat } | null = null;
+  function fmts(tzv: string) {
+    if (!fmtCache || fmtCache.tz !== tzv) fmtCache = {
+      tz: tzv,
+      label: new Intl.DateTimeFormat('ru-RU', { timeZone: tzv, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      d: new Intl.DateTimeFormat('ru-RU', { timeZone: tzv, day: '2-digit', month: '2-digit', year: 'numeric' }),
+      t: new Intl.DateTimeFormat('en-GB', { timeZone: tzv, hour: '2-digit', minute: '2-digit', hour12: false }),
+    };
+    return fmtCache;
+  }
+  const transitLabel = $derived(fmts(tz).label.format(transitAt));
   function refreshTransit(): void { transitAt = new Date(); }
   function stepTransit(ms: number): void { transitAt = new Date(transitAt.getTime() + ms); }
-  // прокрутка прямо в основном колесе: оборот = сутки (см. Wheel.onscrub)
-  function scrubTransit(deltaMs: number): void { transitAt = new Date(transitAt.getTime() + deltaMs); }
+  // прокрутка прямо в основном колесе: оборот = сутки (см. Wheel.onscrub).
+  // rAF-дебаунс: pointermove приходит чаще кадров, а каждый тик тянет WASM
+  // positions()+аспекты — копим дельту и применяем раз в кадр.
+  let scrubPending = 0;
+  let scrubRaf = 0;
+  function scrubTransit(deltaMs: number): void {
+    scrubPending += deltaMs;
+    if (scrubRaf) return;
+    scrubRaf = requestAnimationFrame(() => {
+      transitAt = new Date(transitAt.getTime() + scrubPending);
+      scrubPending = 0; scrubRaf = 0;
+    });
+  }
 
   // поля даты/времени транзита в поясе вывода — зеркалят transitAt (шаги/диск их
   // обновляют), правка поля применяется в transitAt
   let tDate = $state('');
   let tTime = $state('');
   $effect(() => {
-    tDate = new Intl.DateTimeFormat('ru-RU', { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' }).format(transitAt);
-    tTime = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(transitAt);
+    tDate = fmts(tz).d.format(transitAt);
+    tTime = fmts(tz).t.format(transitAt);
   });
   function applyTransitFields(): void {
     // терпимый разбор: «1.6.1990», «01.06.1990», ISO — всё принимаем
@@ -128,16 +151,20 @@
   const forecastTargets = $derived(
     personA && personB ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
       : personA ? [{ owner: personA.name, pos: posA }] : []);
+  let forecastGen = 0; // защита от устаревшего результата (скраб во время расчёта)
   async function runForecast(): Promise<void> {
     if (forecastBusy || !forecastTargets.length) return;
+    const gen = ++forecastGen;
     forecastBusy = true; forecastRan = false;
-    try { forecastList = await forecastTransits(engine, forecastTargets, transitAt, forecastDays, objects ?? undefined); }
-    catch { forecastList = []; }
-    finally { forecastBusy = false; forecastRan = true; }
+    try {
+      const list = await forecastTransits(engine, forecastTargets, transitAt, forecastDays, objects ?? undefined);
+      if (gen !== forecastGen) return;
+      forecastList = list;
+    } catch { if (gen === forecastGen) forecastList = []; }
+    finally { if (gen === forecastGen) { forecastBusy = false; forecastRan = true; } }
   }
   function gotoHit(h: TransitHit): void { transitAt = new Date(h.when); selKey = null; }
-  const fmtHit = (d: Date): string => new Intl.DateTimeFormat('ru-RU',
-    { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(d);
+  const fmtHit = (d: Date): string => fmts(tz).label.format(d);
 
   // межаспекты по режиму (p1 всегда из первого набора)
   const natalAsp = $derived(posA.length ? staticAspects(posA, orbOf) : []);
@@ -145,7 +172,38 @@
   const crossTA = $derived(posA.length ? synastryAspects(posA, transitPos, orbOf) : []);
   const crossTB = $derived(posB.length ? synastryAspects(posB, transitPos, orbOf) : []);
 
-  const TZs = ZONES(); // полный список IANA (native select не глючит)
+  // «Двойное попадание» (правка астролога, тройная карта): ОДНА транзитная
+  // планета аспектирует объекты ОБЕИХ карт сразу — показываем первыми и особо
+  // («Луна △ Венера (Аня) · □ Юпитер (Борис)»). Остальные — обычными списками.
+  interface DoubleHit { planet: string; glyph: string; toA: StaticAspect[]; toB: StaticAspect[] }
+  const doubleHits = $derived.by((): DoubleHit[] => {
+    if (mode !== 'triple') return [];
+    const byPlanet = new Map<string, DoubleHit>();
+    const add = (a: StaticAspect, side: 'toA' | 'toB'): void => {
+      let h = byPlanet.get(a.p2);
+      if (!h) {
+        h = { planet: a.p2, glyph: transitPos.find((p) => p.name === a.p2)?.glyph ?? '•', toA: [], toB: [] };
+        byPlanet.set(a.p2, h);
+      }
+      h[side].push(a);
+    };
+    for (const a of crossTA) add(a, 'toA');
+    for (const a of crossTB) add(a, 'toB');
+    return [...byPlanet.values()]
+      .filter((h) => h.toA.length && h.toB.length)
+      .sort((x, y) => sunRank(x.planet) - sunRank(y.planet));
+  });
+  const dhPlanets = $derived(new Set(doubleHits.map((h) => h.planet)));
+  const singleTA = $derived(mode === 'triple' ? crossTA.filter((a) => !dhPlanets.has(a.p2)) : crossTA);
+  const singleTB = $derived(mode === 'triple' ? crossTB.filter((a) => !dhPlanets.has(a.p2)) : crossTB);
+
+  // положения натала (одиночная карта): знак по долготе → разбор знака
+  const signIdx = (lon: number): number => Math.floor((((lon % 360) + 360) % 360) / 30);
+
+  // полный список IANA (native select не глючит) — лениво: 600+ строк Intl
+  // нужны только форме человека, не каждому открытию шторки
+  let TZs = $state<string[]>([]);
+  $effect(() => { if (view === 'form' && !TZs.length) TZs = ZONES(); });
   function ZONES(): string[] {
     const f = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
     return f ? f('timeZone') : ['UTC', 'Europe/Moscow', 'Asia/Yekaterinburg', 'Asia/Novosibirsk'];
@@ -209,11 +267,11 @@
     const name = fName.trim();
     if (!name) { fErr = 'Впиши имя.'; return; }
     const iso = isoFromMasked(fDate);
-    if (!iso) { fErr = 'Дата рождения — как ДД.ММ.ГГГГ (например 01.06.1988).'; return; }
+    if (!iso) { fErr = 'Дата рождения — как ДД.ММ.ГГГГ (например, 01.06.1988).'; return; }
     let time: string | null = null;
     if (!fUnknown && fTime.trim()) {
       time = normTime(fTime);
-      if (!time) { fErr = 'Время — как ЧЧ:ММ или ЧЧ:ММ:СС (например 04:30 или 04:30:15).'; return; }
+      if (!time) { fErr = 'Время — как ЧЧ:ММ или ЧЧ:ММ:СС (например, 04:30 или 04:30:15).'; return; }
     }
     const tzv = fTz.trim();
     try { new Intl.DateTimeFormat('ru', { timeZone: tzv }); }
@@ -231,9 +289,16 @@
     people = db.people.all().slice();
     view = 'list';
   }
+  // удаление — двухтапное подтверждение прямо на кнопке (без системного confirm)
+  let confirmDel = $state(false);
   function del(): void {
     if (!editId) return;
-    if (!confirm('Удалить этого человека?')) return;
+    if (!confirmDel) {
+      confirmDel = true;
+      setTimeout(() => (confirmDel = false), 3000);
+      return;
+    }
+    confirmDel = false;
     db.people.remove(editId);
     pair = pair.filter((id) => id !== editId);
     people = db.people.all().slice();
@@ -281,6 +346,9 @@
     <button class="btn add" onclick={openNew}>+ Добавить человека</button>
     {#if pair.length === needCount}
       <button class="btn primary open" onclick={openChart}>Открыть карту →</button>
+    {:else if people.length}
+      <button class="btn open" disabled>Открыть карту — выбери
+        {needCount === 1 ? 'человека' : pair.length === 1 ? 'ещё одного' : 'двух людей'}</button>
     {/if}
 
   {:else if view === 'form'}
@@ -340,7 +408,7 @@
     {#if fErr}<div class="err">⚠ {fErr}</div>{/if}
     <div class="formbtns">
       <button class="btn" onclick={toList}>← Назад</button>
-      {#if editId}<button class="btn danger" onclick={del}>Удалить</button>{/if}
+      {#if editId}<button class="btn danger" onclick={del}>{confirmDel ? 'Точно удалить?' : 'Удалить'}</button>{/if}
       <button class="btn primary" onclick={save}>Сохранить</button>
     </div>
 
@@ -359,7 +427,7 @@
         <input class="tin tt" inputmode="numeric" maxlength="5" value={tTime} aria-label="Время транзита"
           oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
-        <button class="mini" onclick={applyTransitFields} aria-label="Применить">↵</button>
+        <button class="mini" onclick={applyTransitFields} aria-label="Применить дату и время">ОК</button>
         <button class="mini" onclick={() => stepTransit(86_400_000)} aria-label="День вперёд">день ›</button>
         <button class="mini now" onclick={refreshTransit}>сейчас</button>
       </div>
@@ -388,10 +456,10 @@
     {/if}
 
     {#if personA?.unknownTime}
-      <div class="warn">⚠ У {personA.name} время рождения не задано — взят полдень, Луна и быстрые точки неточны.</div>
+      <div class="warn">⚠ У {personA.name} время рождения не задано — взят полдень, Луна и быстрые планеты неточны.</div>
     {/if}
     {#if (mode === 'synastry' || mode === 'triple') && personB?.unknownTime}
-      <div class="warn">⚠ У {personB.name} время рождения не задано — взят полдень, Луна и быстрые точки неточны.</div>
+      <div class="warn">⚠ У {personB.name} время рождения не задано — взят полдень, Луна и быстрые планеты неточны.</div>
     {/if}
 
     {#if mode === 'natal'}
@@ -407,21 +475,42 @@
           selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, personB?.name ?? null)} />
       {/each}
     {:else if mode === 'transitNatal'}
-      {#if crossTA.length === 0}<div class="empty">Транзит сейчас не делает мажорных аспектов к карте в орбисе.</div>{/if}
+      {#if crossTA.length === 0}<div class="empty">Транзит сейчас не образует мажорных аспектов к карте в орбисе.</div>{/if}
       {#each crossTA as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
           selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
       {/each}
     {:else}
+      {#if doubleHits.length}
+        <div class="grp gold">✦ Касается обоих</div>
+        <div class="hint small">Одна транзитная планета аспектирует объекты обеих карт одновременно —
+          самое важное в паре.</div>
+        {#each doubleHits as h (h.planet)}
+          <div class="dhblock">
+            <div class="dhhead"><span class="glyph">{h.glyph}</span> <b>{h.planet}</b>
+              {#each h.toA as a}<span class="dhpart">{a.symbol} {a.p1} ({personA?.name})</span>{/each}
+              {#each h.toB as a}<span class="dhpart">{a.symbol} {a.p1} ({personB?.name})</span>{/each}
+            </div>
+            {#each h.toA as a}
+              <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
+                selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
+            {/each}
+            {#each h.toB as a}
+              <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
+                selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит', posB)} />
+            {/each}
+          </div>
+        {/each}
+      {/if}
       <div class="grp">Транзит → {personA?.name}</div>
-      {#if crossTA.length === 0}<div class="empty">Нет аспектов в орбисе.</div>{/if}
-      {#each crossTA as a}
+      {#if singleTA.length === 0}<div class="empty">{doubleHits.length ? 'Остальных аспектов нет.' : 'Нет мажорных аспектов в орбисе.'}</div>{/if}
+      {#each singleTA as a}
         <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
           selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
       {/each}
       <div class="grp">Транзит → {personB?.name}</div>
-      {#if crossTB.length === 0}<div class="empty">Нет аспектов в орбисе.</div>{/if}
-      {#each crossTB as a}
+      {#if singleTB.length === 0}<div class="empty">{doubleHits.length ? 'Остальных аспектов нет.' : 'Нет мажорных аспектов в орбисе.'}</div>{/if}
+      {#each singleTB as a}
         <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
           selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит', posB)} />
       {/each}
@@ -452,19 +541,40 @@
       </div>
     {/if}
 
-    <details class="positions">
-      <summary>Позиции</summary>
-      <div class="posgrp">{personA?.name}</div>
-      {#each posA as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
-      {#if mode === 'synastry' || mode === 'triple'}
-        <div class="posgrp">{personB?.name}</div>
-        {#each posB as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
-      {/if}
-      {#if mode === 'transitNatal' || mode === 'triple'}
-        <div class="posgrp">Транзит ({transitLabel})</div>
-        {#each transitPos as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
-      {/if}
-    </details>
+    {#if mode === 'natal'}
+      <!-- расшифровка положений (правка астролога): планета в знаке + разбор -->
+      <div class="grp">Положения</div>
+      {#each posA as p (p.name)}
+        {@const si = signIdx(p.lon)}
+        <details class="posx">
+          <summary><span class="glyph">{p.glyph}</span> <b>{p.name}</b>
+            <span class="posval">{fmtPos(p.lon)}{p.retro ? ' ℞' : ''}</span></summary>
+          <div class="posbody">
+            {#if PLANET_LORE[p.name]}<div class="posrole">{PLANET_LORE[p.name].role}</div>{/if}
+            {#if SIGN_LORE[si]}
+              <div class="possign"><b>{p.sign}</b> · {SIGN_LORE[si].element}</div>
+              <div class="postext">{SIGN_LORE[si].text}</div>
+            {/if}
+            {#if p.retro}<div class="postext">℞ Ретроградна в карте — энергия обращена внутрь,
+              тема проживается через переосмысление.</div>{/if}
+          </div>
+        </details>
+      {/each}
+    {:else}
+      <details class="positions">
+        <summary>Позиции</summary>
+        <div class="posgrp">{personA?.name}</div>
+        {#each posA as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
+        {#if mode === 'synastry' || mode === 'triple'}
+          <div class="posgrp">{personB?.name}</div>
+          {#each posB as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
+        {/if}
+        {#if mode === 'transitNatal' || mode === 'triple'}
+          <div class="posgrp">Транзит ({transitLabel})</div>
+          {#each transitPos as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
+        {/if}
+      </details>
+    {/if}
   {/if}
 </section>
 
@@ -488,12 +598,12 @@
   .hint { color: var(--ink-faint); font-size: 0.84rem; margin: 4px 0 12px; }
   .empty { color: var(--ink-faint); font-size: 0.86rem; margin: 10px 0; text-align: center; }
 
-  /* переключатель типа карты */
-  .seg.modes { display: flex; gap: 4px; margin: 6px 0 8px; border: 1px solid var(--glass-brd);
-    border-radius: 12px; overflow: hidden; }
-  .seg.modes button { flex: 1; background: transparent; border: none; color: var(--ink-dim);
-    padding: 9px 6px; font-size: 0.8rem; }
-  .seg.modes button.on { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  /* переключатель типа карты — сетка 2×2: подписи не режутся на узких экранах */
+  .seg.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 6px 0 8px; }
+  .seg.modes button { background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink-dim);
+    border-radius: 12px; padding: 10px 6px; font-size: 0.82rem; }
+  .seg.modes button.on { background: var(--accent); border-color: transparent;
+    color: var(--on-accent); font-weight: 600; }
 
   /* список людей */
   .prow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
@@ -550,7 +660,7 @@
   /* карта */
   .legend { color: var(--ink-faint); font-size: 0.78rem; text-align: center; margin: 4px 0 12px; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
-    border-radius: 999px; padding: 3px 10px; font-size: 0.74rem; }
+    border-radius: 999px; padding: 7px 12px; font-size: 0.78rem; }
   .mini.now { color: var(--accent); }
   /* панель прокрутки транзита */
   .tctl { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 2px 0; }
@@ -579,6 +689,25 @@
   .fcdate .go { color: var(--accent); }
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
+  .grp.gold { color: var(--gold); }
+  /* «двойное попадание» — транзитная планета бьёт в обе карты (выделено особо) */
+  .dhblock { border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--glass-brd));
+    background: color-mix(in srgb, var(--glass) 88%, var(--gold) 6%);
+    border-radius: 14px; padding: 8px 10px; margin: 8px 0; }
+  .dhhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+    color: var(--ink); font-size: 0.9rem; margin: 2px 2px 4px; }
+  .dhpart { color: var(--ink-dim); font-size: 0.84rem; }
+  /* положения одиночного натала — раскрывающийся разбор */
+  .posx { margin: 6px 0; border-radius: 12px; background: #ffffff08;
+    border: 1px solid var(--glass-brd); padding: 2px 10px; }
+  .posx summary { display: flex; align-items: center; gap: 8px; cursor: pointer;
+    padding: 8px 2px; color: var(--ink); }
+  .posx .posval { margin-left: auto; color: var(--ink-dim); font-family: var(--font-mono);
+    font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+  .posbody { padding: 2px 2px 10px; }
+  .posrole { color: var(--ink-dim); font-size: 0.84rem; margin-bottom: 4px; }
+  .possign { color: var(--gold); font-size: 0.8rem; margin-bottom: 2px; }
+  .postext { color: var(--ink-dim); font-size: 0.84rem; line-height: 1.45; }
   .warn { color: var(--gold); font-size: 0.8rem; margin: 6px 0; }
   .positions { margin-top: 12px; }
   .positions summary { color: var(--ink-dim); font-size: 0.86rem; cursor: pointer; }

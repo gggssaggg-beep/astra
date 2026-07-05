@@ -59,6 +59,8 @@
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Выбор даты" use:bottomSheet={{ onclose }}>
+  <header class="shead"><h2>Выбор даты</h2>
+    <button class="xbtn" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="inputrow">
     <input class="dinput" class:err inputmode="numeric" maxlength="10" placeholder="дата: 12.03.2026" value={input}
       oninput={(e) => { input = maskDate((e.target as HTMLInputElement).value); err = false; }}
@@ -92,6 +94,9 @@
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(440px, 100%);
     z-index: 21; padding: 16px 16px calc(18px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
   @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+  .shead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .shead h2 { margin: 0; font-size: 1.1rem; }
+  .xbtn { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .inputrow { display: flex; gap: 8px; margin-bottom: 12px; }
   .dinput { flex: 1; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }
   .dinput.err { border-color: var(--rose); }

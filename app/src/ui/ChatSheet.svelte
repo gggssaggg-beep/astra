@@ -16,6 +16,7 @@
   let key = $state(getKey());
   let keyInput = $state('');
   let editingKey = $state(!getKey());
+  let showKey = $state(false);   // 👁 показать/скрыть вводимый ключ
 
   let messages = $state<ChatMsg[]>([]);
   let input = $state('');
@@ -91,8 +92,15 @@
       <div class="hint">Вставь свой ключ Anthropic (Claude). Хранится только на этом устройстве,
         не в файле данных и не в гите. Без ключа чат недоступен — остальное приложение работает.</div>
       <div class="krow">
-        <input class="kin" type="password" placeholder="sk-ant-…" bind:value={keyInput}
-          onkeydown={(e) => e.key === 'Enter' && saveKey()} />
+        {#if showKey}
+          <input class="kin" type="text" placeholder="sk-ant-…" bind:value={keyInput}
+            onkeydown={(e) => e.key === 'Enter' && saveKey()} />
+        {:else}
+          <input class="kin" type="password" placeholder="sk-ant-…" bind:value={keyInput}
+            onkeydown={(e) => e.key === 'Enter' && saveKey()} />
+        {/if}
+        <button class="eye" onclick={() => (showKey = !showKey)}
+          aria-label={showKey ? 'Скрыть ключ' : 'Показать ключ'}>{showKey ? '🙈' : '👁'}</button>
         <button class="btn primary" onclick={saveKey} disabled={!keyInput.trim()}>Сохранить</button>
       </div>
     </div>
@@ -132,6 +140,8 @@
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .hint { color: var(--ink-faint); font-size: 0.84rem; margin-bottom: 10px; }
   .krow, .inputrow { display: flex; gap: 8px; }
+  .eye { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink-dim);
+    border-radius: 12px; padding: 0 12px; font-size: 1rem; flex: none; }
   .kin, textarea { flex: 1; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; resize: none; }
   .btn { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 10px 14px; }
   .btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }

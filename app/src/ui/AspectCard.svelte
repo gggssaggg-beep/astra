@@ -93,6 +93,7 @@
   .seg b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink); }
   .seg.exact b { color: var(--gold); }
   .seg small { font-size: 0.66rem; color: var(--ink-faint); }
-  .seg .d { color: var(--ink-dim); font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+  /* «5 июл» — кириллица не в mono; tabular-nums выравнивает цифры */
+  .seg .d { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .dash { color: var(--ink-faint); }
 </style>

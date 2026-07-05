@@ -47,18 +47,29 @@
     const f = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
     return f ? f('timeZone') : ['UTC', 'Europe/Moscow', 'Europe/Kyiv', 'Europe/Berlin', 'Asia/Almaty', 'Asia/Yekaterinburg'];
   })();
+  // отфильтрованный список; текущий пояс всегда в списке (иначе select собьётся)
+  const zonesShown = $derived.by(() => {
+    const q = tzFilter.trim().toLowerCase();
+    const list = q ? ZONES.filter((z) => z.toLowerCase().includes(q)) : ZONES;
+    return list.includes(cfg.tz) ? list : [cfg.tz, ...list];
+  });
 
   let testMsg = $state<string | null>(null);
   let testBusy = $state(false);
 
-  // люди для выбора «моей карты» (снимок — шторка настроек живёт недолго)
-  const people = db.people.all().slice();
+  // люди для выбора «моей карты» — реактивно: человек, добавленный в «Картах»
+  // при открытых Настройках, сразу появляется в селекторе
+  let people = $state(db.people.all().slice());
+  $effect(() => onChange(() => (people = db.people.all().slice())));
+
+  // фильтр списка часовых поясов (их 600+ — глазами не пролистать)
+  let tzFilter = $state('');
 
   async function onNotifyToggle(field: 'notifyDaily' | 'notifyAspects' | 'notifyTransits', val: boolean) {
     if (val) {
       const r = await requestPermission();
       if (r === 'denied')
-        testMsg = 'Разрешение отклонено. Включите вручную: Настройки Android → Приложения → Astra → Уведомления.';
+        testMsg = 'Разрешение отклонено. Включи вручную: Настройки Android → Приложения → Astra → Уведомления.';
       else if (r === 'unsupported')
         testMsg = 'Уведомления недоступны в этом окружении.';
     }
@@ -92,10 +103,11 @@
   // а из манифеста) и даём ручную проверку — иначе понять, работает ли, нельзя.
   let ota = $state(getOtaStatus());
   let otaBusy = $state(false);
+  let otaProg = $state<string | null>(null);   // живой прогресс скачивания (13 МБ)
   async function checkOta() {
-    otaBusy = true;
-    try { ota = await checkOtaUpdate(); }
-    finally { otaBusy = false; }
+    otaBusy = true; otaProg = null;
+    try { ota = await checkOtaUpdate((m) => (otaProg = m)); }
+    finally { otaBusy = false; otaProg = null; }
   }
   // применить скачанное СЕЙЧАС: перезапуск webview — надёжнее, чем ждать
   // «полного закрытия» (смахивание из недавних не всегда убивает процесс)
@@ -178,13 +190,16 @@
 
   <div class="group">Часовой пояс</div>
   <div class="block">
-    <div class="lbl">Часовой пояс</div>
+    <!-- прозрачность прежде всего (вопрос владелицы «откуда пояс? не деанонит?») -->
+    <div class="hint small" style="margin-bottom:8px">🔒 Пояс взят из настроек самого телефона —
+      офлайн, без GPS и интернета. Местоположение приложение не знает и никуда не отправляет.</div>
+    <input class="select" type="text" bind:value={tzFilter} placeholder="Поиск пояса (moscow, novosib…)"
+      style="margin-bottom:6px" />
     <select class="select" value={cfg.tz} onchange={(e) => save({ tz: (e.target as HTMLSelectElement).value })}>
-      {#each ZONES as z}<option value={z}>{z}</option>{/each}
+      {#each zonesShown as z}<option value={z}>{z}</option>{/each}
     </select>
     <div class="hint small">Все времена и положения (колесо, планеты, точные аспекты, события)
-      показываются в этом поясе. Пояс при первом запуске взят из настроек самого телефона —
-      офлайн, без интернета и GPS; можно изменить вручную здесь.</div>
+      показываются в этом поясе; можно изменить вручную.</div>
   </div>
 
   <div class="group">Уведомления</div>
@@ -329,12 +344,12 @@
   <div class="group">Обновление приложения</div>
   <div class="block">
     <div class="lbl">Живое обновление (OTA)</div>
-    <p class="hint small">Веб-часть обновляется без переустановки APK. Кнопка ниже
-      проверит обновление и покажет, что произошло. Новый бандл применяется при
-      следующем полном запуске приложения (закрыть и открыть заново).</p>
+    <p class="hint small">Веб-часть обновляется без переустановки APK. «Проверить» скачает
+      обновление, если оно есть; применить можно сразу кнопкой «⟳ Обновить сейчас» —
+      или оно само встанет при следующем полном запуске приложения.</p>
     <div class="row" style="margin-top:8px">
       <button class="btn primary" disabled={otaBusy} onclick={checkOta}>
-        {otaBusy ? 'Проверяю…' : 'Проверить обновление'}</button>
+        {otaBusy ? (otaProg ?? 'Проверяю…') : 'Проверить обновление'}</button>
       {#if ota.state === 'queued'}
         <button class="btn" disabled={otaBusy} onclick={applyOta}>⟳ Обновить сейчас</button>
       {/if}
@@ -352,7 +367,7 @@
   <div class="group">Обратная связь</div>
   <div class="block">
     <div class="lbl">Связаться с разработчиком</div>
-    <p class="hint small">Нравятся ли трактовки через архетипы? Что улучшить? Напишите —
+    <p class="hint small">Нравятся ли трактовки через архетипы? Что улучшить? Напиши —
       на этапе теста это особенно важно.</p>
     <a class="btn primary maillink" href={feedbackHref}>✉ Написать разработчику</a>
     <p class="hint small" style="margin-top:8px">Или на почту: <b>{DEV_EMAIL}</b></p>

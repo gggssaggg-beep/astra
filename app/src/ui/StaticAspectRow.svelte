@@ -8,6 +8,7 @@
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { aspectTone } from '../lib/format.ts';
+  import { pairLore } from '../lib/pairLore.ts';
 
   let { a, ownerA = null, ownerB = null, selected, ontap }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null;
@@ -19,20 +20,28 @@
   // подпись «Солнце (Аня)» в синастрии (владелец задан) или просто «Солнце» иначе
   const n1 = $derived(ownerA ? `${a.p1} (${ownerA})` : a.p1);
   const n2 = $derived(ownerB ? `${a.p2} (${ownerB})` : a.p2);
+  // строка трактовки пары — как на карточке главного экрана (обрезается в 1 строку)
+  const lore = $derived(pairLore(a.p1, a.p2));
 </script>
 
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="srow tone-{tone}" class:selected role="button" tabindex="0" onclick={ontap}
   onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), ontap())}>
-  <span class="pair glyph">{g1}<span class="asp glyph">{a.symbol}</span>{g2}</span>
-  <span class="names">{n1} {a.symbol} {n2}</span>
-  <span class="orb">{a.orb.toFixed(2)}°</span>
+  <div class="top">
+    <span class="pair glyph">{g1}<span class="asp glyph">{a.symbol}</span>{g2}</span>
+    <span class="names">{n1} {a.symbol} {n2}</span>
+    <span class="orb">{a.orb.toFixed(2)}°</span>
+  </div>
+  {#if lore}<div class="lore">{lore}</div>{/if}
 </div>
 
 <style>
-  .srow { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  .srow { width: 100%; text-align: left;
     padding: 8px 12px; margin: 6px 0; border-radius: 12px; cursor: pointer;
     border-left: 3px solid var(--silver); background: #ffffff08; }
+  .top { display: flex; align-items: center; gap: 10px; }
+  .lore { color: var(--ink-faint); font-size: 0.78rem; margin-top: 3px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .srow:hover { background: #ffffff12; }
   /* выделено — усиление фона + кромка ярче тоном (без рамки вокруг текста) */
   .srow.selected { background: color-mix(in srgb, var(--glass) 82%, var(--neon-cyan) 8%); }

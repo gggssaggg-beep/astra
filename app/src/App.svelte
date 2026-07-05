@@ -6,7 +6,7 @@
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { hydrateKey } from './lib/secret.ts';
-  import { fmtDayMid, todayCivil } from './lib/format.ts';
+  import { todayCivil } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
   import DayScreen from './ui/DayScreen.svelte';
@@ -43,6 +43,8 @@
   let showLibrary = $state(false);
   let showInterp = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
+  // ссылка на шторку Сообщества — Android «Назад» шагает по её внутренней навигации
+  let communityRef = $state<{ stepBack: () => boolean } | undefined>(undefined);
   let selRec = $state<AspectRecord | null>(null);
   // Просмотренный аспект ОСТАЁТСЯ выделенным после закрытия трактовки (линия в
   // колесе + кромка карточки) — «пользователь знает, что смотрел». Сбрасывается
@@ -91,6 +93,14 @@
   // «Сегодня» — гражданская дата в ВЫБРАННОМ поясе (а не в поясе устройства).
   let date = $state(todayCivil(db.settings.get().tz));
   const isToday = $derived(date.getTime() === todayCivil(settings.tz).getTime());
+  // подпись даты в шапке: месяц полностью, год ТОЛЬКО если не текущий —
+  // «строка с датой перегружена» (жалоба владелицы, разгрузка шапки)
+  const dateLabel = $derived.by(() => {
+    const dm = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', day: 'numeric', month: 'long' }).format(date);
+    const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(date);
+    const y = date.getUTCFullYear();
+    return y === todayCivil(settings.tz).getUTCFullYear() ? `${dm}, ${wd}` : `${dm} ${y}, ${wd}`;
+  });
 
   // направление последнего листания — страница дня въезжает с нужной стороны
   let slideDir = $state(0);
@@ -122,7 +132,12 @@
     if (selRec) { closeAspect(); return; }
     if (wheelInfo) { wheelInfo = null; return; }
     if (showChat) { showChat = false; chatSeed = null; chatSource = null; return; }
-    if (showCommunity) { showCommunity = false; return; }
+    if (showCommunity) {
+      // внутри Сообщества «Назад» идёт на шаг выше (профиль → тред → лента),
+      // и только с ленты закрывает шторку
+      if (!communityRef?.stepBack()) showCommunity = false;
+      return;
+    }
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
@@ -131,7 +146,11 @@
     if (showJournal) { showJournal = false; return; }
     if (showLibrary) { showLibrary = false; return; }
     if (showData) { showData = false; return; }
-    if (showWelcome) return;               // приветствие не закрываем «назад»
+    if (showWelcome) {
+      // первое приветствие «назад» не закрывает; повторный просмотр — закрывает
+      if (db.settings.get().seenWelcome) showWelcome = false;
+      return;
+    }
     void CapApp.minimizeApp();
   }
 
@@ -176,7 +195,13 @@
   }
 
   function reschedule() { if (engine) void rescheduleAll(engine, db.settings.get(), db.settings.get().tz); }
-  function onPanelChanged() { settings = { ...db.settings.get() }; reschedule(); }
+  function onPanelChanged() {
+    const wasToday = isToday;
+    settings = { ...db.settings.get() };
+    // сменили пояс, стоя на «сегодня» — «сегодня» пересчитываем в новом поясе
+    if (wasToday) date = todayCivil(settings.tz);
+    reschedule();
+  }
 
   // тема: ставим data-theme на корень; «авто» — по системной, со слежением.
   // Статус-бар Android: иконки часов должны читаться на НАШЕМ фоне (тема
@@ -236,7 +261,8 @@
   <header class="glass frost">
     <button class="nav" onclick={() => shift(-1)} aria-label="Предыдущий день">‹</button>
     <div class="title">
-      <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">{fmtDayMid(date)}</button>
+      <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">
+        {dateLabel}<span class="caret">▾</span></button>
       <button class="today" class:hidden={isToday} onclick={goToday}>сегодня</button>
     </div>
     <button class="nav" onclick={() => shift(1)} aria-label="Следующий день">›</button>
@@ -268,7 +294,7 @@
 <nav class="tabbar glass frost" aria-label="Меню">
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
-  <button class="mid" onclick={() => (showCharts = {})} aria-label="Добавить"><span class="ti glyph">👥</span><span class="tl">Добавить</span></button>
+  <button class="mid" onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span></button>
   <button onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
   <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
@@ -312,7 +338,7 @@
 {/if}
 
 {#if showCommunity}
-  <CommunitySheet signature={showCommunity.signature} title={showCommunity.title}
+  <CommunitySheet bind:this={communityRef} signature={showCommunity.signature} title={showCommunity.title}
     onclose={() => (showCommunity = false)} />
 {/if}
 
@@ -358,13 +384,16 @@
     position: sticky; top: calc(8px + var(--safe-top)); z-index: 5;
     display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 6px;
   }
-  .nav { background: transparent; border: none; font-size: 1.8rem; line-height: 1; width: 40px; height: 44px; border-radius: 12px; color: var(--ink-dim); }
+  .nav { background: transparent; border: none; font-size: 1.8rem; line-height: 1; width: 44px; height: 44px; border-radius: 12px; color: var(--ink-dim); }
   .nav:hover { background: #ffffff14; color: var(--ink); }
-  .title { flex: 1; text-align: center; }
-  .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.2px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 2px 6px; border-radius: 8px; }
+  /* шапка одним рядом: дата-кнопка с кареткой + чип «сегодня» в ту же строку
+     (раньше чип распирал шапку вторым рядом — «строка перегружена») */
+  .title { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+  .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.2px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 6px; border-radius: 8px; white-space: nowrap; }
   .date:hover { background: #ffffff14; }
-  .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 2px 12px; font-size: 0.72rem; margin-top: 4px;
-    opacity: 1; transition: opacity 0.2s ease; }
+  .caret { color: var(--ink-faint); font-size: 0.7rem; margin-left: 4px; vertical-align: middle; }
+  .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 4px 10px; font-size: 0.72rem;
+    opacity: 1; transition: opacity 0.2s ease; white-space: nowrap; }
   .today.hidden { opacity: 0; pointer-events: none; }
   .tabbar {
     position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);

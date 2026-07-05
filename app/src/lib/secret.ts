@@ -14,25 +14,27 @@ const K = 'astra-key';
 const NATIVE = Capacitor.isNativePlatform();
 
 let cached = '';
-try { cached = localStorage.getItem(K) ?? ''; } catch { /* нет localStorage */ }
+try {
+  cached = localStorage.getItem(K) ?? '';
+  // на устройстве localStorage — ЛИШНЯЯ копия ключа (истина в app-private
+  // Preferences): подхватили в кэш и стёрли след (безопасность)
+  if (NATIVE && cached) localStorage.removeItem(K);
+} catch { /* нет localStorage */ }
 
 /** Поднять ключ из durable-хранилища устройства. Вызвать один раз при старте. */
 export async function hydrateKey(): Promise<void> {
   if (!NATIVE) return;
   try {
     const { value } = await Preferences.get({ key: K });
-    if (value) {
-      cached = value;
-      try { localStorage.setItem(K, value); } catch { /* quota */ }
-    }
+    if (value) cached = value;
   } catch { /* первый запуск / нет плагина */ }
 }
 
 export const getKey = (): string => cached;
 export const setKey = (v: string): void => {
   cached = v.trim();
-  try { localStorage.setItem(K, cached); } catch { /* quota */ }
   if (NATIVE) void Preferences.set({ key: K, value: cached }).catch(() => { /* тихо */ });
+  else try { localStorage.setItem(K, cached); } catch { /* quota */ }
 };
 export const clearKey = (): void => {
   cached = '';

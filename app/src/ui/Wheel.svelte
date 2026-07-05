@@ -1,3 +1,10 @@
+<script lang="ts" module>
+  // счётчик экземпляров: SVG-id должны быть уникальны на страницу — колесо дня
+  // и колесо совмещённых карт живут в DOM одновременно (иначе градиенты знаков
+  // одного колеса тихо подменяются градиентами другого)
+  let wheelUid = 0;
+</script>
+
 <script lang="ts">
   /**
    * «Фото неба» (§3.8) — транзитное колесо БЕЗ домов: круг зодиака, планеты на
@@ -71,6 +78,7 @@
     ?? (selectedInfo?.kind === 'aspect'
       ? aspectSignature(selectedInfo.p1, selectedInfo.p2, selectedInfo.aspect) : null));
 
+  const uid = ++wheelUid;
   // цвета стихий: огонь, земля, воздух, вода (по индексу знака % 4)
   const ELEM = ['#ff8a5b', '#7fd99a', '#7fd0ff', '#b39bff'];
   const signStroke = (i: number): string => {
@@ -78,11 +86,10 @@
       case 'silver': return 'var(--silver)';
       case 'gold': return 'var(--gold)';
       case 'element': return ELEM[i % 4];
-      case 'shimmer': return 'url(#sgShimmer)';
-      case 'rainbow': return 'url(#sgRainbow)';
+      case 'shimmer': return `url(#sgShimmer-${uid})`;
+      case 'rainbow': return `url(#sgRainbow-${uid})`;
     }
   };
-  const glow = $derived(signStyle === 'gold' || signStyle === 'shimmer' || signStyle === 'rainbow');
 
   const SZ = 320, cx = SZ / 2, cy = SZ / 2;
   const rOuter = 152, rZodiac = 124, rTick = 124, rPlanet = 104, rAspect = 92;
@@ -114,7 +121,12 @@
   const placedInner = $derived(placeRing(positions, rInner, triple ? 11 : double ? 12 : 16));
   const placedMid = $derived(positionsOuter ? placeRing(positionsOuter, rMid, 11) : []);
   const placedOut2 = $derived(triple && positionsOuter2 ? placeRing(positionsOuter2, rOut2, 11) : []);
-  const allPlaced = $derived([...placedInner, ...placedMid, ...placedOut2]);
+  // ключ = кольцо+имя: при скрабе транзита натальные глифы не перерисовываются
+  const allPlaced = $derived([
+    ...placedInner.map((x) => ({ ...x, k: 'i' + x.p.name })),
+    ...placedMid.map((x) => ({ ...x, k: 'm' + x.p.name })),
+    ...placedOut2.map((x) => ({ ...x, k: 'o' + x.p.name })),
+  ]);
 
   // якорь линий аспектов ближе к центру, чем больше колец
   const rAspectUse = $derived(triple ? 46 : double ? 56 : rAspect);
@@ -148,19 +160,21 @@
   const anySelStatic = $derived(!!selectedStaticKey);
   const buildStatic = (
     list: StaticAspect[] | null,
-    m1: Map<string, number>, m2: Map<string, number>,
+    m1: Map<string, number>, m2: Map<string, number>, ring: string,
   ) => (list ?? [])
     .map((a) => {
       const l1 = m1.get(a.p1), l2 = m2.get(a.p2);
       if (l1 == null || l2 == null) return null;
       const A = pt(l1, rAspectUse), B = pt(l2, rAspectUse);
       const key = staticKey(a);
+      // kk — ключ рендера (в тройной карте один и тот же key может быть у линий
+      // разных колец: «Солнце △ Луна» к наталу А и к наталу Б)
       return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect),
-        key, sel: key === selectedStaticKey };
+        key, kk: ring + key, sel: key === selectedStaticKey };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
-  const slines = $derived(buildStatic(staticAspects, lonByName, lonOut));
-  const slines2 = $derived(triple ? buildStatic(staticAspects2, lonMid, lonOut) : []);
+  const slines = $derived(buildStatic(staticAspects, lonByName, lonOut, '1'));
+  const slines2 = $derived(triple ? buildStatic(staticAspects2, lonMid, lonOut, '2') : []);
 
   // дома: 12 куспидов-спиц + номера в середине сектора + метки Asc/MC
   const houseGeo = $derived.by(() => {
@@ -194,26 +208,28 @@
   onpointerdown={scrubDown} onpointermove={scrubMove}
   onpointerup={scrubUp} onpointercancel={scrubUp}>
   <defs>
-    <linearGradient id="sgShimmer" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" style="stop-color:#f3c969" />
-      <stop offset="50%" style="stop-color:#cdd6ff" />
-      <stop offset="100%" style="stop-color:#9b8cff" />
-      <animateTransform attributeName="gradientTransform" type="translate"
-        values="-1 0;1 0;-1 0" dur="5s" repeatCount="indefinite" />
-    </linearGradient>
-    <linearGradient id="sgRainbow" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" style="stop-color:#ff6b6b" />
-      <stop offset="25%" style="stop-color:#f3c969" />
-      <stop offset="50%" style="stop-color:#7fd99a" />
-      <stop offset="75%" style="stop-color:#7fd0ff" />
-      <stop offset="100%" style="stop-color:#b39bff" />
-      <animateTransform attributeName="gradientTransform" type="rotate"
-        values="0 0.5 0.5;360 0.5 0.5" dur="14s" repeatCount="indefinite" />
-    </linearGradient>
-    <filter id="sgGlow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="1" result="b" />
-      <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-    </filter>
+    <!-- градиенты (и их SMIL-анимации) рендерим только для активного стиля:
+         вне его они впустую крутились и жгли батарею -->
+    {#if signStyle === 'shimmer'}
+      <linearGradient id="sgShimmer-{uid}" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" style="stop-color:#f3c969" />
+        <stop offset="50%" style="stop-color:#cdd6ff" />
+        <stop offset="100%" style="stop-color:#9b8cff" />
+        <animateTransform attributeName="gradientTransform" type="translate"
+          values="-1 0;1 0;-1 0" dur="5s" repeatCount="indefinite" />
+      </linearGradient>
+    {/if}
+    {#if signStyle === 'rainbow'}
+      <linearGradient id="sgRainbow-{uid}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" style="stop-color:#ff6b6b" />
+        <stop offset="25%" style="stop-color:#f3c969" />
+        <stop offset="50%" style="stop-color:#7fd99a" />
+        <stop offset="75%" style="stop-color:#7fd0ff" />
+        <stop offset="100%" style="stop-color:#b39bff" />
+        <animateTransform attributeName="gradientTransform" type="rotate"
+          values="0 0.5 0.5;360 0.5 0.5" dur="14s" repeatCount="indefinite" />
+      </linearGradient>
+    {/if}
   </defs>
 
   <circle {cx} {cy} r={rOuter} class="ring" />
@@ -243,8 +259,10 @@
   {#each signs as s}
     <line x1={s.ix} y1={s.iy} x2={s.ex} y2={s.ey} class="spoke" />
     <!-- выбранный тапом знак подсвечивается САМИМ символом (циан + глоу),
-         никакой прямоугольной рамки (жёсткое правило владелицы) -->
-    <svg class="signicon" class:glow class:sel={s.i === selSignIdx}
+         никакой прямоугольной рамки (жёсткое правило владелицы).
+         Глоу-фильтр ТОЛЬКО у выбранного знака: 12 параллельных blur-проходов
+         на каждый рендер перегружали GPU слабых WebView -->
+    <svg class="signicon" class:sel={s.i === selSignIdx}
       x={s.gx - ICON / 2} y={s.gy - ICON / 2} width={ICON} height={ICON}
       viewBox="0 0 24 24" fill="none"
       style="stroke:{s.i === selSignIdx ? 'var(--neon-cyan)' : signStroke(s.i)}"
@@ -261,7 +279,7 @@
 
   {#if staticAspects}
     <!-- статичный режим (совмещённые карты): транзитные линии не рисуем -->
-    {#each [...slines, ...slines2] as l}
+    {#each [...slines, ...slines2] as l (l.kk)}
       <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
         stroke-width={l.sel ? 2.8 : 1.2}
         opacity={l.sel ? 1 : anySelStatic ? 0.18 : 0.8}
@@ -274,7 +292,7 @@
       {/if}
     {/each}
   {:else}
-    {#each lines as l}
+    {#each lines as l (l.p1 + '|' + l.p2 + '|' + l.aspect)}
       <!-- выбранный аспект подсвечивается САМОЙ линией: толще, ярче, с глоу;
            остальные притухают. Глоу-фильтр ТОЛЬКО у выбранной линии: пачка
            drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
@@ -293,7 +311,7 @@
     {/each}
   {/if}
 
-  {#each allPlaced as { p, r }}
+  {#each allPlaced as { p, r, k } (k)}
     {@const pos = pt(p.lon, r)}
     {@const tick = pt(p.lon, rZodiac)}
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />
@@ -327,7 +345,6 @@
   .hnum { fill: var(--ink-faint); font-size: 7px; text-anchor: middle; dominant-baseline: central; opacity: 0.7; }
   .axislbl { fill: var(--gold); font-size: 7.5px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
   .signicon { opacity: 0.95; overflow: visible; }
-  .signicon.glow { filter: url(#sgGlow); }
   .signicon.sel { opacity: 1; filter: drop-shadow(0 0 5px var(--neon-cyan)); }
   .plink { stroke: var(--glass-brd); stroke-width: 0.5; opacity: 0.5; }
   .planet {

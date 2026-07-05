@@ -7,7 +7,7 @@
  * на устройстве (Capacitor) лучше нативный HTTP (CapacitorHttp) — обойти CORS.
  */
 import type { Engine } from '../engine/index.ts';
-import { aspectsOn, eventsOn } from '../engine/index.ts';
+import { aspectsOnCached, eventsOnCached } from './dayCache.ts';
 import { fmtPos, fmtTime, zonedDayStartUTC } from './format.ts';
 import { db } from './db.ts';
 
@@ -17,8 +17,9 @@ export interface ChatMsg { role: 'user' | 'assistant'; content: string; }
 export function buildDayContext(E: Engine, date: Date, tz: string,
   orb: number | ((name: string) => number) = 1.0): string {
   const dayStart = zonedDayStartUTC(date, tz); // сутки и позиции — в выбранном поясе
-  const day = aspectsOn(E, dayStart, orb, true);
-  const evs = eventsOn(E, dayStart);
+  // общий кэш дня: экран дня уже посчитал эти сутки — не гоняем WASM заново
+  const day = aspectsOnCached(E, dayStart, orb);
+  const evs = eventsOnCached(E, dayStart);
   const pos = E.positions(dayStart).map((p) => `${p.name} ${fmtPos(p.lon)}${p.retro ? ' ℞' : ''}`).join('; ');
   const asp = [...day.moon, ...day.fast, ...day.slow]
     .map((a) => `${a.p1} ${a.aspect} ${a.p2} (орбис ${a.exactOrb.toFixed(2)}°${a.exactTime ? `, точно ${fmtTime(a.exactTime, tz)}` : ''}, ${a.applying ? 'сходится' : 'расходится'})`)
@@ -69,7 +70,7 @@ export async function askClaude(key: string, system: string, messages: ChatMsg[]
       body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 2000, system, messages }),
     });
   } catch (e) {
-    if (abort.signal.aborted) throw new Error('Нет ответа от API за 90 секунд — проверьте сеть и попробуйте ещё раз.');
+    if (abort.signal.aborted) throw new Error('Нет ответа от API за 90 секунд — проверь сеть и попробуй ещё раз.');
     throw e;
   } finally { clearTimeout(timer); }
   if (!res.ok) {

@@ -37,14 +37,14 @@ export interface TransitWindow { begin: Date; exact: Date; end: Date; }
  *  → выход) вокруг момента `center`. Аспект — это интервал (правило проекта), а
  *  транзит к наталу как раз таков: натал стоит, транзитная планета проходит орбис.
  *  natalLon — долгота натальной точки; tBody — транзитная планета; angle — угол
- *  аспекта; orb — орбис пары. Ищем в ±40 сут от center; null — если рядом нет
+ *  аспекта; orb — орбис пары. Ищем в ±60 сут от center; null — если рядом нет
  *  точного (планета уже вне окна, только «расходящийся хвост»). */
 export function transitWindow(
   E: Engine, tBody: string, natalLon: number, angle: number, orb: number, center: Date,
 ): TransitWindow | null {
   const f = signedFixed(E, tBody, natalLon, angle);
   const c = E.toJD(center);
-  const step = 0.125, span = 40;   // шаг 3ч, окно ±40 сут
+  const step = 0.125, span = 60;   // шаг 3ч, окно ±60 сут (края орбиса медленных)
   // 1) exact — ближайшая к center смена знака f
   let exactJd: number | null = null, best = Infinity;
   let prevJ = c - span, prevV = f(prevJ);
@@ -111,6 +111,8 @@ export async function forecastTransits(
                 when: E.fromJD(jd), jd, tName, tGlyph: PLANET_GLYPH[tName] ?? '•',
                 nName: nP.name, nGlyph: nP.glyph, owner: tg.owner, aspect: asp, symbol,
               });
+              // ранний выход: лимит набран — не гонять WASM по остатку диапазона
+              if (hits.length >= maxResults) { hits.sort((a, b) => a.jd - b.jd); return hits; }
             }
             prevJ = j; prevV = v;
             if (++sinceYield >= 600) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); }

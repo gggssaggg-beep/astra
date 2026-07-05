@@ -276,7 +276,7 @@ export async function sendTest(): Promise<string> {
     const ok = await granted();
     push(`разрешение: ${ok ? 'granted' : 'НЕТ'}`);
     if (!ok) {
-      return 'Разрешения нет. Включите: Настройки Android → Приложения → Astra → Уведомления.';
+      return 'Разрешения нет. Включи: Настройки Android → Приложения → Astra → Уведомления.';
     }
     // Ступень 1: мгновенное БЕЗ расписания — мимо AlarmManager
     await withTimeout(LocalNotifications.schedule({ notifications: [{

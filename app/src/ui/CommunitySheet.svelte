@@ -53,19 +53,26 @@
   const fmt = (iso: string) =>
     new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 
+  // сетевые ошибки Supabase («Failed to fetch») — по-человечески
+  const human = (e: unknown): string => {
+    const m = e instanceof Error ? e.message : String(e);
+    return /fetch|network|load failed/i.test(m) ? 'Нет сети — сообщество доступно только онлайн.' : m;
+  };
+
   async function refresh() {
     if (!configured() || !session) return;
     loading = true; err = null;
     try {
       feed = await listDiscussions(signature);
       try { unread = await unreadCount(); } catch { /* нет таблицы уведомлений — старый SQL */ }
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
     finally { loading = false; }
   }
 
   $effect(() => {
     if (!configured()) return;
-    initCommunityAuth((s) => {
+    // возвращаем cleanup: без него слушатель auth копился при каждом открытии шторки
+    return initCommunityAuth((s) => {
       const was = !!session;
       session = s;
       if (s && !was) { void ensureProfile(s); void refresh(); }
@@ -75,7 +82,7 @@
   async function login() {
     err = null;
     try { await signInGoogle(); }
-    catch (e) { err = e instanceof Error ? e.message : String(e); }
+    catch (e) { err = human(e); }
   }
 
   // вход по почте — запасная дверь, пока Google-клиент не настроен
@@ -86,7 +93,7 @@
     const em = email.trim(); if (!em || mailBusy) return;
     err = null; mailBusy = true;
     try { await signInEmail(em); mailSent = true; }
-    catch (e) { err = e instanceof Error ? e.message : String(e); }
+    catch (e) { err = human(e); }
     finally { mailBusy = false; }
   }
 
@@ -98,41 +105,56 @@
     if (open) { open = null; return; }
     onclose();
   }
+  /** Android «Назад» из App: шаг по внутренней навигации; false — уже на ленте
+   *  (App закроет шторку сам). */
+  export function stepBack(): boolean {
+    if (card || notifView || open) { handleClose(); return true; }
+    return false;
+  }
 
   async function openNotifs() {
     notifView = true; buzz();
     try {
       notifs = await listNotifications();
       await markNotificationsRead(); unread = 0;
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
   }
   async function notifTap(n: CommunityNotif) {
     if (!n.discussion_id) return;
     try {
       const d = await getDiscussion(n.discussion_id);
       if (d) { notifView = false; await openThread(d); }
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
   }
   const NOTIF_VERB: Record<string, string> = {
-    reply_own: 'ответил(а) в вашей теме',
-    reply_sub: 'ответил(а) в теме, на которую вы подписаны',
-    follow_activity: 'публикует (ваша подписка)',
-    like: 'оценил(а) вашу запись ♥',
+    reply_own: 'ответил(а) в твоей теме',
+    reply_sub: 'ответил(а) в теме, на которую ты подписан(а)',
+    follow_activity: 'публикует (твоя подписка)',
+    like: 'оценил(а) твою запись ♥',
+  };
+  // склонение по числу: plural(3, 'тема', 'темы', 'тем') → «темы»
+  const plural = (n: number, one: string, few: string, many: string): string => {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
   };
 
+  let threadBusy = $state(false);
   async function openThread(d: Discussion) {
-    open = d; comments = []; buzz();
+    open = d; comments = []; threadBusy = true; buzz();
     try {
       comments = await listComments(d.id);
       subbed = await isSubscribed(d.id);
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
+    finally { threadBusy = false; }
   }
 
   async function toggleSub() {
     if (!open) return;
     const next = !subbed; subbed = next; buzz();     // оптимистично
     try { await subscribeThread(open.id, next); }
-    catch (e) { subbed = !next; err = e instanceof Error ? e.message : String(e); }
+    catch (e) { subbed = !next; err = human(e); }
   }
 
   // карточка пользователя (тап по имени автора): аватар, счётчики, подписка
@@ -141,7 +163,7 @@
     try {
       card = await getProfileCard(userId);
       cardThreads = await listByAuthor(userId);
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
   }
   async function toggleFollow() {
     if (!card || cardBusy) return;
@@ -151,7 +173,7 @@
       await follow(card.id, next);
       card = { ...card, iFollow: next, followers: card.followers + (next ? 1 : -1) };
       success();
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
     finally { cardBusy = false; }
   }
 
@@ -162,7 +184,7 @@
       await createDiscussion({ title: t, body: newBody.trim(), signature });
       newTitle = ''; newBody = ''; creating = false; success();
       await refresh();
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
     finally { posting = false; }
   }
 
@@ -174,7 +196,7 @@
       newComment = ''; success();
       comments = await listComments(open.id);
       open.comments = comments.length;
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
     finally { posting = false; }
   }
 
@@ -187,7 +209,7 @@
     if (!confirm('Удалить обсуждение целиком? Действие необратимо.')) return;
     err = null;
     try { await removeDiscussion(d.id); open = null; success(); await refresh(); }
-    catch (e) { err = e instanceof Error ? e.message : String(e); }
+    catch (e) { err = human(e); }
   }
   async function deleteComment(c: CommunityComment) {
     if (!open || !confirm('Удалить комментарий?')) return;
@@ -195,20 +217,38 @@
     try {
       await removeComment(c.id);
       comments = await listComments(open.id); open.comments = comments.length;
-    } catch (e) { err = e instanceof Error ? e.message : String(e); }
+    } catch (e) { err = human(e); }
   }
 
+  // защита от двойного тапа: пока запрос лайка в пути, повторный тап игнорируем
+  const liking = new Set<string>();
   async function heart(d: Discussion) {
-    buzz();
+    if (liking.has(d.id)) return;
+    liking.add(d.id); buzz();
     d.myLike = !d.myLike; d.likes += d.myLike ? 1 : -1;   // оптимистично
     try { await toggleLike('discussion', d.id, d.myLike); }
     catch { d.myLike = !d.myLike; d.likes += d.myLike ? 1 : -1; }
+    finally { liking.delete(d.id); }
   }
   async function heartComment(c: CommunityComment) {
-    buzz();
+    if (liking.has(c.id)) return;
+    liking.add(c.id); buzz();
     c.myLike = !c.myLike; c.likes += c.myLike ? 1 : -1;
     try { await toggleLike('comment', c.id, c.myLike); }
     catch { c.myLike = !c.myLike; c.likes += c.myLike ? 1 : -1; }
+    finally { liking.delete(c.id); }
+  }
+
+  // «выйти» — двухтапное подтверждение (без системного confirm)
+  let confirmOut = $state(false);
+  function logoutTap(): void {
+    if (!confirmOut) {
+      confirmOut = true;
+      setTimeout(() => (confirmOut = false), 3000);
+      return;
+    }
+    confirmOut = false;
+    void signOut();
   }
 </script>
 
@@ -231,7 +271,8 @@
       {#if session && !open && !notifView}
         <button class="bell" onclick={openNotifs} aria-label="Уведомления">
           🔔{#if unread}<span class="badge">{unread > 99 ? '99+' : unread}</span>{/if}</button>
-        <button class="link" onclick={() => signOut()}>выйти</button>
+        <button class="link" class:warn={confirmOut} onclick={logoutTap}>
+          {confirmOut ? 'точно выйти?' : 'выйти'}</button>
       {/if}
       <button class="x" onclick={handleClose} aria-label="Закрыть">✕</button>
     </div>
@@ -252,10 +293,12 @@
       <b>Вход в сообщество</b>
       <p>Обсуждения видны только вошедшим.</p>
       <button class="gbtn" onclick={login}>Войти через Google</button>
+      <p class="hint" style="margin:6px 0 0">Откроется системный браузер — войди там,
+        и он сам вернёт в приложение.</p>
       <div class="or">или по ссылке на почту</div>
       {#if mailSent}
-        <p class="sentok">Письмо отправлено ✓<br />Откройте его на этом телефоне и
-          коснитесь ссылки — она вернёт в приложение уже с входом.</p>
+        <p class="sentok">Письмо отправлено ✓<br />Открой его на этом телефоне и
+          коснись ссылки — она вернёт в приложение уже с входом.</p>
       {:else}
         <div class="mailrow">
           <input type="email" bind:value={email} placeholder="ваша почта…"
@@ -285,6 +328,7 @@
       </div>
     </div>
     <div class="lbl">Комментарии ({comments.length})</div>
+    {#if threadBusy}<div class="hint">✦ загружаю…</div>{/if}
     {#each comments as c (c.id)}
       <div class="cmt reveal" use:reveal>
         <div class="cmeta">
@@ -300,11 +344,12 @@
         </div>
       </div>
     {:else}
-      <div class="hint">Пока тихо — будь первой ✧</div>
+      {#if !threadBusy}<div class="hint">Пока тихо — будь первой ✧</div>{/if}
     {/each}
     <div class="inputrow">
       <textarea bind:value={newComment} rows="1" placeholder="Комментарий…"></textarea>
-      <button class="btn primary" onclick={submitComment} disabled={!newComment.trim()}>▶</button>
+      <button class="btn primary" onclick={submitComment} disabled={!newComment.trim() || posting}
+        aria-label="Отправить комментарий">▶</button>
     </div>
   {:else if notifView}
     <!-- УВЕДОМЛЕНИЯ -->
@@ -317,7 +362,7 @@
       </button>
     {:else}
       <div class="hint" style="margin-top:14px">Пока пусто — уведомления появятся,
-        когда ответят в вашей ветке, лайкнут запись или опубликует тот, на кого вы подписаны ✧</div>
+        когда ответят в твоей ветке, лайкнут запись или опубликует тот, на кого ты подписан(а) ✧</div>
     {/each}
   {:else}
     <!-- ЛЕНТА -->
@@ -381,9 +426,9 @@
       {/if}
       <div class="uname">{card.name}</div>
       <div class="ustats">
-        <span><b>{card.posts}</b> тем</span>
-        <span><b>{card.followers}</b> подписчиков</span>
-        <span><b>{card.following}</b> подписок</span>
+        <span><b>{card.posts}</b> {plural(card.posts, 'тема', 'темы', 'тем')}</span>
+        <span><b>{card.followers}</b> {plural(card.followers, 'подписчик', 'подписчика', 'подписчиков')}</span>
+        <span><b>{card.following}</b> {plural(card.following, 'подписка', 'подписки', 'подписок')}</span>
       </div>
       {#if !card.isMe}
         <button class="btn primary follow" class:following={card.iFollow} disabled={cardBusy} onclick={toggleFollow}>
@@ -418,6 +463,7 @@
   .hbtns { display: flex; align-items: center; gap: 10px; }
   .link { background: transparent; border: none; color: var(--ink-faint); font-size: 0.8rem; text-decoration: underline; }
   .link.on { color: var(--gold); text-decoration: none; }
+  .link.warn { color: var(--rose); text-decoration: none; font-weight: 600; }
   .back { background: transparent; border: none; color: var(--accent); font-size: 0.95rem; padding: 4px 0; }
 
   .stub { text-align: center; padding: 26px 14px; color: var(--ink-dim); }

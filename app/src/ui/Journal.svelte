@@ -52,6 +52,8 @@
   // удаление с «Вернуть»: промах пальцем больше не уносит наблюдение навсегда
   let deleted = $state<JournalNote | null>(null);
   let undoTimer: ReturnType<typeof setTimeout> | null = null;
+  // не держим таймер после закрытия шторки
+  $effect(() => () => { if (undoTimer) clearTimeout(undoTimer); });
   function del(id: string) {
     deleted = notes.find((n) => n.id === id) ?? null;
     db.notes.remove(id);

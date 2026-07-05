@@ -1,25 +1,7 @@
-<script lang="ts" module>
-  import type { DayEvent } from '../engine/index.ts';
-  import { aspectsOn, eventsOn } from '../engine/index.ts';
-
-  // Кэш тяжёлых расчётов дня — В МОДУЛЕ: сам компонент пересоздаётся на каждое
-  // листание ({#key date}), а кэш должен жить между ними. Аспекты/события
-  // считаются WASM-бисекциями и при каждом свайпе блокировали анимацию
-  // («тормозит»); движок детерминирован — пересчитывать нечего.
-  const CACHE_MAX = 48;
-  function cached<T>(map: Map<string, T>, key: string, make: () => T): T {
-    const hit = map.get(key);
-    if (hit !== undefined) return hit;
-    const v = make();
-    map.set(key, v);
-    if (map.size > CACHE_MAX) map.delete(map.keys().next().value!); // FIFO-обрезка
-    return v;
-  }
-  const aspCache = new Map<string, ReturnType<typeof aspectsOn>>();
-  const evCache = new Map<string, DayEvent[]>();
-</script>
-
 <script lang="ts">
+  // Кэш тяжёлых расчётов дня — в ОБЩЕМ модуле lib/dayCache.ts (живёт между
+  // пересозданиями компонента на листание и делится с чатом).
+  import { aspectsOnCached, eventsOnCached } from '../lib/dayCache.ts';
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
   import { fmtPos, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
@@ -82,13 +64,7 @@
   const planets = $derived(
     ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p)
   );
-  // ключ кэша аспектов включает орбисы (настройка меняет результат); события
-  // от орбисов не зависят — ключ только день+режим движка
-  const orbKey = $derived(['Луна', ...ORDER].map((n) => orbOf(n)).join(','));
-  // ключ кэша учитывает и набор объектов (тумблеры меняют результат)
-  const objKey = $derived(objects ? objects.join(',') : 'all');
-  const day = $derived(cached(aspCache, `${engine.mode}|${dayStart.getTime()}|${orbKey}|${objKey}`,
-    () => aspectsOn(engine, dayStart, orbOf, true, objects ?? undefined)));
+  const day = $derived(aspectsOnCached(engine, dayStart, orbOf, objects));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
 
   // метка «в сообществе есть обсуждение» — тихий сетевой запрос по сигнатурам дня
@@ -100,9 +76,10 @@
     void discussionCounts(sigs).then((m) => { if (!cancelled) discCounts = m; });
     return () => { cancelled = true; };
   });
-  const events = $derived(cached(evCache, `${engine.mode}|${dayStart.getTime()}`,
-    () => eventsOn(engine, dayStart)));
+  const events = $derived(eventsOnCached(engine, dayStart));
 
+  // вертикальный порядок в блоках уже задан движком (aspects.ts: быстрые сверху
+  // по sunRank, Луна — по времени точного аспекта) — здесь не пересортировываем
   const section = (title: string, list: AspectRecord[]) => ({ title, list });
 </script>
 
@@ -110,7 +87,10 @@
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
     <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {oninfo} />
-    <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)}`}</div>
+    <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
+         выглядит как загадочные «мои 4 утра» (вопрос владелицы) -->
+    <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}`
+      : `на ${fmtTime(snapshot, tz)} — тот же час, что сейчас`}</div>
     <!-- легенда цветов линий/кромок — «невзначай», одной тихой строкой -->
     <div class="legend">
       <span class="lg harm">гармония</span><span class="lg tense">напряжение</span><span class="lg neutral">нейтрально</span>
@@ -177,7 +157,8 @@
 
   {#if !day.moon.length && !day.fast.length && !day.slow.length}
     <div class="empty">☽ Небо сегодня тихое — ни одного мажорного аспекта в орбисе.<br />
-      <span class="empty2">Редкий день, чтобы просто выдохнуть.</span></div>
+      <span class="empty2">Редкий день, чтобы просто выдохнуть.<br />
+        Хочется больше — полистай соседние дни ‹ › или расширь орбис в Настройках.</span></div>
   {/if}
 </div>
 
@@ -197,20 +178,20 @@
   .greet { text-align: center; color: var(--ink-faint); font-size: 0.82rem; margin: 10px 0 2px; letter-spacing: 0.4px; }
   .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }
   .moon .g { font-size: 1.8rem; color: var(--silver); }
-  .moon .lbl { color: var(--ink-faint); font-size: 0.72rem; }
-  /* тот же моно-шрифт с кириллицей + tabular-nums, что и у чипов планет (.pp) —
-     иначе позиция Луны падала на body-фолбэк и выбивалась из общего оформления */
-  .moon .pos { font-size: 1.02rem; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .moon .lbl { color: var(--ink-faint); font-size: 0.75rem; letter-spacing: 0.5px; }
+  /* кириллица («Водолея») — body-шрифтом, mono только выравнивает цифры:
+     слово в кодерском JetBrains Mono было главным «некрасивым шрифтом» (жалоба) */
+  .moon .pos { font-size: 1rem; font-variant-numeric: tabular-nums; }
   .phase { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-  .pem { font-size: 1.5rem; }
-  .pname { font-size: 0.9rem; color: var(--ink-dim); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .pem { font-size: 1.2rem; }
+  .pname { font-size: 0.9rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .positions { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(5, auto); grid-auto-flow: column; gap: 7px 16px; padding: 12px 14px; margin: 8px 0; }
   .chip { display: flex; align-items: center; gap: 8px; }
   .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }
   .chip.retro .pp { color: var(--gold); }
   .rx { color: var(--gold); font-size: 0.8rem; font-weight: 600; }
-  .pp { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.92rem; }
-  .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); font-family: var(--font-mono); }
+  .pp { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+  .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); }
   .events { padding: 6px 12px; margin: 8px 0; }
   .ev { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--glass-brd); }
   .ev:last-child { border-bottom: none; }

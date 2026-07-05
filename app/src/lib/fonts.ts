@@ -26,7 +26,10 @@ const FALLBACK = '"Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif'
 export interface FontOption { id: string; label: string; stack: string; }
 
 export const FONTS: FontOption[] = [
-  { id: 'default',    label: 'Космо-гротеск · как сейчас', stack: `'Space Grotesk', ${FALLBACK}` },
+  // у Space Grotesk НЕТ кириллицы: без явной пары русский текст падал на системный
+  // Roboto (мешанина двух гарнитур в одной строке). Пара: латиница/цифры — Space
+  // Grotesk (космо-эстетика темы), кириллица — Golos (метрики близки, кириллица паратайпа)
+  { id: 'default',    label: 'Космо-гротеск · как сейчас', stack: `'Space Grotesk', 'Golos Text Variable', ${FALLBACK}` },
   { id: 'golos',      label: 'Golos · чистый гротеск',      stack: `'Golos Text Variable', ${FALLBACK}` },
   { id: 'inter',      label: 'Inter · нейтральный',         stack: `'Inter Variable', ${FALLBACK}` },
   { id: 'manrope',    label: 'Manrope · мягкая геометрия',  stack: `'Manrope Variable', ${FALLBACK}` },

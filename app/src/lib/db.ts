@@ -112,9 +112,10 @@ function persist() {
  *  Preferences → после перезапуска «слетала галочка/настройка». */
 export async function flushNow(): Promise<void> {
   if (prefTimer) { clearTimeout(prefTimer); prefTimer = null; }
-  try { localStorage.setItem(LS_KEY, serialize()); } catch { /* quota */ }
+  const s = serialize();   // один раз: JSON.stringify всего стора не бесплатный
+  try { localStorage.setItem(LS_KEY, s); } catch { /* quota */ }
   if (NATIVE) {
-    try { await Preferences.set({ key: LS_KEY, value: serialize() }); } catch { /* нет места — осталось в localStorage */ }
+    try { await Preferences.set({ key: LS_KEY, value: s }); } catch { /* нет места — осталось в localStorage */ }
   }
 }
 

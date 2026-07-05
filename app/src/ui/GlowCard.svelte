@@ -1,3 +1,8 @@
+<script lang="ts" module>
+  // стабильные id градиентов (вместо Math.random на каждый экземпляр)
+  let gidCounter = 0;
+</script>
+
 <script lang="ts">
   /**
    * ЕДИНАЯ неоновая обводка по периметру (тема neon-stardust, п.6 DESIGN_BRIEF).
@@ -18,7 +23,7 @@
     { selected?: boolean; radius?: number; flashMs?: number;
       onactivate?: () => void; children: Snippet } = $props();
 
-  const gid = `glowcard-${Math.random().toString(36).slice(2, 9)}`;
+  const gid = `glowcard-${++gidCounter}`;
   let flashing = $state(false);
   const active = $derived(selected || flashing);
   let play = $state(false);

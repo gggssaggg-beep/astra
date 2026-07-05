@@ -86,8 +86,10 @@ async function currentApplied(): Promise<string> {
  * Проверить обновление и, если оно новее применённого, скачать + поставить в
  * очередь. Возвращает статус — годится и для авто-проверки на старте, и для
  * кнопки в UI. Ошибки НЕ глотаются молча: попадают в `status.message`.
+ * `onProgress` — живой прогресс скачивания (бандл ~13 МБ, на мобильной сети
+ * без процентов выглядело как «зависло/порвалось»).
  */
-export async function checkOtaUpdate(): Promise<OtaStatus> {
+export async function checkOtaUpdate(onProgress?: (msg: string) => void): Promise<OtaStatus> {
   if (!Capacitor.isNativePlatform()) {
     status = { ...status, native: false, state: 'idle',
       message: 'OTA работает только на телефоне (в браузере — нет).' };
@@ -105,7 +107,12 @@ export async function checkOtaUpdate(): Promise<OtaStatus> {
   status.applied = await currentApplied();
 
   try {
-    const res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: 'no-store' });
+    // таймаут на манифест: на captive portal / молчащей сети fetch иначе висит вечно
+    const ctl = new AbortController();
+    const tOut = setTimeout(() => ctl.abort(), 15_000);
+    let res: Response;
+    try { res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: 'no-store', signal: ctl.signal }); }
+    finally { clearTimeout(tOut); }
     if (!res.ok) {
       status = { ...status, state: 'error', message: `Манифест недоступен (HTTP ${res.status}).` };
       return getOtaStatus();
@@ -141,8 +148,19 @@ export async function checkOtaUpdate(): Promise<OtaStatus> {
       }
     } catch { /* нет list() — просто скачаем */ }
     if (!id) {
-      const bundle = await CapacitorUpdater.download({ url: m.url, version: m.version });
-      id = bundle.id;
+      onProgress?.('Скачиваю обновление…');
+      // проценты скачивания — если плагин поддерживает событие
+      const anyUpd = CapacitorUpdater as unknown as {
+        addListener?: (n: string, cb: (e: { percent?: number }) => void) => Promise<{ remove: () => void }>;
+      };
+      let sub: { remove: () => void } | null = null;
+      try { sub = (await anyUpd.addListener?.('download', (e) => {
+        onProgress?.(`Скачиваю… ${Math.round(e.percent ?? 0)}%`);
+      })) ?? null; } catch { /* старый плагин без события — просто без процентов */ }
+      try {
+        const bundle = await CapacitorUpdater.download({ url: m.url, version: m.version });
+        id = bundle.id;
+      } finally { try { sub?.remove(); } catch { /* уже снят */ } }
     }
     // ставим в очередь: применится при следующем запуске ЛИБО сразу по кнопке
     // «Обновить сейчас» (applyQueuedNow) в настройках
@@ -152,7 +170,11 @@ export async function checkOtaUpdate(): Promise<OtaStatus> {
         + (hadBroken ? ' (прошлая загрузка была битой — скачано заново)' : '') };
     return getOtaStatus();
   } catch (e) {
-    status = { ...status, state: 'error', message: `Ошибка обновления: ${errText(e)}` };
+    const timedOut = e instanceof Error && e.name === 'AbortError';
+    status = { ...status, state: 'error',
+      message: timedOut
+        ? 'Сеть молчит (манифест не ответил за 15 с) — проверь интернет и попробуй ещё раз.'
+        : `Ошибка обновления: ${errText(e)}` };
     return getOtaStatus();
   }
 }

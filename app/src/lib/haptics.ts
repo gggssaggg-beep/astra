@@ -5,19 +5,17 @@
  * «вибрации нет» (жалоба 2026-07-03). Нужен APK с плагином; старый APK и веб
  * мягко падают на удлинённый navigator.vibrate.
  *
+ * ВАЖНО: импорт плагина — СТАТИЧЕСКИЙ. Динамический import() ленивого чанка
+ * виснет в офлайн-WebView (тот же корень, что чинили в reminders.ts
+ * 2026-07-04) — из-за него хаптика молча не работала.
+ *
  * Дозировка — «щелчки», не жужжание. Не вешать на каждый тап — только на
  * смысловые действия (перелистнуть день, закрыть шторку, сохранить).
  */
 import { Capacitor } from '@capacitor/core';
+import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
 
 const NATIVE = Capacitor.isNativePlatform();
-
-let mod: typeof import('@capacitor/haptics') | null | undefined; // undefined = не пробовали
-async function hp() {
-  if (mod !== undefined) return mod;
-  try { mod = await import('@capacitor/haptics'); } catch { mod = null; }
-  return mod;
-}
 
 const vibrate = (pattern: number | number[]): void => {
   try { navigator.vibrate?.(pattern); } catch { /* нет вибро */ }
@@ -25,13 +23,10 @@ const vibrate = (pattern: number | number[]): void => {
 
 async function impact(style: 'LIGHT' | 'MEDIUM', fallback: number | number[]): Promise<void> {
   if (NATIVE) {
-    const m = await hp();
-    if (m) {
-      try {
-        await m.Haptics.impact({ style: style === 'LIGHT' ? m.ImpactStyle.Light : m.ImpactStyle.Medium });
-        return;
-      } catch { /* плагина нет в этом APK — фолбэк ниже */ }
-    }
+    try {
+      await Haptics.impact({ style: style === 'LIGHT' ? ImpactStyle.Light : ImpactStyle.Medium });
+      return;
+    } catch { /* плагина нет в этом APK — фолбэк ниже */ }
   }
   vibrate(fallback);
 }
@@ -46,11 +41,8 @@ export const tap = (): void => { void impact('MEDIUM', 35); };
 export const success = (): void => {
   void (async () => {
     if (NATIVE) {
-      const m = await hp();
-      if (m) {
-        try { await m.Haptics.notification({ type: m.NotificationType.Success }); return; }
-        catch { /* фолбэк ниже */ }
-      }
+      try { await Haptics.notification({ type: NotificationType.Success }); return; }
+      catch { /* фолбэк ниже */ }
     }
     vibrate([20, 60, 30]);
   })();

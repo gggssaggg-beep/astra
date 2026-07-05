@@ -101,15 +101,33 @@
   const double = $derived(!!positionsOuter);
   const triple = $derived(!!positionsOuter2);
 
-  // лёгкий разнос налегающих планет по радиусу — общий алгоритм для всех колец
+  // Разнос налегающих планет по радиусу — общий алгоритм для всех колец.
+  // (1) Обход начинается с самого большого углового разрыва — стеллиум на стыке
+  //     0° Овна (359° и 1°) больше не рвётся и не слипается.
+  // (2) Уровень выбирается ГРИДИ по последней долготе на каждом радиусе (раньше
+  //     цикл %3 в стеллиуме >3 планет возвращал 4-ю на радиус 1-й — налегали).
   const placeRing = (poss: BodyPosition[], baseR: number, step: number): { p: BodyPosition; r: number }[] => {
+    if (!poss.length) return [];
     const sorted = [...poss].sort((a, b) => a.lon - b.lon);
+    let cut = 0, best = -1;
+    for (let i = 0; i < sorted.length; i++) {
+      const next = (i + 1) % sorted.length;
+      const gap = sorted[next].lon - sorted[i].lon + (next === 0 ? 360 : 0);
+      if (gap > best) { best = gap; cut = next; }
+    }
+    const ring = cut ? [...sorted.slice(cut), ...sorted.slice(0, cut)] : sorted;
+    const lastAt = [-999, -999, -999];   // последняя «расправленная» долгота на уровне
     const out: { p: BodyPosition; r: number }[] = [];
-    let prevLon = -999, level = 0;
-    for (const p of sorted) {
-      if (p.lon - prevLon < 8) { level = (level + 1) % 3; } else { level = 0; }
-      out.push({ p, r: baseR - level * step });
-      prevLon = p.lon;
+    let prev = -Infinity, offset = 0;
+    for (const p of ring) {
+      let lon = p.lon + offset;
+      if (lon < prev) { offset += 360; lon += 360; }   // монотонная развёртка через 0°
+      prev = lon;
+      let lv = 0;
+      while (lv < lastAt.length && lon - lastAt[lv] < 8) lv++;
+      if (lv >= lastAt.length) lv = lastAt.length - 1; // плотнее некуда — глубже не лезем
+      lastAt[lv] = lon;
+      out.push({ p, r: baseR - lv * step });
     }
     return out;
   };

@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { AspectRecord } from '../engine/index.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
-  import { fmtTime, fmtDateShort, applyingArrow, aspectTone, sameDay } from '../lib/format.ts';
+  import { applyingArrow, aspectTone } from '../lib/format.ts';
   import { reveal } from '../lib/reveal.ts';
+  import AspectTimes from './AspectTimes.svelte';
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { db } from '../lib/db.ts';
@@ -11,13 +12,6 @@
     { rec: AspectRecord; tz: string; onpick?: (r: AspectRecord) => void; selected?: boolean;
       discussions?: number } = $props();
   const tone = $derived(aspectTone(rec.aspect));
-  const t = (d: Date | null) => (d ? fmtTime(d, tz) : '—');
-  // дата начала/конца — аспект может растянуться на несколько дней (требование астролога)
-  const dd = (d: Date | null) => (d ? fmtDateShort(d, tz) : '');
-  // подпись «через полночь», если выход орбиса в другой день, чем точный
-  const crosses = $derived(
-    rec.exactTime && rec.endTime && !sameDay(rec.exactTime, rec.endTime, tz)
-  );
   // аспект «живой» прямо сейчас — дышащая точка (снимок на момент отрисовки)
   const live = $derived.by(() => {
     const now = Date.now();
@@ -51,13 +45,8 @@
 
   {#if shortLore}<div class="lore">{shortLore}</div>{/if}
 
-  <div class="row times">
-    <span class="seg"><small class="d">{dd(rec.beginTime)}</small><b>{t(rec.beginTime)}</b><small>вход</small></span>
-    <span class="dash">→</span>
-    <span class="seg exact"><small class="d">{dd(rec.exactTime)}</small><b>{t(rec.exactTime)}</b><small>точно</small></span>
-    <span class="dash">→</span>
-    <span class="seg"><small class="d">{dd(rec.endTime)}</small><b>{t(rec.endTime)}</b><small>выход{crosses ? ' ⤵' : ''}</small></span>
-  </div>
+  <!-- времена — общий компонент AspectTimes (одна формула на всё приложение) -->
+  <AspectTimes begin={rec.beginTime} exact={rec.exactTime} end={rec.endTime} {tz} />
 </div>
 
 <style>
@@ -76,7 +65,8 @@
   .names { flex: 1; color: var(--ink-dim); font-size: 0.86rem; }
   .disc { font-size: 0.72rem; color: var(--accent); background: #ffffff12;
     border: 1px solid var(--glass-brd); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
-  .orb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 600; color: var(--silver); }
+  /* орбис — значение (правило иерархии): --ink; серебро зарезервировано за Луной */
+  .orb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
   .arr { margin-left: 4px; opacity: 0.8; }
   /* «сейчас в орбисе» — небо живое именно тут; лёгкий opacity-pulse, GPU не грузит */
   .live { width: 7px; height: 7px; border-radius: 50%; flex: none;
@@ -88,12 +78,5 @@
   /* короткая трактовка (своя из библиотеки либо общая по типу аспекта) */
   .lore { margin-top: 6px; color: var(--ink-faint); font-size: 0.8rem;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .times { margin-top: 8px; justify-content: space-between; color: var(--ink-dim); }
-  .seg { display: flex; flex-direction: column; align-items: center; line-height: 1.15; }
-  .seg b { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink); }
-  .seg.exact b { color: var(--gold); }
-  .seg small { font-size: 0.66rem; color: var(--ink-faint); }
-  /* «5 июл» — кириллица не в mono; tabular-nums выравнивает цифры */
-  .seg .d { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
-  .dash { color: var(--ink-faint); }
+  /* строка времён — в общем AspectTimes.svelte */
 </style>

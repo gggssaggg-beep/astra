@@ -1,18 +1,23 @@
 <script lang="ts">
   /**
-   * Лёгкая строка статичного аспекта (синастрия/натал) — НЕ транзитный AspectCard:
-   * у статичного аспекта нет времени/окна/applying, только пара, символ и орбис.
-   * Тап по строке ↔ выделение линии в колесе (selected). Никаких рамок-прямоугольников
-   * (правило владелицы) — только тонкая левая кромка цветом тона и подсветка фона.
+   * Строка аспекта совмещённых карт — ПОЛНАЯ копия поведения карточки главной:
+   * reveal-подгрузка, трактовка строкой, времена «вход → точно → выход» (общий
+   * AspectTimes) для транзитных строк. Тап обрабатывает ОБЁРТКА GlowCard в
+   * ChartsSheet (обвести → открыть) — своя интерактивность здесь убрана, иначе
+   * действие срабатывало дважды («заикается»). Никаких рамок-прямоугольников
+   * (правило владелицы) — только левая кромка тона и подсветка фона.
    */
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { aspectTone } from '../lib/format.ts';
   import { pairLore } from '../lib/pairLore.ts';
+  import { reveal } from '../lib/reveal.ts';
+  import AspectTimes from './AspectTimes.svelte';
+  import type { TransitWindow } from '../lib/forecast.ts';
 
-  let { a, ownerA = null, ownerB = null, selected, ontap }:
+  let { a, ownerA = null, ownerB = null, selected, win = undefined, tz = null }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null;
-      selected: boolean; ontap: () => void } = $props();
+      selected: boolean; win?: TransitWindow | null | undefined; tz?: string | null } = $props();
 
   const tone = $derived(aspectTone(a.aspect));
   const g1 = $derived(PLANET_GLYPH[a.p1] ?? a.p1);
@@ -24,15 +29,17 @@
   const lore = $derived(pairLore(a.p1, a.p2));
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="srow tone-{tone}" class:selected role="button" tabindex="0" onclick={ontap}
-  onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), ontap())}>
+<div class="srow reveal tone-{tone}" class:selected use:reveal>
   <div class="top">
     <span class="pair glyph">{g1}<span class="asp glyph">{a.symbol}</span>{g2}</span>
     <span class="names">{n1} {a.symbol} {n2}</span>
     <span class="orb">{a.orb.toFixed(2)}°</span>
   </div>
   {#if lore}<div class="lore">{lore}</div>{/if}
+  {#if win && tz}
+    <!-- окно действия транзитного аспекта — как на главной странице -->
+    <AspectTimes begin={win.begin} exact={win.exact} end={win.end} {tz} />
+  {/if}
 </div>
 
 <style>

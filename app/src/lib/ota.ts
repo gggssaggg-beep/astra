@@ -35,6 +35,7 @@ export interface OtaStatus {
   state: 'idle' | 'checking' | 'uptodate' | 'queued' | 'error';
   message: string;       // человекочитаемый итог
   queuedId?: string;     // id бандла, поставленного в очередь (для «Обновить сейчас»)
+  autoApply?: boolean;   // можно ли применить сразу на старте (false = бандл прежде был битым)
 }
 
 let status: OtaStatus = {
@@ -165,7 +166,7 @@ export async function checkOtaUpdate(onProgress?: (msg: string) => void): Promis
     // ставим в очередь: применится при следующем запуске ЛИБО сразу по кнопке
     // «Обновить сейчас» (applyQueuedNow) в настройках
     await CapacitorUpdater.next({ id });
-    status = { ...status, state: 'queued', queuedId: id,
+    status = { ...status, state: 'queued', queuedId: id, autoApply: !hadBroken,
       message: `Скачано ${m.version} — обновить сейчас или при следующем запуске.`
         + (hadBroken ? ' (прошлая загрузка была битой — скачано заново)' : '') };
     return getOtaStatus();
@@ -200,10 +201,18 @@ export async function applyQueuedNow(): Promise<OtaStatus> {
 /**
  * Вызвать один раз при старте (до/сразу после mount). На вебе — no-op.
  * На устройстве: СРАЗУ подтвердить, что текущий бандл рабочий (иначе Capgo
- * откатит к вшитому), затем проверить обновление в фоне.
+ * откатит к вшитому), затем проверить обновление и — если скачалось —
+ * ПРИМЕНИТЬ СРАЗУ (порт паттерна MENS useAutoUpdate: перезапуск на старте,
+ * пока владелица ничего не успела ввести). Раньше `next()` ждал «следующего
+ * полного запуска», которого на Android можно ждать днями (процесс живёт) —
+ * «чтобы обновление встало, приходится перезагружаться раза 3».
+ *
+ * Защита от reload-петли: бандл, который прежде падал (откат Capgo), НЕ
+ * автоприменяем (autoApply=false) — только вручную из настроек.
  */
 export async function initOta(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   void ensureReady();     // не ждём сети/манифеста — отчитаться надо немедленно
-  await checkOtaUpdate();
+  const st = await checkOtaUpdate();
+  if (st.state === 'queued' && st.autoApply) await applyQueuedNow();
 }

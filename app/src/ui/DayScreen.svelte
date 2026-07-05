@@ -175,16 +175,40 @@
   .lg.tense::before { background: var(--rose); }
   .lg.neutral::before { background: var(--silver); }
   .audit { padding: 10px 12px; margin: 8px 0; color: var(--rose); font-size: 0.85rem; }
-  .greet { text-align: center; color: var(--ink-faint); font-size: 0.82rem; margin: 10px 0 2px; letter-spacing: 0.4px; }
-  .moon { display: flex; align-items: center; gap: 12px; padding: 12px 14px; margin: 8px 0; }
-  .moon .g { font-size: 1.8rem; color: var(--silver); }
-  .moon .lbl { color: var(--ink-faint); font-size: 0.75rem; letter-spacing: 0.5px; }
-  /* кириллица («Водолея») — body-шрифтом, mono только выравнивает цифры:
-     слово в кодерском JetBrains Mono было главным «некрасивым шрифтом» (жалоба) */
-  .moon .pos { font-size: 1rem; font-variant-numeric: tabular-nums; }
+  /* приветствие — «магия»: градиентный текст (серебро → фиолет), статично */
+  .greet { text-align: center; font-size: 0.82rem; margin: 10px 0 2px; letter-spacing: 0.4px;
+    background: linear-gradient(100deg, var(--silver), var(--neon-violet));
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  /* ── Блок Луны: серебристый «герой» ленты ──────────────────────────
+     Единая иерархия: лейблы одинаковые (.lbl), значения одинаковые
+     (.pos = .pname). «Магию» несут свечение глифа и градиентная кромка,
+     а не разнобой цветов. Всё на переменных → работает и в «Рассвете». */
+  .moon { position: relative; overflow: hidden;
+    display: flex; align-items: center; gap: 14px; padding: 14px 16px; margin: 8px 0; }
+  /* тонкая серебристая градиентная кромка — «лунный свет по краю» (1px, статично) */
+  .moon::before { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    padding: 1px; pointer-events: none;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--silver) 55%, transparent), transparent 42%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; }
+  /* глиф ☽ — серебро + мягкое свечение (один text-shadow, GPU не грузит) */
+  .moon .g { font-size: 2rem; line-height: 1; color: var(--silver);
+    text-shadow: 0 0 14px color-mix(in srgb, var(--silver) 55%, transparent); }
+  /* ЛЕЙБЛЫ — единый микро-капс (Луна ≡ Фаза), тот же токен, что .sec */
+  .moon .lbl { color: var(--ink-faint); font-size: 0.66rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.1px; margin-bottom: 2px; }
+  /* ЗНАЧЕНИЯ — единый стиль (позиция ≡ фаза): один цвет, один размер.
+     Кириллица («Водолея») — body-шрифтом, mono-цифры ровняет tabular-nums */
+  .moon .pos, .pname { color: var(--ink); font-size: 0.98rem; font-weight: 500;
+    line-height: 1.2; font-variant-numeric: tabular-nums; }
+  /* правый кластер зеркалит левый: диск + (лейбл/значение) */
   .phase { display: flex; align-items: center; gap: 10px; margin-left: auto; }
-  .pem { font-size: 1.2rem; }
-  .pname { font-size: 0.9rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  /* фаза-эмодзи → серебряный диск: grayscale убирает «жёлтый», сохраняя форму
+     серпа; гало в тон Луны. Без растровой генерации. */
+  .pem { font-size: 1.35rem; line-height: 1; opacity: 0.9;
+    filter: grayscale(1) brightness(1.35) contrast(0.95)
+      drop-shadow(0 0 6px color-mix(in srgb, var(--silver) 45%, transparent)); }
   .positions { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(5, auto); grid-auto-flow: column; gap: 7px 16px; padding: 12px 14px; margin: 8px 0; }
   .chip { display: flex; align-items: center; gap: 8px; }
   .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }
@@ -193,11 +217,13 @@
   .pp { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
   .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); }
   .events { padding: 6px 12px; margin: 8px 0; }
-  .ev { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--glass-brd); }
-  .ev:last-child { border-bottom: none; }
+  /* затухающий hairline-разделитель — тоньше и «дороже» сплошной линии */
+  .ev { display: flex; align-items: center; gap: 10px; padding: 9px 2px; position: relative; }
+  .ev:not(:last-child)::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glass-brd), transparent); }
   .evg { width: 1.4rem; text-align: center; font-size: 1.1rem; color: var(--silver); }
   .evt { flex: 1; font-size: 0.9rem; }
-  .evtime { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink-dim); font-size: 0.85rem; }
+  .evtime { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink-faint); font-size: 0.85rem; }
   .k-eclipse { color: var(--gold); }
   .k-eclipse .evg { color: var(--gold); }
   .k-station .evg { color: var(--rose); }

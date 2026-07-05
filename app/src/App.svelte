@@ -334,6 +334,8 @@
     initialMode={showCharts.mode ?? 'transitNatal'}
     onchat={(seed, source) => openChat(seed, source)}
     oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}
+    ongoto={(d) => { showCharts = false; slideDir = Math.sign(d.getTime() - date.getTime()); date = d;
+      requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCharts = false)} />
 {/if}
 
@@ -389,7 +391,8 @@
   /* шапка одним рядом: дата-кнопка с кареткой + чип «сегодня» в ту же строку
      (раньше чип распирал шапку вторым рядом — «строка перегружена») */
   .title { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
-  .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.2px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 6px; border-radius: 8px; white-space: nowrap; }
+  .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.3px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 6px; border-radius: 8px; white-space: nowrap;
+    text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent); }
   .date:hover { background: #ffffff14; }
   .caret { color: var(--ink-faint); font-size: 0.7rem; margin-left: 4px; vertical-align: middle; }
   .today { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 999px; padding: 4px 10px; font-size: 0.72rem;
@@ -404,8 +407,9 @@
     display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }
   .tabbar button:hover { background: #ffffff14; color: var(--ink); }
   .tabbar .ti { font-size: 1.25rem; line-height: 1; }
-  /* «Добавить» — центральная, главная точка входа: акцент + чуть крупнее */
-  .tabbar .mid .ti { color: var(--accent); font-size: 1.5rem; }
+  /* «Карты» — центральная, главная точка входа: акцент + чуть крупнее + тихий глоу */
+  .tabbar .mid .ti { color: var(--accent); font-size: 1.5rem;
+    text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
   .tabbar .mid .tl { color: var(--accent); }
   .tabbar .tl { font-size: 0.7rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }

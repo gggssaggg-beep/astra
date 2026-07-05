@@ -1,3 +1,12 @@
+<script lang="ts" module>
+  export type Mode = 'natal' | 'transitNatal' | 'triple' | 'synastry';
+  // Память последней открытой карты НА СЕССИЮ: нечаянный свайп-вниз закрывал
+  // шторку, и карту приходилось собирать заново (жалоба владелицы 2026-07-06).
+  let lastMode: Mode | null = null;
+  let lastPair: string[] = [];
+  let lastView: 'list' | 'chart' = 'list';
+</script>
+
 <script lang="ts">
   /**
    * Хаб совмещённых карт («Добавить» в нижнем меню). Хранит коллекцию людей
@@ -27,16 +36,16 @@
   import Wheel from './Wheel.svelte';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
-
-  type Mode = 'natal' | 'transitNatal' | 'triple' | 'synastry';
+  import GlowCard from './GlowCard.svelte';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'placidus',
-        initialMode = 'transitNatal', onclose, onchat, oncommunity }:
+        initialMode = 'transitNatal', onclose, onchat, oncommunity, ongoto }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
       initialMode?: Mode; onclose: () => void;
       onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
-      oncommunity?: (sig: string, title: string) => void } = $props();
+      oncommunity?: (sig: string, title: string) => void;
+      ongoto?: (d: Date) => void } = $props();
 
   // открытый межаспект (детальная шторка «как на главном»)
   let detail = $state<StaticAspect | null>(null);
@@ -45,23 +54,40 @@
   let detailWin = $state<TransitWindow | null>(null);
   // natalPos — набор натальных позиций (для транзит-режимов: p1 из натала, p2 —
   // транзитная планета) → считаем ОКНО аспекта (вход орбиса → точно → выход).
-  function openDetail(a: StaticAspect, oa: string | null, ob: string | null, natalPos: BodyPosition[] | null = null): void {
+  function openDetail(a: StaticAspect, oa: string | null, ob: string | null,
+    natalPos: BodyPosition[] | null = null, ring: 'A' | 'B' = 'A'): void {
     selKey = staticKey(a); detail = a; detailA = oa; detailB = ob; detailWin = null;
     if (ob === 'транзит' && natalPos) {
+      const cached = winFor(a, ring);          // окно уже посчитано для строки?
+      if (cached !== undefined) { detailWin = cached; return; }
       const n = natalPos.find((p) => p.name === a.p1);
-      if (n) {
+      if (!n) return;
+      // асинхронно: раньше WASM-поиск окна шёл ДО открытия шторки — «заикалось»
+      setTimeout(() => {
         try { detailWin = transitWindow(engine, a.p2, n.lon, a.angle, Math.max(orbOf(a.p1), orbOf(a.p2)), transitAt); }
         catch { detailWin = null; }
-      }
+      }, 40);
     }
   }
 
-  let view = $state<'list' | 'form' | 'chart'>('list');
-  let mode = $state<Mode>(untrack(() => initialMode));
   // db.people.all() отдаёт ТУ ЖЕ ссылку — держим локальную копию, .slice() после мутаций
   let people = $state(db.people.all().slice());
-  let pair = $state<string[]>([]);              // выбранные id (0 → «А», 1 → «Б»)
+  // восстановление последней карты: только при обычном открытии хаба (явный
+  // initialMode из Библиотеки — например «Синастрия» — не перебиваем)
+  const restore = untrack(() => {
+    if (initialMode !== 'transitNatal' || !lastMode) return null;
+    const alive = lastPair.filter((id) => db.people.get(id));
+    if (alive.length !== lastPair.length) return null;
+    const need = lastMode === 'triple' || lastMode === 'synastry' ? 2 : 1;
+    return { mode: lastMode, pair: alive,
+      view: lastView === 'chart' && alive.length === need ? 'chart' as const : 'list' as const };
+  });
+  let view = $state<'list' | 'form' | 'chart'>(restore?.view ?? 'list');
+  let mode = $state<Mode>(untrack(() => restore?.mode ?? initialMode));
+  let pair = $state<string[]>(restore?.pair ?? []); // выбранные id (0 → «А», 1 → «Б»)
   let selKey = $state<string | null>(null);     // выделенная линия в колесе
+  // запоминаем выбор для следующего открытия (память сессии, не диск)
+  $effect(() => { lastMode = mode; lastPair = pair.slice(); lastView = view === 'chart' ? 'chart' : 'list'; });
 
   const MODES: { id: Mode; label: string; need: number; hint: string }[] = [
     { id: 'natal', label: 'Натал', need: 1, hint: 'одна карта — её аспекты и положения' },
@@ -163,14 +189,25 @@
     } catch { if (gen === forecastGen) forecastList = []; }
     finally { if (gen === forecastGen) { forecastBusy = false; forecastRan = true; } }
   }
-  function gotoHit(h: TransitHit): void { transitAt = new Date(h.when); selKey = null; }
+  // тап по строке прогноза: перейти к моменту И ВЫДЕЛИТЬ сам аспект (строка +
+  // линия в колесе), а не «просто открыть день» (просьба владелицы 2026-07-06)
+  const hitKey = (h: TransitHit): string => `${h.nName}|${h.tName}|${h.aspect}`;
+  function gotoHit(h: TransitHit): void { transitAt = new Date(h.when); selKey = hitKey(h); }
   const fmtHit = (d: Date): string => fmts(tz).label.format(d);
 
+  // Вертикальный порядок — КАК НА ГЛАВНОМ экране (правило астролога): сверху
+  // более быстрые/близкие к Солнцу, затем второй участник, при равенстве —
+  // теснее орбис. В транзитных списках ведёт ТРАНЗИТНАЯ планета (p2 — движется).
+  const byRank = (x: StaticAspect, y: StaticAspect): number =>
+    sunRank(x.p1) - sunRank(y.p1) || sunRank(x.p2) - sunRank(y.p2) || x.orb - y.orb;
+  const byTransit = (x: StaticAspect, y: StaticAspect): number =>
+    sunRank(x.p2) - sunRank(y.p2) || sunRank(x.p1) - sunRank(y.p1) || x.orb - y.orb;
+
   // межаспекты по режиму (p1 всегда из первого набора)
-  const natalAsp = $derived(posA.length ? staticAspects(posA, orbOf) : []);
-  const crossSyn = $derived(posA.length && posB.length ? synastryAspects(posA, posB, orbOf) : []);
-  const crossTA = $derived(posA.length ? synastryAspects(posA, transitPos, orbOf) : []);
-  const crossTB = $derived(posB.length ? synastryAspects(posB, transitPos, orbOf) : []);
+  const natalAsp = $derived(posA.length ? staticAspects(posA, orbOf).sort(byRank) : []);
+  const crossSyn = $derived(posA.length && posB.length ? synastryAspects(posA, posB, orbOf).sort(byRank) : []);
+  const crossTA = $derived(posA.length ? synastryAspects(posA, transitPos, orbOf).sort(byTransit) : []);
+  const crossTB = $derived(posB.length ? synastryAspects(posB, transitPos, orbOf).sort(byTransit) : []);
 
   // «Двойное попадание» (правка астролога, тройная карта): ОДНА транзитная
   // планета аспектирует объекты ОБЕИХ карт сразу — показываем первыми и особо
@@ -199,6 +236,45 @@
 
   // положения натала (одиночная карта): знак по долготе → разбор знака
   const signIdx = (lon: number): number => Math.floor((((lon % 360) + 360) % 360) / 30);
+
+  // Окна действия транзитных СТРОК (вход → точно → выход) — как на карточках
+  // главной. Считаются асинхронно после остановки скраба (дебаунс 300 мс),
+  // кэш по паре+углу+дню: WASM не дёргается на каждый тик диска.
+  let rowWins = $state(new Map<string, TransitWindow | null>());
+  const winCache = new Map<string, TransitWindow | null>();
+  let winGen = 0;
+  let winTimer: ReturnType<typeof setTimeout> | null = null;
+  const winFor = (a: StaticAspect, ring: 'A' | 'B'): TransitWindow | null | undefined =>
+    rowWins.get(ring + staticKey(a));
+  $effect(() => {
+    if (view !== 'chart' || (mode !== 'transitNatal' && mode !== 'triple')) return;
+    const jobs = [
+      ...crossTA.map((a) => ({ a, natal: posA, ring: 'A' as const })),
+      ...(mode === 'triple' ? crossTB.map((a) => ({ a, natal: posB, ring: 'B' as const })) : []),
+    ];
+    const at = transitAt;
+    const gen = ++winGen;
+    if (winTimer) clearTimeout(winTimer);
+    winTimer = setTimeout(async () => {
+      const next = new Map<string, TransitWindow | null>();
+      const day = Math.floor(at.getTime() / 86_400_000);
+      for (const { a, natal, ring } of jobs) {
+        const n = natal.find((p) => p.name === a.p1);
+        if (!n) continue;
+        const ck = `${a.p2}|${n.lon.toFixed(2)}|${a.angle}|${day}`;
+        let w = winCache.get(ck);
+        if (w === undefined) {
+          try { w = transitWindow(engine, a.p2, n.lon, a.angle, Math.max(orbOf(a.p1), orbOf(a.p2)), at) ?? null; }
+          catch { w = null; }
+          winCache.set(ck, w);
+          await new Promise((r) => setTimeout(r, 0));   // передышка — кадр не виснет
+          if (gen !== winGen) return;
+        }
+        next.set(ring + staticKey(a), w);
+        rowWins = new Map(next);   // строки заполняются по мере готовности
+      }
+    }, 300);
+  });
 
   // полный список IANA (native select не глючит) — лениво: 600+ строк Intl
   // нужны только форме человека, не каждому открытию шторки
@@ -464,21 +540,28 @@
 
     {#if mode === 'natal'}
       {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
-      {#each natalAsp as a}
-        <StaticAspectRow {a} ownerA={personA?.name} ownerB={personA?.name}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, personA?.name ?? null)} />
+      {#each natalAsp as a (staticKey(a))}
+        <GlowCard radius={12} selected={staticKey(a) === selKey}
+          onactivate={() => openDetail(a, personA?.name ?? null, personA?.name ?? null)}>
+          <StaticAspectRow {a} ownerA={personA?.name} ownerB={personA?.name} selected={staticKey(a) === selKey} />
+        </GlowCard>
       {/each}
     {:else if mode === 'synastry'}
       {#if crossSyn.length === 0}<div class="empty">Нет мажорных аспектов в орбисе.</div>{/if}
-      {#each crossSyn as a}
-        <StaticAspectRow {a} ownerA={personA?.name} ownerB={personB?.name}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, personB?.name ?? null)} />
+      {#each crossSyn as a (staticKey(a))}
+        <GlowCard radius={12} selected={staticKey(a) === selKey}
+          onactivate={() => openDetail(a, personA?.name ?? null, personB?.name ?? null)}>
+          <StaticAspectRow {a} ownerA={personA?.name} ownerB={personB?.name} selected={staticKey(a) === selKey} />
+        </GlowCard>
       {/each}
     {:else if mode === 'transitNatal'}
       {#if crossTA.length === 0}<div class="empty">Транзит сейчас не образует мажорных аспектов к карте в орбисе.</div>{/if}
-      {#each crossTA as a}
-        <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
+      {#each crossTA as a (staticKey(a))}
+        <GlowCard radius={12} selected={staticKey(a) === selKey}
+          onactivate={() => openDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
+          <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'} {tz}
+            win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
+        </GlowCard>
       {/each}
     {:else}
       {#if doubleHits.length}
@@ -491,28 +574,40 @@
               {#each h.toA as a}<span class="dhpart">{a.symbol} {a.p1} ({personA?.name})</span>{/each}
               {#each h.toB as a}<span class="dhpart">{a.symbol} {a.p1} ({personB?.name})</span>{/each}
             </div>
-            {#each h.toA as a}
-              <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-                selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
+            {#each h.toA as a (staticKey(a))}
+              <GlowCard radius={12} selected={staticKey(a) === selKey}
+                onactivate={() => openDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
+                <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'} {tz}
+                  win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
+              </GlowCard>
             {/each}
-            {#each h.toB as a}
-              <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
-                selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит', posB)} />
+            {#each h.toB as a (staticKey(a))}
+              <GlowCard radius={12} selected={staticKey(a) === selKey}
+                onactivate={() => openDetail(a, personB?.name ?? null, 'транзит', posB, 'B')}>
+                <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'} {tz}
+                  win={winFor(a, 'B')} selected={staticKey(a) === selKey} />
+              </GlowCard>
             {/each}
           </div>
         {/each}
       {/if}
       <div class="grp">Транзит → {personA?.name}</div>
       {#if singleTA.length === 0}<div class="empty">{doubleHits.length ? 'Остальных аспектов нет.' : 'Нет мажорных аспектов в орбисе.'}</div>{/if}
-      {#each singleTA as a}
-        <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personA?.name ?? null, 'транзит', posA)} />
+      {#each singleTA as a (staticKey(a))}
+        <GlowCard radius={12} selected={staticKey(a) === selKey}
+          onactivate={() => openDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
+          <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'} {tz}
+            win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
+        </GlowCard>
       {/each}
       <div class="grp">Транзит → {personB?.name}</div>
       {#if singleTB.length === 0}<div class="empty">{doubleHits.length ? 'Остальных аспектов нет.' : 'Нет мажорных аспектов в орбисе.'}</div>{/if}
-      {#each singleTB as a}
-        <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'}
-          selected={staticKey(a) === selKey} ontap={() => openDetail(a, personB?.name ?? null, 'транзит', posB)} />
+      {#each singleTB as a (staticKey(a))}
+        <GlowCard radius={12} selected={staticKey(a) === selKey}
+          onactivate={() => openDetail(a, personB?.name ?? null, 'транзит', posB, 'B')}>
+          <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'} {tz}
+            win={winFor(a, 'B')} selected={staticKey(a) === selKey} />
+        </GlowCard>
       {/each}
     {/if}
 
@@ -530,8 +625,8 @@
           {forecastBusy ? 'Считаю…' : `Показать на ${forecastDays} дн. от текущего момента`}</button>
         {#if forecastRan}
           {#if forecastList.length === 0}<div class="empty">В этом окне точных транзитов нет.</div>{/if}
-          {#each forecastList as h}
-            <button class="fcrow" onclick={() => gotoHit(h)}>
+          {#each forecastList as h (hitKey(h) + h.jd)}
+            <button class="fcrow" class:sel={selKey === hitKey(h)} onclick={() => gotoHit(h)}>
               <span class="fcglyph glyph">{h.tGlyph}<span class="fcasp">{h.symbol}</span>{h.nGlyph}</span>
               <span class="fcnames">{h.tName} {h.aspect} {h.nName} <small>({h.owner})</small></span>
               <span class="fcdate">{fmtHit(h.when)} <span class="go">→</span></span>
@@ -580,6 +675,8 @@
 
 {#if detail}
   <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz} win={detailWin}
+    {engine} {orbOf}
+    ongoto={ongoto ? (d) => { detail = null; ongoto?.(d); } : null}
     onclose={() => (detail = null)}
     onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
@@ -679,6 +776,9 @@
     background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 12px; padding: 8px 12px; margin: 6px 0; }
   .fcrow:hover { background: #ffffff16; }
+  /* тапнутый пункт прогноза помнит выделение (как строки аспектов) */
+  .fcrow.sel { border-color: color-mix(in srgb, var(--neon-cyan) 45%, var(--glass-brd));
+    background: color-mix(in srgb, var(--glass) 82%, var(--neon-cyan) 8%); }
   .fcglyph { font-size: 1.05rem; letter-spacing: 1px; flex: none; }
   .fcasp { margin: 0 2px; opacity: 0.9; }
   .fcnames { flex: 1; min-width: 0; color: var(--ink-dim); font-size: 0.82rem;

@@ -120,8 +120,8 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
   // Закрываем ТОЛЬКО при явном жесте: далеко утянул ИЛИ быстро смахнул.
   // Небольшое смещение — плавный возврат на место (просьба владелицы).
   const CLOSE_PX = 180;      // явное «далеко» (было 130 — закрывалось слишком легко)
-  const FLICK_PX = 70;       // минимум пути для «быстрого смаха»…
-  const FLICK_V = 0.65;      // …при скорости больше этой (px/мс)
+  const FLICK_PX = 110;      // минимум пути для «быстрого смаха» (70 ловил случайные)
+  const FLICK_V = 0.9;       // …при СГЛАЖЕННОЙ скорости больше этой (px/мс)
   const DECIDE_PX = 10;      // порог распознавания направления жеста
   let startY = 0, startX = 0, dy = 0;
   let lastY = 0, lastT = 0, vel = 0;         // скорость жеста (для смаха)
@@ -164,7 +164,9 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
       dy = cy;
       const now = performance.now();
       const dt = now - lastT;
-      if (dt > 0) vel = (e.touches[0].clientY - lastY) / dt;   // px/мс, вниз = +
+      // скорость СГЛАЖЕННАЯ (EMA): мгновенная ловила микро-рывок при отрыве
+      // пальца и закрывала шторку от «чуть-чуть свернул» (жалоба владелицы)
+      if (dt > 0) vel = 0.6 * ((e.touches[0].clientY - lastY) / dt) + 0.4 * vel;
       lastY = e.touches[0].clientY; lastT = now;
       node.style.transition = 'none';
       node.style.transform = `translate(-50%, ${dy}px)`;
@@ -175,6 +177,13 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
     if (!dragging) return;
     dragging = false;
     const flick = dy > FLICK_PX && vel > FLICK_V;   // быстрый явный смах вниз
+    // палец в момент отпускания шёл ВВЕРХ — это «раскрыть обратно», не закрытие
+    if (vel < -0.05 && dy <= CLOSE_PX) {
+      node.style.transition = 'transform 0.22s ease';
+      node.style.transform = 'translate(-50%, 0)';
+      dy = 0;
+      return;
+    }
     if (dy > CLOSE_PX || flick) {
       // мягкое закрытие: лист доезжает вниз от текущей позиции, а не обрывается
       tick();

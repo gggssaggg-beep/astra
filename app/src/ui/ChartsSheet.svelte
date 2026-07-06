@@ -429,9 +429,11 @@
 
   function onStatic(key: string): void { selKey = selKey === key ? null : key; }
   function toList(): void { view = 'list'; selKey = null; }
-  /** Android «Назад»: из карты/формы — на шаг выше (как стрелочка ←);
-   *  закрывать шторку будет App, когда мы уже на списке. */
+  /** Android «Назад»: сперва закрыть открытую деталь аспекта, затем из
+   *  карты/формы — на список (как стрелочка ←); закрывать шторку будет App,
+   *  когда мы уже на списке. Единый порядок для ВСЕХ режимов карт. */
   export function stepBack(): boolean {
+    if (detail) { detail = null; return true; }
     if (view === 'chart' || view === 'form') { toList(); return true; }
     return false;
   }

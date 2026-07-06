@@ -155,7 +155,7 @@
     <div class="winrow">Окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
   {:else}
     <div class="exact">Орбис {a.orb.toFixed(2)}° ·
-      {ownerA && ownerB && ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}</div>
+      {ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}</div>
   {/if}
 
   <div class="block">

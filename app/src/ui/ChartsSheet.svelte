@@ -643,10 +643,12 @@
 
     {#if mode === 'natal'}
       {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
+      <!-- в одиночном натале владелец не подписывается: «Луна (Саша) ☌ Венера
+           (Саша)» было избыточно — чей натал, видно в заголовке карты -->
       {#each natalAsp as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
-          onactivate={() => openDetail(a, personA?.name ?? null, personA?.name ?? null)}>
-          <StaticAspectRow {a} ownerA={personA?.name} ownerB={personA?.name} selected={staticKey(a) === selKey} />
+          onactivate={() => openDetail(a, null, null)}>
+          <StaticAspectRow {a} selected={staticKey(a) === selKey} />
         </GlowCard>
       {/each}
     {:else if mode === 'synastry'}

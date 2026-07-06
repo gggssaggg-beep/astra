@@ -34,6 +34,16 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Штамп версии сборки (builtin APK = версия OTA-манифеста)
+        working-directory: app
+        run: |
+          # раньше веб собирался с базовой '0.1.0', а манифест писал '0.1.0.NN' —
+          # свежий APK сразу «видел обновление» и качал байт-в-байт тот же бандл
+          BASE=$(grep -oP "APP_VERSION = '\K[0-9.]+" src/lib/version.ts)
+          VER="${BASE}.${{ github.run_number }}"
+          sed -i "s/APP_VERSION = '[0-9.]*'/APP_VERSION = '${VER}'/" src/lib/version.ts
+          echo "версия сборки: $VER"
+
       - name: Сборка веб-части и синхронизация Capacitor
         working-directory: app
         run: |
@@ -72,8 +82,8 @@ jobs:
           mkdir -p apk
           # bundle.zip = содержимое dist (index.html в корне zip — так ждёт Capgo)
           (cd app/dist && zip -r -q ../../apk/bundle.zip .)
-          BASE=$(grep -oP "APP_VERSION = '\K[0-9.]+" app/src/lib/version.ts)
-          VER="${BASE}.${{ github.run_number }}"
+          # version.ts уже проштампован полной версией на шаге выше
+          VER=$(grep -oP "APP_VERSION = '\K[0-9.]+" app/src/lib/version.ts)
           URL="https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/bundle.zip"
           printf '{\n  "version": "%s",\n  "url": "%s",\n  "notes": "build %s (%s)"\n}\n' \
             "$VER" "$URL" "$VER" "${GITHUB_SHA::7}" > apk/latest.json

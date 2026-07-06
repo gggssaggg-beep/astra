@@ -218,10 +218,12 @@
     filter: grayscale(1) brightness(1.35) contrast(0.95)
       drop-shadow(0 0 6px color-mix(in srgb, var(--silver) 45%, transparent)); }
   .positions { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(5, auto); grid-auto-flow: column; gap: 7px 16px; padding: 12px 14px; margin: 8px 0; }
-  .chip { display: flex; align-items: center; gap: 8px; }
-  .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }
+  .chip { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); flex: none; }
   .chip.retro .pp { color: var(--gold); }
-  .pp { font-variant-numeric: tabular-nums; font-size: 0.92rem; white-space: nowrap; }
+  /* длинные позиции («13°08′ ℞ Козерога») не вылезают из ячейки сетки */
+  .pp { font-variant-numeric: tabular-nums; font-size: 0.9rem; white-space: nowrap;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); }
   .events { padding: 6px 12px; margin: 8px 0; }
   /* затухающий hairline-разделитель — тоньше и «дороже» сплошной линии */

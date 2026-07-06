@@ -16,7 +16,7 @@
   import { noteDateStr } from '../lib/journal.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
-  import { pairAspectLore } from '../lib/pairAspectLore.ts';
+  import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
   import { fmtRelDay } from '../lib/format.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -46,6 +46,9 @@
   const lore = $derived(ASPECT_LORE[a.aspect]);
   // уникальный текст «пара×аспект»; null у доп. объектов → старая связка ниже
   const unique = untrack(() => pairAspectLore(a.p1, a.p2, a.aspect));
+  // это взаимодействие ДВУХ людей (синастрия/двойные карты)? → добавка «в паре»
+  const twoPeople = $derived(!!ownerA && !!ownerB && ownerA !== ownerB && ownerB !== 'транзит');
+  const feel = $derived(twoPeople ? SYNASTRY_FEEL[a.aspect] ?? null : null);
 
   // обсуждения сообщества по этому аспекту (тихо 0 без входа)
   let discCount = $state(0);
@@ -167,6 +170,11 @@
         <div class="lshort">{lore.symbol} {lore.short}</div>
         <div class="ltext">{lore.text}</div>
       {/if}
+    {/if}
+    {#if feel}
+      <!-- как это ощущается внутри взаимодействия двух людей (просьба владелицы) -->
+      <div class="lbl" style="margin-top:10px">В паре</div>
+      <div class="ptext">{feel}</div>
     {/if}
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
       placeholder="Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…"

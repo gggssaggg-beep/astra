@@ -174,10 +174,23 @@
   let forecastList = $state<TransitHit[]>([]);
   let forecastBusy = $state(false);
   let forecastRan = $state(false);
-  // прогноз транзитов доступен во ВСЕХ вариантах (синастрия — к обоим наталам)
+  // Прогноз транзитов — в транзитных режимах и натале. В СИНАСТРИИ его НЕТ
+  // (статичная карта двух людей — транзиты там сбивали с толку; правка владелицы).
   const forecastTargets = $derived(
-    personA && personB ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
+    mode === 'synastry' ? []
+      : personA && personB ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
       : personA ? [{ owner: personA.name, pos: posA }] : []);
+
+  // В тройной карте (2 натала + транзит) прогноз показывает ТОЛЬКО моменты,
+  // когда одна транзитная планета касается ОБЕИХ карт в близкие дни (±5 сут) —
+  // «взаимодействие двух людей, а не каждый аспект каждого» (правка владелицы).
+  const forecastShown = $derived.by(() => {
+    if (mode !== 'triple') return forecastList;
+    const WIN = 5 * 86_400_000;
+    return forecastList.filter((h) => forecastList.some((o) =>
+      o !== h && o.tName === h.tName && o.owner !== h.owner
+      && Math.abs(o.when.getTime() - h.when.getTime()) <= WIN));
+  });
   let forecastGen = 0; // защита от устаревшего результата (скраб во время расчёта)
   async function runForecast(): Promise<void> {
     if (forecastBusy || !forecastTargets.length) return;
@@ -676,9 +689,13 @@
         </div>
         <button class="btn" disabled={forecastBusy} onclick={runForecast}>
           {forecastBusy ? 'Считаю…' : `Показать на ${forecastDays} дн. от текущего момента`}</button>
+        {#if mode === 'triple'}
+          <div class="hint small">Показаны только транзиты, касающиеся обеих карт в близкие дни.</div>
+        {/if}
         {#if forecastRan}
-          {#if forecastList.length === 0}<div class="empty">В этом окне точных транзитов нет.</div>{/if}
-          {#each forecastList as h (hitKey(h) + h.jd)}
+          {#if forecastShown.length === 0}<div class="empty">
+            {mode === 'triple' ? 'В этом окне нет транзитов, задевающих обе карты сразу.' : 'В этом окне точных транзитов нет.'}</div>{/if}
+          {#each forecastShown as h (hitKey(h) + h.jd)}
             <button class="fcrow" class:sel={selKey === hitKey(h)} onclick={() => gotoHit(h)}>
               <span class="fcglyph glyph">{h.tGlyph}<span class="fcasp">{h.symbol}</span>{h.nGlyph}</span>
               <span class="fcnames">{h.tName} {h.aspect} {h.nName} <small>({h.owner})</small></span>
@@ -818,7 +835,9 @@
   .tzsel { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 12px; padding: 10px 12px; font: inherit; }
   .err { color: var(--rose); font-size: 0.84rem; margin-bottom: 10px; }
-  .formbtns { display: flex; gap: 8px; justify-content: flex-end; }
+  /* три кнопки одинаковой высоты в один ряд, надписи не переносятся */
+  .formbtns { display: flex; gap: 8px; }
+  .formbtns .btn { flex: 1; white-space: nowrap; padding: 11px 8px; text-align: center; }
 
   /* карта */
   .legend { color: var(--ink-faint); font-size: 0.78rem; text-align: center; margin: 4px 0 12px; }
@@ -874,9 +893,10 @@
   .posx { margin: 6px 0; border-radius: 12px; background: #ffffff08;
     border: 1px solid var(--glass-brd); padding: 2px 10px; }
   .posx summary { display: flex; align-items: center; gap: 8px; cursor: pointer;
-    padding: 8px 2px; color: var(--ink); }
+    padding: 8px 2px; color: var(--ink); min-width: 0; }
   .posx .posval { margin-left: auto; color: var(--ink-dim); font-family: var(--font-mono);
-    font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+    font-size: 0.82rem; font-variant-numeric: tabular-nums;
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .posbody { padding: 2px 2px 10px; }
   .posrole { color: var(--ink-dim); font-size: 0.84rem; margin-bottom: 4px; }
   .possign { color: var(--gold); font-size: 0.8rem; margin-bottom: 2px; }

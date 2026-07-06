@@ -5,6 +5,7 @@
   import { reveal } from '../lib/reveal.ts';
   import AspectTimes from './AspectTimes.svelte';
   import { ASPECT_LORE } from '../lib/lore.ts';
+  import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { db } from '../lib/db.ts';
 
@@ -18,10 +19,13 @@
     return !!rec.beginTime && !!rec.endTime
       && now >= rec.beginTime.getTime() && now <= rec.endTime.getTime();
   });
-  // краткая трактовка: своя (из библиотеки, первая строка) либо общая по типу аспекта
+  // краткая трактовка: своя (из библиотеки) > уникальная «пара×аспект» (первое
+  // предложение) > общая по типу аспекта
   const shortLore = $derived.by(() => {
     const own = db.interpretations.get(aspectSignature(rec.p1, rec.p2, rec.aspect))?.text.trim();
     if (own) return own.split('\n')[0];
+    const uniq = pairAspectLore(rec.p1, rec.p2, rec.aspect);
+    if (uniq) return uniq.split(/(?<=\.)\s/)[0];
     return ASPECT_LORE[rec.aspect]?.short ?? '';
   });
 </script>

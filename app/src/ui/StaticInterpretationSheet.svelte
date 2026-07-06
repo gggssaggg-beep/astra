@@ -16,6 +16,7 @@
   import { noteDateStr } from '../lib/journal.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
+  import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { fmtRelDay } from '../lib/format.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -43,6 +44,8 @@
 
   const pair = untrack(() => pairLore(a.p1, a.p2));
   const lore = $derived(ASPECT_LORE[a.aspect]);
+  // уникальный текст «пара×аспект»; null у доп. объектов → старая связка ниже
+  const unique = untrack(() => pairAspectLore(a.p1, a.p2, a.aspect));
 
   // обсуждения сообщества по этому аспекту (тихо 0 без входа)
   let discCount = $state(0);
@@ -154,10 +157,16 @@
 
   <div class="block">
     <div class="lbl">Взаимодействие</div>
-    {#if pair}<div class="ptext">{pair}</div>{/if}
-    {#if lore}
-      <div class="lshort">{lore.symbol} {lore.short}</div>
-      <div class="ltext">{lore.text}</div>
+    {#if unique}
+      {#if lore}<div class="lshort">{lore.symbol} {lore.short}</div>{/if}
+      <div class="ptext">{unique}</div>
+      {#if pair}<div class="ltext">{a.p1} — {a.p2}: {pair}</div>{/if}
+    {:else}
+      {#if pair}<div class="ptext">{pair}</div>{/if}
+      {#if lore}
+        <div class="lshort">{lore.symbol} {lore.short}</div>
+        <div class="ltext">{lore.text}</div>
+      {/if}
     {/if}
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
       placeholder="Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…"

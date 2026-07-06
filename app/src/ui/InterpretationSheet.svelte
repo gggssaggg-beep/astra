@@ -7,6 +7,7 @@
   import { noteDateStr } from '../lib/journal.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
+  import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
   import { expandYear } from '../lib/inputmask.ts';
   import { autogrow } from '../lib/autogrow.ts';
@@ -63,6 +64,8 @@
   // --- Трактовка (краткая общая + СВОЯ, сохраняется в библиотеку по сигнатуре) ---
   const lore = $derived(ASPECT_LORE[rec.aspect]);
   const pair = $derived(pairLore(rec.p1, rec.p2));   // смысл пары планет (не только тип аспекта)
+  // УНИКАЛЬНЫЙ текст «пара×аспект» (Марс⚹Венера ≠ Марс☌Венера); null у доп. объектов
+  const unique = $derived(pairAspectLore(rec.p1, rec.p2, rec.aspect));
   let interpText = $state(db.interpretations.get(sig)?.text ?? '');
   let interpSaved = $state(false);
   function saveInterp() {
@@ -132,10 +135,17 @@
 
   <div class="block">
     <div class="lbl">Трактовка</div>
-    {#if pair}<div class="ptext">{rec.p1} — {rec.p2}: {pair}</div>{/if}
-    {#if lore}
-      <div class="lshort">{lore.symbol} {lore.short}</div>
-      <div class="ltext">{lore.text}</div>
+    {#if unique}
+      <!-- уникальный текст именно этого сочетания пары и аспекта -->
+      {#if lore}<div class="lshort">{lore.symbol} {lore.short}</div>{/if}
+      <div class="ptext">{unique}</div>
+      {#if pair}<div class="ltext">{rec.p1} — {rec.p2}: {pair}</div>{/if}
+    {:else}
+      {#if pair}<div class="ptext">{rec.p1} — {rec.p2}: {pair}</div>{/if}
+      {#if lore}
+        <div class="lshort">{lore.symbol} {lore.short}</div>
+        <div class="ltext">{lore.text}</div>
+      {/if}
     {/if}
     <!-- «неявный» ввод: без коробки, растёт под текст, курсор показывает правку -->
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"

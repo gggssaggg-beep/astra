@@ -11,6 +11,7 @@
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { aspectTone } from '../lib/format.ts';
   import { pairLore } from '../lib/pairLore.ts';
+  import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { reveal } from '../lib/reveal.ts';
   import AspectTimes from './AspectTimes.svelte';
   import type { TransitWindow } from '../lib/forecast.ts';
@@ -25,8 +26,8 @@
   // подпись «Солнце (Аня)» в синастрии (владелец задан) или просто «Солнце» иначе
   const n1 = $derived(ownerA ? `${a.p1} (${ownerA})` : a.p1);
   const n2 = $derived(ownerB ? `${a.p2} (${ownerB})` : a.p2);
-  // строка трактовки пары — как на карточке главного экрана (обрезается в 1 строку)
-  const lore = $derived(pairLore(a.p1, a.p2));
+  // строка трактовки: уникальная «пара×аспект», иначе общий смысл пары
+  const lore = $derived(pairAspectLore(a.p1, a.p2, a.aspect) ?? pairLore(a.p1, a.p2));
 </script>
 
 <div class="srow reveal tone-{tone}" class:selected use:reveal>

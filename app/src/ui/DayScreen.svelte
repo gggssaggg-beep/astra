@@ -165,7 +165,14 @@
 
 <style>
   .day { padding: 6px 2px 40px; }
-  .wheel-wrap { padding: 14px; margin: 8px 0; }
+  /* колесо — «герой» экрана: тонкая фиолетовая градиентная кромка, как у Луны */
+  .wheel-wrap { padding: 14px; margin: 8px 0; position: relative; overflow: hidden; }
+  .wheel-wrap::before { content: ""; position: absolute; inset: 0; border-radius: inherit;
+    padding: 1px; pointer-events: none;
+    background: linear-gradient(160deg, color-mix(in srgb, var(--neon-violet) 50%, transparent), transparent 45%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; }
   .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   /* тихая легенда цветов: чёрточка цвета линии + слово, не отвлекает */
   .legend { display: flex; justify-content: center; gap: 14px; margin-top: 4px;

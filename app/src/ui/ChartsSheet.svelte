@@ -573,6 +573,13 @@
       {@render transitCtl()}
     {/if}
 
+    <!-- данные рождения на самой карте: скриншот несёт ВСЮ информацию
+         (дата/время/пояс/место) — внешний ИИ-разбор не гадает о моменте -->
+    {#if personA}<div class="birth">{personA.name} — род. {fmtBirth(personA)}</div>{/if}
+    {#if (mode === 'synastry' || mode === 'triple') && personB}
+      <div class="birth">{personB.name} — род. {fmtBirth(personB)}</div>
+    {/if}
+
     {#if onchat}
       <button class="btn chatbtn" onclick={discussChart}>💬 Обсудить карту с Claude</button>
     {/if}
@@ -815,6 +822,8 @@
 
   /* карта */
   .legend { color: var(--ink-faint); font-size: 0.78rem; text-align: center; margin: 4px 0 12px; }
+  .birth { color: var(--ink-dim); font-size: 0.78rem; text-align: center; margin: 0 0 4px;
+    font-variant-numeric: tabular-nums; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
     border-radius: 999px; padding: 7px 12px; font-size: 0.78rem; }
   .mini.now { color: var(--accent); }

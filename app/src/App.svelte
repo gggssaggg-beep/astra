@@ -307,10 +307,11 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button class="mid" onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span></button>
-  <button onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
-  <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
+  <button class:on={showLibrary || showJournal || showInterp || showArch || showTracked}
+    onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
+  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span></button>
+  <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
+  <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
 
 {#if showData}
@@ -422,6 +423,9 @@
   .tabbar button { flex: 1; background: transparent; border: none; color: var(--ink-dim);
     display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 4px; border-radius: 12px; }
   .tabbar button:hover { background: #ffffff14; color: var(--ink); }
+  /* активный раздел подсвечен (nav-state-active): видно, где находишься */
+  .tabbar button.on { color: var(--accent); }
+  .tabbar button.on .ti { text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
   .tabbar .ti { font-size: 1.25rem; line-height: 1; }
   /* «Карты» — центральная, главная точка входа: акцент + чуть крупнее + тихий глоу */
   .tabbar .mid .ti { color: var(--accent); font-size: 1.5rem;

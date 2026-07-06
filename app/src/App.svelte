@@ -16,6 +16,7 @@
   import InterpretationSheet from './ui/InterpretationSheet.svelte';
   import ArchetypesSheet from './ui/ArchetypesSheet.svelte';
   import TrackedSheet from './ui/TrackedSheet.svelte';
+  import SignMythsSheet from './ui/SignMythsSheet.svelte';
   import ChartsSheet from './ui/ChartsSheet.svelte';
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
@@ -39,6 +40,7 @@
   let showJournal = $state(false);
   let showArch = $state(false);
   let showTracked = $state(false);
+  let showSignMyths = $state(false);
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
   let showChat = $state(false);
   let showLibrary = $state(false);
@@ -145,6 +147,7 @@
     }
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
+    if (showSignMyths) { showSignMyths = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
     if (showCharts) {
       // из открытой карты/формы «Назад» = стрелочка ← (на список), не закрытие
@@ -325,7 +328,12 @@
     onArchetypes={() => { showLibrary = false; showArch = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
     onJournal={() => { showLibrary = false; showJournal = true; }}
+    onSignMyths={() => { showLibrary = false; showSignMyths = true; }}
     onChat={() => { showLibrary = false; showChat = true; }} />
+{/if}
+
+{#if showSignMyths}
+  <SignMythsSheet onclose={() => { showSignMyths = false; showLibrary = true; }} />
 {/if}
 
 <!-- закрытие разделов библиотеки возвращает В БИБЛИОТЕКУ (пункт выше), не на главный -->

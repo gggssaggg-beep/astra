@@ -3,9 +3,10 @@
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onTracked, onJournal, onChat }:
+  let { onclose, onInterpretations, onArchetypes, onTracked, onJournal, onSignMyths, onChat }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
-      onTracked: () => void; onJournal: () => void; onChat: () => void } = $props();
+      onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
+      onChat: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -35,6 +36,13 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">🏛</span>
       <div class="txt"><b>Архетипы божеств</b><small>миф и архетип на каждую планету</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onSignMyths}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">📜</span>
+      <div class="txt"><b>Мифы знаков</b><small>бог на каждый знак зодиака и его грани</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

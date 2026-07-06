@@ -10,6 +10,7 @@
   import type { StaticAspect, Engine, AspectOccurrence } from '../engine/index.ts';
   import { PLANET_GLYPH, findAspectOccurrences } from '../engine/index.ts';
   import { civilOf } from '../lib/format.ts';
+  import { expandYear } from '../lib/inputmask.ts';
   import { db, uid, onChange } from '../lib/db.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { noteDateStr } from '../lib/journal.ts';
@@ -106,7 +107,9 @@
     new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
   async function runSearch(): Promise<void> {
     if (searching || !engine) return;
-    const y0 = Math.min(fromYear, toYear), y1 = Math.max(fromYear, toYear);
+    // «26» → 2026, «89» → 1989 (пивот двухзначного года)
+    const e0 = expandYear(fromYear), e1 = expandYear(toYear);
+    const y0 = Math.min(e0, e1), y1 = Math.max(e0, e1);
     fromYear = y0; toYear = y1;
     searching = true; searched = false; occ = []; truncated = false;
     try {

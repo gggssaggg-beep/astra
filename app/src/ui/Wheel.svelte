@@ -221,10 +221,14 @@
   });
 </script>
 
+<!-- touch-события скраба НЕ всплывают к шторке: иначе круговое движение по
+     колесу дёргало жест «свайп-вниз = закрыть» — шторка прыгала и закрывалась -->
 <svg bind:this={svgEl} viewBox="0 0 {SZ} {SZ}" class="wheel" class:scrub={!!onscrub}
   role="img" aria-label="Колесо транзитов"
   onpointerdown={scrubDown} onpointermove={scrubMove}
-  onpointerup={scrubUp} onpointercancel={scrubUp}>
+  onpointerup={scrubUp} onpointercancel={scrubUp}
+  ontouchstart={(e) => onscrub && e.stopPropagation()}
+  ontouchmove={(e) => onscrub && e.stopPropagation()}>
   <defs>
     <!-- градиенты (и их SMIL-анимации) рендерим только для активного стиля:
          вне его они впустую крутились и жгли батарею -->

@@ -11,6 +11,18 @@ export function fmtPos(lon: number): string {
   return `${SIGN_GLYPH[i]} ${d}°${String(m).padStart(2, '0')}′ ${ZODIAC[i]}`;
 }
 
+/** Позиция с ретро-меткой ЕДИНОЙ строкой: «♓ 19°26′ ℞ Рыбы» — ℞ между градусами
+ *  и знаком, не отдельным спаном (тот переносился на новую строку: «то вместе,
+ *  то перенос», жалоба владелицы). */
+export function fmtPosRx(lon: number, retro: boolean): string {
+  const i = ((Math.floor(lon / 30) % 12) + 12) % 12;
+  const deg = ((lon % 30) + 30) % 30;
+  let d = Math.floor(deg);
+  let m = Math.round((deg - d) * 60);
+  if (m === 60) { m = 0; d += 1; }
+  return `${SIGN_GLYPH[i]} ${d}°${String(m).padStart(2, '0')}′${retro ? ' ℞' : ''} ${ZODIAC[i]}`;
+}
+
 export function fmtTime(date: Date, tz: string): string {
   return new Intl.DateTimeFormat('ru-RU', { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(date);
 }

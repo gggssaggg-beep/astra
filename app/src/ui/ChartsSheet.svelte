@@ -27,7 +27,7 @@
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
-  import { fmtPos, zonedTimeUTC } from '../lib/format.ts';
+  import { fmtPos, fmtPosRx, zonedTimeUTC } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
   import { parseDateInput } from '../lib/dateparse.ts';
   import { searchCities, type City } from '../lib/cities.ts';
@@ -86,6 +86,7 @@
   let mode = $state<Mode>(untrack(() => restore?.mode ?? initialMode));
   let pair = $state<string[]>(restore?.pair ?? []); // выбранные id (0 → «А», 1 → «Б»)
   let selKey = $state<string | null>(null);     // выделенная линия в колесе
+  let openPos = $state<string | null>(null);    // развёрнутое «Положение» (рамка активна)
   // запоминаем выбор для следующего открытия (память сессии, не диск)
   $effect(() => { lastMode = mode; lastPair = pair.slice(); lastView = view === 'chart' ? 'chart' : 'list'; });
 
@@ -169,7 +170,7 @@
   }
 
   // --- прогноз: ближайшие точные транзиты к наталу(ам) ---
-  let forecastDays = $state(90);
+  let forecastDays = $state(30);
   let forecastList = $state<TransitHit[]>([]);
   let forecastBusy = $state(false);
   let forecastRan = $state(false);
@@ -319,8 +320,8 @@
   function pickCity(c: City): void {
     fPlaceName = c.ru; cityQuery = c.ru; fLat = c.lat; fLon = c.lon; fTz = c.tz; citySug = []; tzBad = false;
   }
-  const onDate = (v: string) => { fDate = maskDate(v); fErr = null; };
-  const onTime = (v: string) => { fTime = maskTime(v); fErr = null; };
+  const onDate = (v: string) => { fDate = maskDate(v, fDate); fErr = null; };
+  const onTime = (v: string) => { fTime = maskTime(v, fTime); fErr = null; };
 
   function openNew(): void {
     editId = null; fName = ''; fDate = ''; fTime = ''; fUnknown = false; fTz = defaultTz;
@@ -498,10 +499,10 @@
       <div class="tctl">
         <button class="mini" onclick={() => stepTransit(-86_400_000)} aria-label="День назад">‹ день</button>
         <input class="tin" inputmode="numeric" maxlength="10" value={tDate} placeholder="ДД.ММ.ГГГГ" aria-label="Дата транзита"
-          oninput={(e) => (tDate = (e.target as HTMLInputElement).value)}
+          oninput={(e) => (tDate = maskDate((e.target as HTMLInputElement).value, tDate))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
         <input class="tin tt" inputmode="numeric" maxlength="5" value={tTime} aria-label="Время транзита"
-          oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value))}
+          oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value, tTime))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
         <button class="mini" onclick={applyTransitFields} aria-label="Применить дату и время">ОК</button>
         <button class="mini" onclick={() => stepTransit(86_400_000)} aria-label="День вперёд">день ›</button>
@@ -616,7 +617,7 @@
         <div class="fchead">
           <span class="grp">Прогноз транзитов</span>
           <div class="fcdays">
-            {#each [30, 90, 180, 365] as d}
+            {#each [7, 30, 90, 180] as d}
               <button class="mini" class:on={forecastDays === d} onclick={() => (forecastDays = d)}>{d}д</button>
             {/each}
           </div>
@@ -637,36 +638,42 @@
     {/if}
 
     {#if mode === 'natal'}
-      <!-- расшифровка положений (правка астролога): планета в знаке + разбор -->
+      <!-- расшифровка положений (правка астролога): планета в знаке + разбор.
+           ЕДИНОЕ ПРАВИЛО выделения: развёрнутый блок держит рамку GlowCard -->
       <div class="grp">Положения</div>
       {#each posA as p (p.name)}
         {@const si = signIdx(p.lon)}
-        <details class="posx">
-          <summary><span class="glyph">{p.glyph}</span> <b>{p.name}</b>
-            <span class="posval">{fmtPos(p.lon)}{p.retro ? ' ℞' : ''}</span></summary>
-          <div class="posbody">
-            {#if PLANET_LORE[p.name]}<div class="posrole">{PLANET_LORE[p.name].role}</div>{/if}
-            {#if SIGN_LORE[si]}
-              <div class="possign"><b>{p.sign}</b> · {SIGN_LORE[si].element}</div>
-              <div class="postext">{SIGN_LORE[si].text}</div>
-            {/if}
-            {#if p.retro}<div class="postext">℞ Ретроградна в карте — энергия обращена внутрь,
-              тема проживается через переосмысление.</div>{/if}
-          </div>
-        </details>
+        <GlowCard radius={12} selected={openPos === p.name}>
+          <details class="posx" ontoggle={(e) => {
+            if ((e.currentTarget as HTMLDetailsElement).open) openPos = p.name;
+            else if (openPos === p.name) openPos = null;
+          }}>
+            <summary><span class="glyph">{p.glyph}</span> <b>{p.name}</b>
+              <span class="posval">{fmtPosRx(p.lon, p.retro)}</span></summary>
+            <div class="posbody">
+              {#if PLANET_LORE[p.name]}<div class="posrole">{PLANET_LORE[p.name].role}</div>{/if}
+              {#if SIGN_LORE[si]}
+                <div class="possign"><b>{p.sign}</b> · {SIGN_LORE[si].element}</div>
+                <div class="postext">{SIGN_LORE[si].text}</div>
+              {/if}
+              {#if p.retro}<div class="postext">℞ Ретроградна в карте — энергия обращена внутрь,
+                тема проживается через переосмысление.</div>{/if}
+            </div>
+          </details>
+        </GlowCard>
       {/each}
     {:else}
       <details class="positions">
         <summary>Позиции</summary>
         <div class="posgrp">{personA?.name}</div>
-        {#each posA as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
+        {#each posA as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPosRx(p.lon, p.retro)}</div>{/each}
         {#if mode === 'synastry' || mode === 'triple'}
           <div class="posgrp">{personB?.name}</div>
-          {#each posB as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
+          {#each posB as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPosRx(p.lon, p.retro)}</div>{/each}
         {/if}
         {#if mode === 'transitNatal' || mode === 'triple'}
           <div class="posgrp">Транзит ({transitLabel})</div>
-          {#each transitPos as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
+          {#each transitPos as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPosRx(p.lon, p.retro)}</div>{/each}
         {/if}
       </details>
     {/if}
@@ -685,7 +692,11 @@
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 20; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 21; padding: 16px 16px calc(18px + var(--safe-bottom));
+    /* почти во весь экран: фоновая дата шапки не попадает в скриншот карты
+       (ИИ-разбор скриншота принимал её за момент карты — жалоба) */
+    max-height: 97vh;
+    max-height: calc(100dvh - var(--safe-top) - 4px);
+    overflow-y: auto; z-index: 21; padding: 16px 16px calc(18px + var(--safe-bottom));
     border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
   @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
   header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }

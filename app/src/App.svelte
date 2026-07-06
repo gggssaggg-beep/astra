@@ -97,10 +97,13 @@
   // подпись даты в шапке: месяц полностью, год ТОЛЬКО если не текущий —
   // «строка с датой перегружена» (жалоба владелицы, разгрузка шапки)
   const dateLabel = $derived.by(() => {
-    const dm = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', day: 'numeric', month: 'long' }).format(date);
-    const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(date);
     const y = date.getUTCFullYear();
-    return y === todayCivil(settings.tz).getUTCFullYear() ? `${dm}, ${wd}` : `${dm} ${y}, ${wd}`;
+    const sameYear = y === todayCivil(settings.tz).getUTCFullYear();
+    // с чужим годом месяц короткий — «13 мар 2006, пт» влезает в шапку целиком
+    const dm = new Intl.DateTimeFormat('ru-RU',
+      { timeZone: 'UTC', day: 'numeric', month: sameYear ? 'long' : 'short' }).format(date);
+    const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(date);
+    return sameYear ? `${dm}, ${wd}` : `${dm} ${y}, ${wd}`;
   });
 
   // направление последнего листания — страница дня въезжает с нужной стороны
@@ -399,6 +402,7 @@
      (раньше чип распирал шапку вторым рядом — «строка перегружена») */
   .title { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
   .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.3px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 6px; border-radius: 8px; white-space: nowrap;
+    min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
     text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent); }
   .date:hover { background: #ffffff14; }
   .caret { color: var(--ink-faint); font-size: 0.7rem; margin-left: 4px; vertical-align: middle; }

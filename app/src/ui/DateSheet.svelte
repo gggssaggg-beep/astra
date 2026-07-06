@@ -63,7 +63,7 @@
     <button class="xbtn" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="inputrow">
     <input class="dinput" class:err inputmode="numeric" maxlength="10" placeholder="дата: 12.03.2026" value={input}
-      oninput={(e) => { input = maskDate((e.target as HTMLInputElement).value); err = false; }}
+      oninput={(e) => { input = maskDate((e.target as HTMLInputElement).value, input); err = false; }}
       onkeydown={(e) => e.key === 'Enter' && submitInput()} />
     <button class="btn" onclick={submitInput}>Перейти</button>
   </div>

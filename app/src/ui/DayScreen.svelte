@@ -3,7 +3,7 @@
   // пересозданиями компонента на листание и делится с чатом).
   import { aspectsOnCached, eventsOnCached } from '../lib/dayCache.ts';
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
-  import { fmtPos, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
+  import { fmtPos, fmtPosRx, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
   import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
@@ -106,7 +106,7 @@
       <span class="g glyph">{moon.glyph}</span>
       <div>
         <div class="lbl">Луна</div>
-        <div class="pos">{fmtPos(moon.lon)} {moon.retro ? '℞' : ''}</div>
+        <div class="pos">{fmtPosRx(moon.lon, moon.retro)}</div>
       </div>
       {#if phase}
         <div class="phase">
@@ -119,10 +119,10 @@
 
   <div class="positions glass">
     {#each planets as p}
+      <!-- единая строка «глиф 19°26′ ℞ Рыбы» — ℞ внутри, ничего не переносится -->
       <div class="chip reveal" class:retro={p.retro} use:reveal>
         <span class="g glyph">{p.glyph}</span>
-        <span class="pp">{fmtPos(p.lon)}</span>
-        {#if p.retro}<span class="rx">℞</span>{/if}
+        <span class="pp">{fmtPosRx(p.lon, p.retro)}</span>
       </div>
     {/each}
   </div>
@@ -144,12 +144,13 @@
     {#if s.list.length}
       <h3 class="sec">{s.title}</h3>
       {#each s.list as rec (rec.p1 + rec.p2 + rec.aspect)}
-        <!-- тап: обводка обегает карточку → ПОТОМ плавно открывается трактовка
-             (единый паттерн GlowCard, просьба «сперва рамка, потом открытие») -->
-        <GlowCard radius={18} onactivate={() => onAspect?.(rec)}>
+        {@const sig = aspectSignature(rec.p1, rec.p2, rec.aspect)}
+        <!-- тап: обводка обегает карточку → ПОТОМ открывается трактовка; выбранный
+             блок ДЕРЖИТ рамку (ЕДИНОЕ правило выделения, как в «Картах») -->
+        <GlowCard radius={18} selected={selectedSignature === sig} onactivate={() => onAspect?.(rec)}>
           <AspectCard {rec} {tz}
-            discussions={discCounts.get(aspectSignature(rec.p1, rec.p2, rec.aspect)) ?? 0}
-            selected={!!selectedSignature && selectedSignature === aspectSignature(rec.p1, rec.p2, rec.aspect)} />
+            discussions={discCounts.get(sig) ?? 0}
+            selected={selectedSignature === sig} />
         </GlowCard>
       {/each}
     {/if}
@@ -213,8 +214,7 @@
   .chip { display: flex; align-items: center; gap: 8px; }
   .chip .g { font-size: 1.2rem; width: 1.4rem; text-align: center; color: var(--silver); }
   .chip.retro .pp { color: var(--gold); }
-  .rx { color: var(--gold); font-size: 0.8rem; font-weight: 600; }
-  .pp { font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+  .pp { font-variant-numeric: tabular-nums; font-size: 0.92rem; white-space: nowrap; }
   .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); }
   .events { padding: 6px 12px; margin: 8px 0; }
   /* затухающий hairline-разделитель — тоньше и «дороже» сплошной линии */

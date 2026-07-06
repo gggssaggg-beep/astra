@@ -8,6 +8,7 @@
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
+  import { expandYear } from '../lib/inputmask.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { discussionCounts } from '../lib/community.ts';
@@ -85,7 +86,9 @@
 
   async function runSearch() {
     if (searching) return;
-    const y0 = Math.min(fromYear, toYear), y1 = Math.max(fromYear, toYear);
+    // «26» → 2026, «89» → 1989 (пивот двухзначного года)
+    const e0 = expandYear(fromYear), e1 = expandYear(toYear);
+    const y0 = Math.min(e0, e1), y1 = Math.max(e0, e1);
     fromYear = y0; toYear = y1;
     searching = true; searched = false; occ = []; truncated = false;
     try {

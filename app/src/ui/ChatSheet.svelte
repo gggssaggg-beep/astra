@@ -10,7 +10,7 @@
   let { engine, date, tz, orbOf, seed, source, onclose }:
     { engine: Engine; date: Date; tz: string; orbOf: (name: string) => number;
       seed?: string | null;
-      source?: { objects: string[]; aspectSignature?: string; title?: string } | null;
+      source?: { objects: string[]; aspectSignature?: string; title?: string; selfContained?: boolean } | null;
       onclose: () => void } = $props();
 
   let key = $state(getKey());
@@ -64,7 +64,8 @@
     input = '';
     busy = true;
     try {
-      const reply = await askClaude(key, systemPrompt(engine, date, tz, orbOf), messages);
+      // самодостаточный вопрос (карта: данные уже в тексте) → не шлём небо дня
+      const reply = await askClaude(key, systemPrompt(engine, date, tz, orbOf, !source?.selfContained), messages);
       messages = [...messages, { role: 'assistant', content: reply || '(пустой ответ)' }];
       persistChat();   // авто-запись разговора в журнал после каждого ответа
     } catch (e) {

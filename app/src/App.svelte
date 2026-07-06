@@ -77,7 +77,7 @@
   let chatSeed = $state<string | null>(null);
   // контекст, к которому привязан чат (аспект/объекты) — чтобы сохранить переписку
   // в журнал «в соответствующее место»: с тегами объектов и сигнатурой аспекта.
-  let chatSource = $state<{ objects: string[]; aspectSignature?: string; title?: string } | null>(null);
+  let chatSource = $state<{ objects: string[]; aspectSignature?: string; title?: string; selfContained?: boolean } | null>(null);
 
   function dismissWelcome() {
     showWelcome = false;

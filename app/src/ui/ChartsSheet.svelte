@@ -47,7 +47,7 @@
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
       initialMode?: Mode; onclose: () => void;
-      onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
+      onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string; selfContained?: boolean }) => void;
       oncommunity?: (sig: string, title: string) => void;
       ongoto?: (d: Date) => void } = $props();
 
@@ -491,9 +491,11 @@
     });
   });
 
-  // «Обсудить карту с Claude» — тот же полный контекст, что и в экспорте
+  // «Обсудить карту с Claude» — тот же полный контекст, что и в экспорте.
+  // selfContained: промпт уже несёт все данные карты → чат НЕ добавит небо дня
+  // (экономия токенов пользователя, правка владелицы 2026-07-07).
   function discussChart(): void {
-    onchat?.(chartPromptText, { objects: [], title: chartTitle });
+    onchat?.(chartPromptText, { objects: [], title: chartTitle, selfContained: true });
   }
 
   let showPrompt = $state(false);   // окно «Промпт для любой ИИ»

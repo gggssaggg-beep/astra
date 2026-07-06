@@ -493,6 +493,32 @@ export function pairAspectLore(p1: string, p2: string, aspect: string): string |
   return PAIR_ASPECT[`${p1}|${p2}|${aspect}`] ?? PAIR_ASPECT[`${p2}|${p1}|${aspect}`] ?? null;
 }
 
+// Порядок «ведущей» планеты для БАЗЫ трактовок (правка астролога 2026-07-07):
+// сперва аспекты Луны со всеми, потом Солнца (без Луны), потом Меркурия (без
+// Луны и Солнца) и т.д. — каждая пара встречается один раз.
+const LEAD_ORDER = ['Луна', 'Солнце', 'Меркурий', 'Венера', 'Марс',
+  'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
+// Порядок аспектов внутри пары: соединение, оппозиция, трин, квадрат, секстиль.
+const ASPECT_ORDER = ['соединение', 'оппозиция', 'трин', 'квадрат', 'секстиль'];
+
+export interface PairAspectEntry { p1: string; p2: string; aspect: string; text: string; }
+
+/** Полная база трактовок пар планет в порядке астролога — для просмотра в
+ *  Библиотеке. Разноимённые пары (не синастрийные одноимённые). */
+export function orderedPairAspects(): PairAspectEntry[] {
+  const out: PairAspectEntry[] = [];
+  for (let i = 0; i < LEAD_ORDER.length; i++) {
+    for (let j = i + 1; j < LEAD_ORDER.length; j++) {
+      const p1 = LEAD_ORDER[i], p2 = LEAD_ORDER[j];
+      for (const aspect of ASPECT_ORDER) {
+        const text = pairAspectLore(p1, p2, aspect);
+        if (text) out.push({ p1, p2, aspect, text });
+      }
+    }
+  }
+  return out;
+}
+
 /** Как аспект ощущается ВНУТРИ взаимодействия двух людей (синастрия) —
  *  добавка к уникальному тексту пары, когда в шторке два владельца. */
 export const SYNASTRY_FEEL: Record<string, string> = {

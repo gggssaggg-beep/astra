@@ -196,6 +196,11 @@
       if (!db.settings.get().houseSysV2) {
         db.settings.set({ ...db.settings.get(), houseSystem: 'horizontal', houseSysV2: true });
       }
+      // разовая миграция (2026-07-06): новая тема «Аврора» по умолчанию
+      // («Космос»/«Рассвет» остаются в Настройках — мгновенный откат)
+      if (!db.settings.get().themeV2) {
+        db.settings.set({ ...db.settings.get(), theme: 'aurora', themeV2: true });
+      }
       settings = db.settings.get();
       date = todayCivil(settings.tz);   // дата по сохранённому поясу
       showWelcome = !settings.seenWelcome;
@@ -232,10 +237,12 @@
   // SystemBars ('DARK' = светлые иконки). Старый APK без SystemBars — тихий no-op.
   $effect(() => {
     const apply = () => {
-      const dark = settings.theme === 'cosmos' ? true
+      const dark = settings.theme === 'cosmos' || settings.theme === 'aurora' ? true
         : settings.theme === 'dawn' ? false
         : !window.matchMedia('(prefers-color-scheme: light)').matches;
-      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      // aurora — отдельный дата-атрибут (свои переменные + живые сполохи)
+      document.documentElement.dataset.theme =
+        settings.theme === 'aurora' ? 'aurora' : dark ? 'dark' : 'light';
       if (Capacitor.isNativePlatform()) {
         registerPlugin<{ setStyle(o: { style: string }): Promise<void> }>('SystemBars')
           .setStyle({ style: dark ? 'DARK' : 'LIGHT' })

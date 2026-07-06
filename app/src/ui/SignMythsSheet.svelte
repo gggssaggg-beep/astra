@@ -19,8 +19,8 @@
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Мифы знаков" use:bottomSheet={{ onclose }}>
   <header><h2>Мифы знаков</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Каждому знаку — свой бог (авторская раскладка). Сначала грани,
-    совпадающие с привычным образом знака, ниже — новые, от самой божественной сущности.</div>
+  <div class="hint">Каждому знаку — свой бог (авторская раскладка). Ключ к архетипу —
+    сокровенное желание бога: через него противоречия мифов раскрывают знак глубже.</div>
 
   {#each SIGN_MYTHS as m (m.sign)}
     {@const opened = open === m.sign}
@@ -35,12 +35,14 @@
         {#if opened}
           <div class="body">
             <p class="myth">{m.myth}</p>
-            <div class="lbl">Совпадает со знаком</div>
-            <ul>{#each m.matches as t}<li>{t}</li>{/each}</ul>
-            {#if m.fresh.length}
-              <div class="lbl">Новые грани от бога</div>
-              <ul>{#each m.fresh as t}<li>{t}</li>{/each}</ul>
-            {/if}
+            <div class="lbl">Сокровенное желание</div>
+            <p class="wish">{m.wish}</p>
+            <div class="lbl">Покровительство и обряды</div>
+            <p class="myth">{m.domain}</p>
+            <div class="lbl light">Свет</div>
+            <ul>{#each m.plus as t}<li>{t}</li>{/each}</ul>
+            <div class="lbl shade">Тень</div>
+            <ul>{#each m.minus as t}<li>{t}</li>{/each}</ul>
           </div>
         {/if}
       </div>
@@ -75,6 +77,13 @@
   .myth { margin: 0 0 10px; color: var(--ink-dim); font-size: 0.9rem; line-height: 1.55; }
   .lbl { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 1.1px;
     color: var(--ink-faint); font-weight: 600; margin: 8px 0 4px; }
+  .lbl.light { color: var(--gold); }
+  .lbl.shade { color: var(--rose); }
+  /* сокровенное желание — сердце архетипа, выделено мягким свечением */
+  .wish { margin: 0 0 10px; color: var(--ink); font-size: 0.9rem; line-height: 1.55;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 60%, transparent);
+    padding-left: 10px;
+    text-shadow: 0 0 12px color-mix(in srgb, var(--accent) 25%, transparent); }
   ul { margin: 0; padding-left: 18px; color: var(--ink-dim); font-size: 0.88rem; line-height: 1.5; }
   li { margin-bottom: 3px; }
 </style>

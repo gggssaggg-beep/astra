@@ -178,7 +178,7 @@
         Крупный шрифт
       </label>
       <div class="seg">
-        {#each [['auto', 'Авто'], ['cosmos', 'Космос'], ['dawn', 'Рассвет']] as [id, label]}
+        {#each [['aurora', 'Аврора'], ['cosmos', 'Космос'], ['dawn', 'Рассвет'], ['auto', 'Авто']] as [id, label]}
           <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
         {/each}
       </div>

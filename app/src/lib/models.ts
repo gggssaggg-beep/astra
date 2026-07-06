@@ -3,7 +3,8 @@
  * Хранилище абстрактно (db.ts): сейчас localStorage, позже Capacitor SQLite.
  */
 
-export type ThemeMode = 'auto' | 'cosmos' | 'dawn';
+// aurora — «живое стекло» (2026-07-06): тёмная тема с плывущими сполохами
+export type ThemeMode = 'auto' | 'cosmos' | 'dawn' | 'aurora';
 export type EclipseKind = 'solar' | 'lunar';
 
 /** Стиль символов знаков (выбирается в настройках). */
@@ -36,6 +37,7 @@ export interface Settings {
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
   houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
   houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
+  themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)
 }
 
 /** Системы домов для выбора в настройках (id → engine HOUSE_SYS; equalMC особо). */

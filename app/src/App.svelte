@@ -191,6 +191,11 @@
     try {
       await hydrate();
       void hydrateKey();   // ключ Claude из durable-хранилища (не ждём — нужен только чату)
+      // разовая миграция (2026-07-06): горизонтальная система домов по умолчанию —
+      // у уже установленных приложений в настройках лежал старый дефолт placidus
+      if (!db.settings.get().houseSysV2) {
+        db.settings.set({ ...db.settings.get(), houseSystem: 'horizontal', houseSysV2: true });
+      }
       settings = db.settings.get();
       date = todayCivil(settings.tz);   // дата по сохранённому поясу
       showWelcome = !settings.seenWelcome;

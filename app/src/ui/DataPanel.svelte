@@ -64,6 +64,13 @@
 
   // фильтр списка часовых поясов (их 600+ — глазами не пролистать)
   let tzFilter = $state('');
+  // 600+ <option> рендерились ОДНОВРЕМЕННО с анимацией выезда шторки —
+  // «открывается с прерыванием». Откладываем список до конца анимации.
+  let tzReady = $state(false);
+  $effect(() => {
+    const t = setTimeout(() => (tzReady = true), 400);   // шторка едет 0.34s
+    return () => clearTimeout(t);
+  });
 
   async function onNotifyToggle(field: 'notifyDaily' | 'notifyAspects' | 'notifyTransits', val: boolean) {
     if (val) {
@@ -196,7 +203,11 @@
     <input class="select" type="text" bind:value={tzFilter} placeholder="Поиск пояса (moscow, novosib…)"
       style="margin-bottom:6px" />
     <select class="select" value={cfg.tz} onchange={(e) => save({ tz: (e.target as HTMLSelectElement).value })}>
-      {#each zonesShown as z}<option value={z}>{z}</option>{/each}
+      {#if tzReady}
+        {#each zonesShown as z}<option value={z}>{z}</option>{/each}
+      {:else}
+        <option value={cfg.tz}>{cfg.tz}</option>
+      {/if}
     </select>
     <div class="hint small">Все времена и положения (колесо, планеты, точные аспекты, события)
       показываются в этом поясе; можно изменить вручную.</div>
@@ -270,7 +281,7 @@
   <div class="group">Дома</div>
   <div class="block">
     <div class="lbl">Система домов</div>
-    <select class="select" value={cfg.houseSystem ?? 'placidus'}
+    <select class="select" value={cfg.houseSystem ?? 'horizontal'}
       onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
       {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
     </select>

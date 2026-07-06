@@ -211,7 +211,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
         if (settings.transitCusps && self.place && !self.unknownTime
           && (self.place.lat !== 0 || self.place.lon !== 0)) {
           const h = engine.houses(engine.toJD(birthInstantUTC(self)),
-            self.place.lat, self.place.lon, settings.houseSystem ?? 'placidus');
+            self.place.lat, self.place.lon, settings.houseSystem ?? 'horizontal');
           if (h) {
             targets.push({ owner: self.name, pos: h.cusps.map((lon, i) => {
               const s = signOf(lon);

@@ -34,11 +34,14 @@ export interface Settings {
   font?: string;              // id шрифта интерфейса (lib/fonts.ts; нет = дефолт)
   seenWelcome: boolean;       // приветствие первого запуска уже показано
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
-  houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = placidus)
+  houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
+  houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
 }
 
 /** Системы домов для выбора в настройках (id → engine HOUSE_SYS; equalMC особо). */
+// горизонтальная — ПО УМОЛЧАНИЮ (выбор владелицы 2026-07-06), поэтому первая
 export const HOUSE_SYSTEMS: { id: string; label: string }[] = [
+  { id: 'horizontal', label: 'Горизонтальная (вертексная)' },
   { id: 'placidus', label: 'Плацидус' },
   { id: 'koch', label: 'Кох' },
   { id: 'porphyry', label: 'Порфирий' },
@@ -48,7 +51,6 @@ export const HOUSE_SYSTEMS: { id: string; label: string }[] = [
   { id: 'equalMC', label: 'Равнодомная от MC' },
   { id: 'morinus', label: 'Моринус' },
   { id: 'alcabitus', label: 'Алькабитус' },
-  { id: 'horizontal', label: 'Горизонтальная (вертексная)' },
 ];
 
 /** Запись бортового журнала = наблюдение (§3.5 + раунд 3). */
@@ -71,6 +73,7 @@ export interface Person {
   birthTz: string;          // IANA пояс МЕСТА рождения (перевод в UTC)
   place: { name: string; lat: number; lon: number } | null; // для домов (позже)
   unknownTime: boolean;     // true → берём полдень 12:00 (Луна/дома неточны)
+  slowOnly?: boolean;       // при неизвестном времени показывать только медленные планеты
   createdAt: string;
 }
 
@@ -135,5 +138,5 @@ export const DEFAULT_SETTINGS: Settings = {
   largeFont: false,
   font: 'default',
   seenWelcome: false,
-  houseSystem: 'placidus',
+  houseSystem: 'horizontal',
 };

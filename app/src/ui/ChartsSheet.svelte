@@ -23,7 +23,7 @@
   import { db, uid } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
-  import { synastryAspects, staticAspects, staticKey, sunRank, ASPECTS } from '../engine/index.ts';
+  import { synastryAspects, staticAspects, staticKey, sunRank, ASPECTS, SLOW } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
@@ -38,7 +38,7 @@
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
   import GlowCard from './GlowCard.svelte';
 
-  let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'placidus',
+  let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
         initialMode = 'transitNatal', onclose, onchat, oncommunity, ongoto }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
@@ -108,9 +108,15 @@
   const personA = $derived(people.find((p) => p.id === pair[0]) ?? null);
   const personB = $derived(people.find((p) => p.id === pair[1]) ?? null);
 
+  // При неизвестном времени можно смотреть только МЕДЛЕННЫЕ планеты (полдень
+  // почти не влияет на них; быстрые и Луна — неточны). Галочка у человека.
+  const SLOW_SET = new Set([...SLOW, 'Кету']);   // Кету движется как Раху
+  const slowFilter = (p: Person | null, pos: BodyPosition[]): BodyPosition[] =>
+    p?.unknownTime && p.slowOnly ? pos.filter((b) => SLOW_SET.has(b.name)) : pos;
+
   // расчёт: движок зовём при смене людей/режима/момента (не при выделении линии)
-  const posA = $derived(personA ? natalPositions(engine, personA, objects ?? undefined) : []);
-  const posB = $derived(personB ? natalPositions(engine, personB, objects ?? undefined) : []);
+  const posA = $derived(personA ? slowFilter(personA, natalPositions(engine, personA, objects ?? undefined)) : []);
+  const posB = $derived(personB ? slowFilter(personB, natalPositions(engine, personB, objects ?? undefined)) : []);
 
   // дома внутренней карты (человек A) — нужны место (координаты) и известное время
   const hasPlace = (p: typeof personA): boolean =>
@@ -181,15 +187,30 @@
       : personA && personB ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
       : personA ? [{ owner: personA.name, pos: posA }] : []);
 
-  // В тройной карте (2 натала + транзит) прогноз показывает ТОЛЬКО моменты,
-  // когда одна транзитная планета касается ОБЕИХ карт в близкие дни (±5 сут) —
-  // «взаимодействие двух людей, а не каждый аспект каждого» (правка владелицы).
-  const forecastShown = $derived.by(() => {
-    if (mode !== 'triple') return forecastList;
+  // В тройной карте (2 натала + транзит) прогноз показывает ТОЛЬКО «двойные»
+  // моменты: одна НЕБЕСНАЯ планета касается ОБЕИХ карт в близкие дни (±5 сут).
+  // Спаренный вид «♀ Венера (небо): □ Луна (я) · △ Марс (Саша)» — иначе
+  // подпись «(транзит)» читалась как «чья-то» Венера (вопрос владелицы).
+  interface ForecastPair { tName: string; tGlyph: string; a: TransitHit; b: TransitHit }
+  const forecastPairs = $derived.by((): ForecastPair[] => {
+    if (mode !== 'triple' || !personA) return [];
     const WIN = 5 * 86_400_000;
-    return forecastList.filter((h) => forecastList.some((o) =>
-      o !== h && o.tName === h.tName && o.owner !== h.owner
-      && Math.abs(o.when.getTime() - h.when.getTime()) <= WIN));
+    const hitsA = forecastList.filter((h) => h.owner === personA.name);
+    const hitsB = forecastList.filter((h) => h.owner !== personA.name);
+    const used = new Set<TransitHit>();
+    const rows: ForecastPair[] = [];
+    for (const ha of hitsA) {
+      let best: TransitHit | null = null;
+      for (const hb of hitsB) {
+        if (used.has(hb) || hb.tName !== ha.tName) continue;
+        const d = Math.abs(hb.when.getTime() - ha.when.getTime());
+        if (d > WIN) continue;
+        if (!best || d < Math.abs(best.when.getTime() - ha.when.getTime())) best = hb;
+      }
+      if (best) { used.add(best); rows.push({ tName: ha.tName, tGlyph: ha.tGlyph, a: ha, b: best }); }
+    }
+    rows.sort((x, y) => Math.min(x.a.jd, x.b.jd) - Math.min(y.a.jd, y.b.jd));
+    return rows;
   });
   let forecastGen = 0; // защита от устаревшего результата (скраб во время расчёта)
   async function runForecast(): Promise<void> {
@@ -329,6 +350,7 @@
   let fDate = $state('');   // маскированная «ДД.ММ.ГГГГ»
   let fTime = $state('');   // маскированная «ЧЧ:ММ:СС»
   let fUnknown = $state(false);
+  let fSlowOnly = $state(false); // при неизвестном времени — только медленные планеты
   let fTz = $state('');
   let fPlaceName = $state('');
   let fLat = $state<number | null>(null);
@@ -347,20 +369,19 @@
   const onTime = (v: string) => { fTime = maskTime(v, fTime); fErr = null; };
 
   function openNew(): void {
-    editId = null; fName = ''; fDate = ''; fTime = ''; fUnknown = false; fTz = defaultTz;
+    editId = null; fName = ''; fDate = ''; fTime = ''; fUnknown = false; fSlowOnly = false; fTz = defaultTz;
     fPlaceName = ''; fLat = null; fLon = null; fErr = null; tzBad = false;
     cityQuery = ''; citySug = []; manualPlace = false;
     view = 'form';
   }
   function openEdit(p: Person): void {
     editId = p.id; fName = p.name; fDate = maskedFromIso(p.birthDate);
-    fTime = p.birthTime ?? ''; fUnknown = p.unknownTime; fTz = p.birthTz;
+    fTime = p.birthTime ?? ''; fUnknown = p.unknownTime; fSlowOnly = p.slowOnly ?? false; fTz = p.birthTz;
     fPlaceName = p.place?.name ?? ''; fLat = p.place?.lat ?? null; fLon = p.place?.lon ?? null;
     cityQuery = p.place?.name ?? ''; citySug = []; manualPlace = !p.place?.name && p.place != null;
     fErr = null; tzBad = false;
     view = 'form';
   }
-  function toggleUnknown(): void { if (fUnknown) fTime = ''; }
 
   function save(): void {
     fErr = null; tzBad = false;
@@ -384,6 +405,7 @@
     db.people.put({
       id: editId ?? uid(), name, birthDate: iso,
       birthTime: time, birthTz: tzv, place, unknownTime: time == null,
+      slowOnly: time == null ? fSlowOnly : false,
       createdAt: prev?.createdAt ?? new Date().toISOString(),
     });
     people = db.people.all().slice();
@@ -490,13 +512,26 @@
       <label class="fld"><span>Дата рождения</span>
         <input type="text" inputmode="numeric" value={fDate} placeholder="ДД.ММ.ГГГГ"
           maxlength="10" oninput={(e) => onDate((e.target as HTMLInputElement).value)} /></label>
-      <label class="fld"><span>Время · чч:мм:сс</span>
-        <input type="text" inputmode="numeric" value={fTime} placeholder="ЧЧ:ММ:СС" disabled={fUnknown}
-          maxlength="8" oninput={(e) => onTime((e.target as HTMLInputElement).value)} /></label>
+      {#if !fUnknown}
+        <label class="fld"><span>Время · чч:мм:сс</span>
+          <input type="text" inputmode="numeric" value={fTime} placeholder="ЧЧ:ММ:СС"
+            maxlength="8" oninput={(e) => onTime((e.target as HTMLInputElement).value)} /></label>
+      {/if}
     </div>
-    <label class="chk">
-      <input type="checkbox" bind:checked={fUnknown} onchange={toggleUnknown} />
-      Время неизвестно (возьму полдень)</label>
+    <!-- время рождения: единый выбор (просьба владелицы — «красивое логичное меню») -->
+    <div class="fld"><span>Время рождения</span>
+      <div class="tmode">
+        <button type="button" class:on={!fUnknown} onclick={() => (fUnknown = false)}>Известно</button>
+        <button type="button" class:on={fUnknown}
+          onclick={() => { fUnknown = true; fTime = ''; }}>Неизвестно — возьму полдень</button>
+      </div>
+    </div>
+    {#if fUnknown}
+      <label class="chk">
+        <input type="checkbox" bind:checked={fSlowOnly} />
+        Показывать только медленные планеты
+        <small class="chksub">быстрые и Луна при полудне неточны</small></label>
+    {/if}
 
     <div class="fld citywrap">
       <span>Место рождения</span>
@@ -598,10 +633,12 @@
     {/if}
 
     {#if personA?.unknownTime}
-      <div class="warn">⚠ У {personA.name} время рождения не задано — взят полдень, Луна и быстрые планеты неточны.</div>
+      <div class="warn">⚠ У {personA.name} время рождения не задано — {personA.slowOnly
+        ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
     {/if}
     {#if (mode === 'synastry' || mode === 'triple') && personB?.unknownTime}
-      <div class="warn">⚠ У {personB.name} время рождения не задано — взят полдень, Луна и быстрые планеты неточны.</div>
+      <div class="warn">⚠ У {personB.name} время рождения не задано — {personB.slowOnly
+        ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
     {/if}
 
     {#if mode === 'natal'}
@@ -690,18 +727,36 @@
         <button class="btn" disabled={forecastBusy} onclick={runForecast}>
           {forecastBusy ? 'Считаю…' : `Показать на ${forecastDays} дн. от текущего момента`}</button>
         {#if mode === 'triple'}
-          <div class="hint small">Показаны только транзиты, касающиеся обеих карт в близкие дни.</div>
+          <div class="hint small">Показаны планеты НЕБА, касающиеся обеих карт в близкие дни —
+            небесная планета общая, ничья.</div>
         {/if}
         {#if forecastRan}
-          {#if forecastShown.length === 0}<div class="empty">
-            {mode === 'triple' ? 'В этом окне нет транзитов, задевающих обе карты сразу.' : 'В этом окне точных транзитов нет.'}</div>{/if}
-          {#each forecastShown as h (hitKey(h) + h.jd)}
-            <button class="fcrow" class:sel={selKey === hitKey(h)} onclick={() => gotoHit(h)}>
-              <span class="fcglyph glyph">{h.tGlyph}<span class="fcasp">{h.symbol}</span>{h.nGlyph}</span>
-              <span class="fcnames">{h.tName} {h.aspect} {h.nName} <small>({h.owner})</small></span>
-              <span class="fcdate">{fmtHit(h.when)} <span class="go">→</span></span>
-            </button>
-          {/each}
+          {#if mode === 'triple'}
+            {#if forecastPairs.length === 0}<div class="empty">В этом окне нет транзитов, задевающих обе карты сразу.</div>{/if}
+            {#each forecastPairs as r (r.tName + r.a.jd)}
+              <div class="fcpair">
+                <div class="fcphead"><span class="fcglyph glyph">{r.tGlyph}</span>
+                  <b>{r.tName}</b> <small>небо · к обоим</small></div>
+                <button class="fcrow half" class:sel={selKey === hitKey(r.a)} onclick={() => gotoHit(r.a)}>
+                  <span class="fcnames">{r.a.symbol} {r.a.nName} <small>({r.a.owner})</small></span>
+                  <span class="fcdate">{fmtHit(r.a.when)} <span class="go">→</span></span>
+                </button>
+                <button class="fcrow half" class:sel={selKey === hitKey(r.b)} onclick={() => gotoHit(r.b)}>
+                  <span class="fcnames">{r.b.symbol} {r.b.nName} <small>({r.b.owner})</small></span>
+                  <span class="fcdate">{fmtHit(r.b.when)} <span class="go">→</span></span>
+                </button>
+              </div>
+            {/each}
+          {:else}
+            {#if forecastList.length === 0}<div class="empty">В этом окне точных транзитов нет.</div>{/if}
+            {#each forecastList as h (hitKey(h) + h.jd)}
+              <button class="fcrow" class:sel={selKey === hitKey(h)} onclick={() => gotoHit(h)}>
+                <span class="fcglyph glyph">{h.tGlyph}<span class="fcasp">{h.symbol}</span>{h.nGlyph}</span>
+                <span class="fcnames">{h.tName} {h.aspect} {h.nName} <small>({h.owner})</small></span>
+                <span class="fcdate">{fmtHit(h.when)} <span class="go">→</span></span>
+              </button>
+            {/each}
+          {/if}
         {/if}
       </div>
     {/if}
@@ -811,7 +866,14 @@
   .fld input { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 12px; padding: 10px 12px; font: inherit; }
   .fld input:disabled { opacity: 0.5; }
-  .chk { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.86rem; margin-bottom: 10px; }
+  .chk { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.86rem; margin-bottom: 10px; flex-wrap: wrap; }
+  .chksub { flex-basis: 100%; margin-left: 26px; color: var(--ink-faint); font-size: 0.76rem; }
+  /* сегмент «время известно/неизвестно» */
+  .tmode { display: flex; gap: 6px; }
+  .tmode button { flex: 1; background: #ffffff0c; border: 1px solid var(--glass-brd);
+    color: var(--ink-dim); border-radius: 12px; padding: 10px 6px; font-size: 0.84rem; }
+  .tmode button.on { background: var(--accent); border-color: transparent;
+    color: var(--on-accent); font-weight: 600; }
   .place { margin-bottom: 10px; }
   .place summary { color: var(--ink-dim); font-size: 0.86rem; cursor: pointer; margin-bottom: 8px; }
   .two { display: flex; gap: 10px; align-items: end; }
@@ -879,6 +941,14 @@
   .fcdate { flex: none; font-family: var(--font-mono); font-size: 0.74rem; color: var(--ink-faint);
     font-variant-numeric: tabular-nums; }
   .fcdate .go { color: var(--accent); }
+  /* спаренный прогноз тройной карты: небесная планета → обе карты */
+  .fcpair { border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--glass-brd));
+    background: color-mix(in srgb, var(--glass) 90%, var(--gold) 5%);
+    border-radius: 12px; padding: 6px 8px; margin: 6px 0; }
+  .fcphead { display: flex; align-items: center; gap: 8px; color: var(--ink);
+    font-size: 0.88rem; padding: 2px 4px 4px; }
+  .fcphead small { color: var(--ink-faint); }
+  .fcrow.half { margin: 4px 0; padding: 6px 10px; }
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
   .grp.gold { color: var(--gold); }

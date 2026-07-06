@@ -91,17 +91,26 @@ jobs:
 
       - name: Обновить APK + OTA-бандл в репо (та же ссылка для скачивания)
         run: |
-          cp app/android/app/build/outputs/apk/debug/app-debug.apk apk/Astra.apk
+          # Артефакты — во времянку: дальше жёстко перечитываем свежий main.
+          # (Прежний rebase падал на БИНАРНОМ конфликте apk/*, когда две сборки
+          # шли подряд — «could not apply … APK+OTA», сборка 2026-07-06.)
+          cp app/android/app/build/outputs/apk/debug/app-debug.apk /tmp/Astra.apk
+          cp apk/bundle.zip /tmp/bundle.zip
+          cp apk/latest.json /tmp/latest.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # -f: keystore подпадает под *.keystore в .gitignore, но нам нужно закоммитить
-          # именно этот фиксированный ключ (первый запуск), дальше он уже в репо.
-          git add -f app/android/app/astra-debug.keystore
-          git add apk/Astra.apk apk/bundle.zip apk/latest.json
-          git commit -m "APK + OTA авто-сборка [skip ci]" || echo "без изменений"
-          # пока собирали, в main могли запушить (текст/доки) — подтянуть и пушить.
-          # --autostash: npm install/cap sync оставляют незакоммиченный мусор в
-          # дереве CI, без него rebase отказывается («You have unstaged changes»).
-          # Наш коммит трогает только apk/* и keystore → текстовые пуши ребейзятся чисто.
-          git pull --rebase --autostash origin main
-          git push
+          for i in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            mkdir -p apk
+            cp /tmp/Astra.apk apk/Astra.apk
+            cp /tmp/bundle.zip apk/bundle.zip
+            cp /tmp/latest.json apk/latest.json
+            # -f: keystore под *.keystore в .gitignore, но фиксированный ключ нужен в репо
+            git add -f app/android/app/astra-debug.keystore
+            git add apk/Astra.apk apk/bundle.zip apk/latest.json
+            git commit -m "APK + OTA авто-сборка [skip ci]" || { echo "без изменений"; exit 0; }
+            git push && exit 0
+            echo "пуш не прошёл (гонка) — попытка $i, перечитываю main"
+          done
+          echo "не удалось запушить за 3 попытки" && exit 1

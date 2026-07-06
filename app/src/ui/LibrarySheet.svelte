@@ -3,17 +3,27 @@
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onTracked, onSynastry, onChat }:
+  let { onclose, onInterpretations, onArchetypes, onTracked, onJournal, onChat }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
-      onTracked: () => void; onSynastry: () => void; onChat: () => void } = $props();
+      onTracked: () => void; onJournal: () => void; onChat: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }}>
   <header><h2>Библиотека</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Трактовки, архетипы божеств и отслеживаемые аспекты — в одном месте.</div>
+  <div class="hint">Журнал, трактовки, архетипы и отслеживаемые аспекты — в одном месте.</div>
 
-  <!-- тап: обводка обегает контур → открытие (единый паттерн GlowCard) -->
+  <!-- тап: обводка обегает контур → открытие (единый паттерн GlowCard).
+       Журнал переехал сюда из нижнего меню (просьба 2026-07-06) — там
+       освободилось место, меню стало из 4 пунктов. Синастрия убрана
+       (дублировала «Карты»). -->
+  <GlowCard radius={14} onactivate={onJournal}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">📓</span>
+      <div class="txt"><b>Журнал</b><small>наблюдения по дням, сравнение заметок</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
   <GlowCard radius={14} onactivate={onInterpretations}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">📖</span>
@@ -32,13 +42,6 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">★</span>
       <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
-      <span class="arr">→</span>
-    </button>
-  </GlowCard>
-  <GlowCard radius={14} onactivate={onSynastry}>
-    <button class="row reveal" use:reveal>
-      <span class="ic glyph">👥</span>
-      <div class="txt"><b>Синастрия</b><small>межаспекты карт двух людей</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

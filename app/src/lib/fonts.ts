@@ -15,7 +15,6 @@ import '@fontsource-variable/nunito/wght.css';
 import '@fontsource-variable/montserrat/wght.css';
 import '@fontsource-variable/rubik/wght.css';
 import '@fontsource-variable/onest/wght.css';
-import '@fontsource-variable/comfortaa/wght.css';
 import '@fontsource/pt-sans/cyrillic-400.css';
 import '@fontsource/pt-sans/cyrillic-700.css';
 import '@fontsource/pt-sans/latin-400.css';
@@ -36,8 +35,9 @@ export const FONTS: FontOption[] = [
   { id: 'nunito',     label: 'Nunito · округлый, тёплый',   stack: `'Nunito Variable', ${FALLBACK}` },
   { id: 'montserrat', label: 'Montserrat · строгий модерн', stack: `'Montserrat Variable', ${FALLBACK}` },
   { id: 'rubik',      label: 'Rubik · дружелюбный',         stack: `'Rubik Variable', ${FALLBACK}` },
+  // Comfortaa убран (2026-07-06): слишком широкий, ломал разметку карточек.
+  // У кого был выбран — fontStack() тихо откатит на дефолт.
   { id: 'onest',      label: 'Onest · современный',         stack: `'Onest Variable', ${FALLBACK}` },
-  { id: 'comfortaa',  label: 'Comfortaa · округлый дисплей', stack: `'Comfortaa Variable', ${FALLBACK}` },
   { id: 'ptsans',     label: 'PT Sans · классика',          stack: `'PT Sans', ${FALLBACK}` },
 ];
 

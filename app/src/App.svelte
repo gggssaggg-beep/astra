@@ -44,8 +44,9 @@
   let showLibrary = $state(false);
   let showInterp = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
-  // ссылка на шторку Сообщества — Android «Назад» шагает по её внутренней навигации
+  // ссылки на шторки — Android «Назад» шагает по их внутренней навигации
   let communityRef = $state<{ stepBack: () => boolean } | undefined>(undefined);
+  let chartsRef = $state<{ stepBack: () => boolean } | undefined>(undefined);
   let selRec = $state<AspectRecord | null>(null);
   // Просмотренный аспект ОСТАЁТСЯ выделенным после закрытия трактовки (линия в
   // колесе + кромка карточки) — «пользователь знает, что смотрел». Сбрасывается
@@ -145,9 +146,13 @@
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
-    if (showCharts) { showCharts = false; return; }
+    if (showCharts) {
+      // из открытой карты/формы «Назад» = стрелочка ← (на список), не закрытие
+      if (!chartsRef?.stepBack()) showCharts = false;
+      return;
+    }
     if (showCal) { showCal = false; return; }
-    if (showJournal) { showJournal = false; return; }
+    if (showJournal) { showJournal = false; showLibrary = true; return; }
     if (showLibrary) { showLibrary = false; return; }
     if (showData) { showData = false; return; }
     if (showWelcome) {
@@ -299,11 +304,10 @@
   {/if}
 </main>
 
-<!-- Дата открывается тапом по дате в шапке; чат переехал в Библиотеку (просьба
-     владелицы 2026-07-02) — в нижнем меню его место заняло Сообщество. -->
+<!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
+     из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
   <button onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button onclick={() => (showJournal = true)} aria-label="Журнал"><span class="ti glyph">📓</span><span class="tl">Журнал</span></button>
   <button class="mid" onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span></button>
   <button onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
   <button onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
@@ -319,7 +323,7 @@
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
-    onSynastry={() => { showLibrary = false; showCharts = { mode: 'synastry' }; }}
+    onJournal={() => { showLibrary = false; showJournal = true; }}
     onChat={() => { showLibrary = false; showChat = true; }} />
 {/if}
 
@@ -339,7 +343,7 @@
 {/if}
 
 {#if showCharts && engine}
-  <ChartsSheet {engine} {orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
+  <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
     tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
     initialMode={showCharts.mode ?? 'transitNatal'}
     onchat={(seed, source) => openChat(seed, source)}
@@ -361,8 +365,9 @@
     onclose={() => (showCal = false)} />
 {/if}
 
+<!-- Журнал открывается из Библиотеки; закрытие возвращает в неё (пункт выше) -->
 {#if showJournal}
-  <Journal {date} tz={settings.tz} onclose={() => (showJournal = false)} />
+  <Journal {date} tz={settings.tz} onclose={() => { showJournal = false; showLibrary = true; }} />
 {/if}
 
 {#if selRec && engine}

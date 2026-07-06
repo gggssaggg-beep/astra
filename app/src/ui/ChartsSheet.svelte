@@ -23,7 +23,7 @@
   import { db, uid } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
-  import { synastryAspects, staticAspects, staticKey, sunRank } from '../engine/index.ts';
+  import { synastryAspects, staticAspects, staticKey, sunRank, ASPECTS } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
@@ -190,10 +190,20 @@
     } catch { if (gen === forecastGen) forecastList = []; }
     finally { if (gen === forecastGen) { forecastBusy = false; forecastRan = true; } }
   }
-  // тап по строке прогноза: перейти к моменту И ВЫДЕЛИТЬ сам аспект (строка +
-  // линия в колесе), а не «просто открыть день» (просьба владелицы 2026-07-06)
+  // Тап по строке прогноза: перейти к моменту, выделить аспект И открыть его
+  // ОПИСАНИЕ с владельцем — «Уран (Саша) ⚹ Раху (транзит)», а не «просто
+  // транзит» (правки владелицы, работает во всех режимах вкл. синастрию).
   const hitKey = (h: TransitHit): string => `${h.nName}|${h.tName}|${h.aspect}`;
-  function gotoHit(h: TransitHit): void { transitAt = new Date(h.when); selKey = hitKey(h); }
+  function gotoHit(h: TransitHit): void {
+    transitAt = new Date(h.when);
+    selKey = hitKey(h);
+    const isA = !!personA && h.owner === personA.name;
+    const a: StaticAspect = {
+      p1: h.nName, p2: h.tName, aspect: h.aspect, symbol: h.symbol,
+      angle: ASPECTS[h.aspect]?.angle ?? 0, orb: 0,
+    };
+    openDetail(a, h.owner, 'транзит', isA ? posA : posB, isA ? 'A' : 'B');
+  }
   const fmtHit = (d: Date): string => fmts(tz).label.format(d);
 
   // Вертикальный порядок — КАК НА ГЛАВНОМ экране (правило астролога): сверху
@@ -384,6 +394,12 @@
 
   function onStatic(key: string): void { selKey = selKey === key ? null : key; }
   function toList(): void { view = 'list'; selKey = null; }
+  /** Android «Назад»: из карты/формы — на шаг выше (как стрелочка ←);
+   *  закрывать шторку будет App, когда мы уже на списке. */
+  export function stepBack(): boolean {
+    if (view === 'chart' || view === 'form') { toList(); return true; }
+    return false;
+  }
   function openChart(): void { transitAt = new Date(); selKey = null; view = 'chart'; }
 
   const chartTitle = $derived(
@@ -391,6 +407,26 @@
     : mode === 'synastry' ? `${personA?.name} ✕ ${personB?.name}`
     : mode === 'triple' ? `Транзит · ${personA?.name} + ${personB?.name}`
     : `Транзит · ${personA?.name}`);
+
+  // «Обсудить карту с Claude» — вся картина разом (позиции + главные аспекты)
+  function discussChart(): void {
+    const posLine = (who: string, pos: BodyPosition[]) =>
+      `${who}: ${pos.map((p) => `${p.name} ${fmtPosRx(p.lon, p.retro)}`).join('; ')}`;
+    const aspLine = (list: StaticAspect[], oa: string, ob: string) =>
+      list.slice(0, 14).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}°`).join('; ');
+    let data = '';
+    if (mode === 'natal' && personA) {
+      data = `${posLine(personA.name, posA)}.\nНатальные аспекты: ${aspLine(natalAsp, personA.name, personA.name) || 'нет'}.`;
+    } else if (mode === 'synastry' && personA && personB) {
+      data = `${posLine(personA.name, posA)}.\n${posLine(personB.name, posB)}.\nМежаспекты: ${aspLine(crossSyn, personA.name, personB.name) || 'нет'}.`;
+    } else if (personA) {
+      data = `${posLine(personA.name, posA)}.\n${personB ? posLine(personB.name, posB) + '.\n' : ''}`
+        + `Транзит (${transitLabel}): ${aspLine(crossTA, personA.name, 'транзит') || 'нет'}`
+        + (personB ? `; ${aspLine(crossTB, personB.name, 'транзит') || 'нет'}` : '') + '.';
+    }
+    onchat?.(`Разбираем совмещённую карту «${chartTitle}». Вот УЖЕ посчитанные данные — не пересчитывай их, трактуй:\n${data}\nДай цельную картину: главные темы, сильные и напряжённые места, на что обратить внимание.`,
+      { objects: [], title: chartTitle });
+  }
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -441,7 +477,7 @@
       <label class="fld"><span>Дата рождения</span>
         <input type="text" inputmode="numeric" value={fDate} placeholder="ДД.ММ.ГГГГ"
           maxlength="10" oninput={(e) => onDate((e.target as HTMLInputElement).value)} /></label>
-      <label class="fld"><span>Время (можно с секундами)</span>
+      <label class="fld"><span>Время · чч:мм:сс</span>
         <input type="text" inputmode="numeric" value={fTime} placeholder="ЧЧ:ММ:СС" disabled={fUnknown}
           maxlength="8" oninput={(e) => onTime((e.target as HTMLInputElement).value)} /></label>
     </div>
@@ -496,19 +532,24 @@
     </header>
 
     {#snippet transitCtl()}
+      <!-- один ровный ряд: ‹ [дата] [время] ОК › — без переносов и «кривизны» -->
       <div class="tctl">
-        <button class="mini" onclick={() => stepTransit(-86_400_000)} aria-label="День назад">‹ день</button>
+        <button class="mini navd" onclick={() => stepTransit(-86_400_000)}
+          aria-label="День назад" title="День назад">‹</button>
         <input class="tin" inputmode="numeric" maxlength="10" value={tDate} placeholder="ДД.ММ.ГГГГ" aria-label="Дата транзита"
           oninput={(e) => (tDate = maskDate((e.target as HTMLInputElement).value, tDate))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
         <input class="tin tt" inputmode="numeric" maxlength="5" value={tTime} aria-label="Время транзита"
           oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value, tTime))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
-        <button class="mini" onclick={applyTransitFields} aria-label="Применить дату и время">ОК</button>
-        <button class="mini" onclick={() => stepTransit(86_400_000)} aria-label="День вперёд">день ›</button>
-        <button class="mini now" onclick={refreshTransit}>сейчас</button>
+        <button class="mini ok" onclick={applyTransitFields} aria-label="Применить дату и время">ОК</button>
+        <button class="mini navd" onclick={() => stepTransit(86_400_000)}
+          aria-label="День вперёд" title="День вперёд">›</button>
       </div>
-      <div class="cap">крути колесо пальцем — сутки за оборот</div>
+      <div class="tctl2">
+        <button class="mini now" onclick={refreshTransit}>⌂ сейчас</button>
+        <span class="cap">крути колесо пальцем — сутки за оборот</span>
+      </div>
     {/snippet}
 
     {#if mode === 'natal'}
@@ -530,6 +571,10 @@
         selectedStaticKey={selKey} onstatictap={onStatic} onscrub={scrubTransit} />
       <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
+    {/if}
+
+    {#if onchat}
+      <button class="btn chatbtn" onclick={discussChart}>💬 Обсудить карту с Claude</button>
     {/if}
 
     {#if personA?.unknownTime}
@@ -734,6 +779,7 @@
   .btn.danger { color: var(--rose); }
   .btn.add { width: 100%; margin-top: 6px; }
   .btn.open { width: 100%; margin-top: 10px; }
+  .btn.chatbtn { width: 100%; margin: 2px 0 8px; }
 
   /* форма */
   .fld { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
@@ -744,8 +790,10 @@
   .chk { display: flex; align-items: center; gap: 8px; color: var(--ink-dim); font-size: 0.86rem; margin-bottom: 10px; }
   .place { margin-bottom: 10px; }
   .place summary { color: var(--ink-dim); font-size: 0.86rem; cursor: pointer; margin-bottom: 8px; }
-  .two { display: flex; gap: 10px; }
+  .two { display: flex; gap: 10px; align-items: end; }
   .two .fld { flex: 1; min-width: 0; }
+  /* лейблы полей пары — одной строкой: разноВысокие лейблы съезжали поле «Время» */
+  .two .fld > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .small { font-size: 0.78rem; }
   .citywrap { position: relative; }
   .suggest { list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; top: 100%; left: 0; right: 0;
@@ -770,13 +818,18 @@
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
     border-radius: 999px; padding: 7px 12px; font-size: 0.78rem; }
   .mini.now { color: var(--accent); }
-  /* панель прокрутки транзита */
-  .tctl { display: flex; align-items: center; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 2px 0; }
+  /* панель прокрутки транзита: ровный ряд без переносов + строка «сейчас» */
+  .tctl { display: flex; align-items: stretch; justify-content: center; gap: 6px;
+    flex-wrap: nowrap; margin: 4px 0 0; }
+  .mini.navd { width: 38px; padding: 0; display: grid; place-items: center;
+    font-size: 1.15rem; border-radius: 12px; flex: none; }
+  .mini.ok { border-radius: 12px; font-weight: 600; }
   .tin { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
-    border-radius: 10px; padding: 6px 8px; font: inherit; font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums; text-align: center; width: 6.4rem; }
-  .tin.tt { width: 4rem; }
-  .cap { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin: 2px 0 6px; }
+    border-radius: 12px; padding: 8px 6px; font: inherit; font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums; text-align: center; width: 6.6rem; min-width: 0; }
+  .tin.tt { width: 3.9rem; }
+  .tctl2 { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 8px; }
+  .cap { color: var(--ink-faint); font-size: 0.72rem; }
   /* прогноз транзитов */
   .fc { margin-top: 14px; }
   .fchead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }

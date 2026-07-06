@@ -8,6 +8,8 @@
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore } from '../lib/pairAspectLore.ts';
+  import { buildAstroPrompt } from '../lib/aiPrompt.ts';
+  import PromptSheet from './PromptSheet.svelte';
   import { fmtTime, civilOf, fmtRelDay } from '../lib/format.ts';
   import { expandYear } from '../lib/inputmask.ts';
   import { autogrow } from '../lib/autogrow.ts';
@@ -108,6 +110,18 @@
   // переход к полной картинке дня, в который состоится выбранный аспект
   function goto(o: AspectOccurrence) { ongoto?.(civilOf(o.exact, tz)); }
 
+  // «Промпт для любой ИИ» по этому аспекту дня — тот же корректный контекст
+  let showPrompt = $state(false);
+  const promptText = $derived.by(() => buildAstroPrompt({
+    kind: 'aspect',
+    title: `аспект ${rec.p1} ${rec.aspect} ${rec.p2}`,
+    aspects: [`${rec.p1} ${rec.aspect} ${rec.p2}, орбис ${rec.exactOrb.toFixed(2)}°`
+      + (rec.exactTime ? `, точно ${fmtTime(rec.exactTime, tz)}` : '')],
+    focus: `${rec.p1} ${rec.aspect} ${rec.p2}${pair ? ` — смысл пары: ${pair}` : ''}`
+      + (unique ? `. Трактовка сочетания: ${unique}` : ''),
+    extra: 'Разбери этот аспект: как энергии участников взаимодействуют через характер аспекта, как это проживается, на что обратить внимание.',
+  }));
+
   // закрытие (свайп/бекдроп/✕): недописанная «своя трактовка» не должна пропасть —
   // textarea сохраняется по blur, но свайп-закрытие blur не гарантирует
   function handleClose() {
@@ -157,6 +171,11 @@
   <button class="discuss" onclick={() => ondiscuss?.(rec)}>
     <span class="dg glyph">💬</span>
     <span>Обсудить аспект с Claude<small>по заложенным архетипам участников</small></span>
+  </button>
+
+  <button class="discuss ghost" onclick={() => (showPrompt = true)}>
+    <span class="dg glyph">📋</span>
+    <span>Промпт для любой ИИ<small>готовый текст для ChatGPT, Gemini и др.</small></span>
   </button>
 
   <button class="discuss ghost" onclick={() => oncommunity?.(sig, `${rec.p1} ${rec.aspect} ${rec.p2}`)}>
@@ -224,6 +243,10 @@
     {/if}
   </div>
 </section>
+
+{#if showPrompt}
+  <PromptSheet text={promptText} onclose={() => (showPrompt = false)} />
+{/if}
 
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 22; }

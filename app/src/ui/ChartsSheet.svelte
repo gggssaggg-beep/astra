@@ -27,6 +27,9 @@
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
+  import { analyzeHouses, houseOfLon, type HouseInfo } from '../lib/houses.ts';
+  import { HOUSE_SYSTEMS } from '../lib/models.ts';
+  import { buildAstroPrompt, type PromptPerson } from '../lib/aiPrompt.ts';
   import { fmtPos, fmtPosRx, zonedTimeUTC } from '../lib/format.ts';
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
   import { parseDateInput } from '../lib/dateparse.ts';
@@ -36,6 +39,7 @@
   import Wheel from './Wheel.svelte';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
+  import PromptSheet from './PromptSheet.svelte';
   import GlowCard from './GlowCard.svelte';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
@@ -125,6 +129,13 @@
     if (!personA || personA.unknownTime || !hasPlace(personA)) return null;
     return engine.houses(engine.toJD(birthInstantUTC(personA)), personA.place!.lat, personA.place!.lon, houseSystem);
   });
+  // разбор домов A: знак на куспиде + управитель(и) + трактовка (для графы домов)
+  const houseInfoA = $derived(housesA ? analyzeHouses(housesA.cusps) : null);
+  // римский номер дома планеты (для списка положений): дом стояния
+  const ROMAN = ['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'];
+  const houseOfA = (lon: number): string =>
+    housesA ? ROMAN[houseOfLon(lon, housesA.cusps) - 1] : '';
+  const houseSysLabel = $derived(HOUSE_SYSTEMS.find((h) => h.id === houseSystem)?.label ?? houseSystem);
 
   // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск)
   let transitAt = $state(new Date());
@@ -445,25 +456,47 @@
     : mode === 'triple' ? `Транзит · ${personA?.name} + ${personB?.name}`
     : `Транзит · ${personA?.name}`);
 
-  // «Обсудить карту с Claude» — вся картина разом (позиции + главные аспекты)
-  function discussChart(): void {
-    const posLine = (who: string, pos: BodyPosition[]) =>
-      `${who}: ${pos.map((p) => `${p.name} ${fmtPosRx(p.lon, p.retro)}`).join('; ')}`;
-    const aspLine = (list: StaticAspect[], oa: string, ob: string) =>
-      list.slice(0, 14).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}°`).join('; ');
-    let data = '';
-    if (mode === 'natal' && personA) {
-      data = `${posLine(personA.name, posA)}.\nНатальные аспекты: ${aspLine(natalAsp, personA.name, personA.name) || 'нет'}.`;
-    } else if (mode === 'synastry' && personA && personB) {
-      data = `${posLine(personA.name, posA)}.\n${posLine(personB.name, posB)}.\nМежаспекты: ${aspLine(crossSyn, personA.name, personB.name) || 'нет'}.`;
-    } else if (personA) {
-      data = `${posLine(personA.name, posA)}.\n${personB ? posLine(personB.name, posB) + '.\n' : ''}`
-        + `Транзит (${transitLabel}): ${aspLine(crossTA, personA.name, 'транзит') || 'нет'}`
-        + (personB ? `; ${aspLine(crossTB, personB.name, 'транзит') || 'нет'}` : '') + '.';
+  // ЕДИНЫЙ контекст карты — общий и для Claude, и для экспорта в любую ИИ.
+  // Индивидуально по режиму: натал = только этот человек; синастрия = обе карты;
+  // транзит+натал = человек + небо на рассматриваемый момент; тройная = двое + небо.
+  const posLine = (pos: BodyPosition[], withHouse: boolean): string =>
+    pos.map((p) => `${p.name} ${fmtPosRx(p.lon, p.retro)}${withHouse && houseOfA(p.lon) ? ` (${houseOfA(p.lon)} дом)` : ''}`).join('; ');
+  const aspLine = (list: StaticAspect[], oa: string, ob: string): string =>
+    list.slice(0, 20).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}°`).join('; ');
+  const housesLine = (): string | undefined =>
+    houseInfoA ? houseInfoA.map((h) => `${['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][h.house - 1]} ${h.sign} (упр. ${h.rulers.join(', ')})`).join('; ') : undefined;
+
+  const chartPromptText = $derived.by((): string => {
+    if (!personA) return '';
+    const people: PromptPerson[] = [];
+    const aspects: string[] = [];
+    if (mode === 'natal') {
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine() });
+      if (natalAsp.length) aspects.push(aspLine(natalAsp, personA.name, personA.name));
+    } else if (mode === 'synastry' && personB) {
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine() });
+      people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false) });
+      if (crossSyn.length) aspects.push('Межаспекты: ' + aspLine(crossSyn, personA.name, personB.name));
+    } else {
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine() });
+      if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false) });
+      if (crossTA.length) aspects.push(`Транзит → ${personA.name}: ` + aspLine(crossTA, personA.name, 'транзит'));
+      if (personB && crossTB.length) aspects.push(`Транзит → ${personB.name}: ` + aspLine(crossTB, personB.name, 'транзит'));
     }
-    onchat?.(`Разбираем совмещённую карту «${chartTitle}». Вот УЖЕ посчитанные данные — не пересчитывай их, трактуй:\n${data}\nДай цельную картину: главные темы, сильные и напряжённые места, на что обратить внимание.`,
-      { objects: [], title: chartTitle });
+    return buildAstroPrompt({
+      title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects,
+      transit: (mode === 'transitNatal' || mode === 'triple')
+        ? { label: transitLabel, positions: posLine(transitPos, false) } : undefined,
+      extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).' : undefined,
+    });
+  });
+
+  // «Обсудить карту с Claude» — тот же полный контекст, что и в экспорте
+  function discussChart(): void {
+    onchat?.(chartPromptText, { objects: [], title: chartTitle });
   }
+
+  let showPrompt = $state(false);   // окно «Промпт для любой ИИ»
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -630,9 +663,13 @@
       <div class="birth">{personB.name} — род. {fmtBirth(personB)}</div>
     {/if}
 
-    {#if onchat}
-      <button class="btn chatbtn" onclick={discussChart}>💬 Обсудить карту с Claude</button>
-    {/if}
+    <div class="chatrow">
+      {#if onchat}
+        <button class="btn chatbtn" onclick={discussChart}>💬 Обсудить с Claude</button>
+      {/if}
+      <button class="btn promptbtn" onclick={() => (showPrompt = true)}
+        title="Готовый промпт для ChatGPT, Gemini и др.">📋 Промпт для ИИ</button>
+    </div>
 
     {#if personA?.unknownTime}
       <div class="warn">⚠ У {personA.name} время рождения не задано — {personA.slowOnly
@@ -777,9 +814,12 @@
             else if (openPos === p.name) openPos = null;
           }}>
             <summary><span class="glyph">{p.glyph}</span> <b>{p.name}</b>
+              {#if houseOfA(p.lon)}<span class="hbadge">{houseOfA(p.lon)}</span>{/if}
               <span class="posval">{fmtPosRx(p.lon, p.retro)}</span></summary>
             <div class="posbody">
               {#if PLANET_LORE[p.name]}<div class="posrole">{PLANET_LORE[p.name].role}</div>{/if}
+              {#if houseOfA(p.lon)}<div class="postext">Дом стояния: {houseOfA(p.lon)} — планета
+                проявляется в этой сфере жизни и влияет на её дела.</div>{/if}
               {#if SIGN_LORE[si]}
                 <div class="possign"><b>{p.sign}</b> · {SIGN_LORE[si].element}</div>
                 <div class="postext">{SIGN_LORE[si].text}</div>
@@ -790,6 +830,27 @@
           </details>
         </GlowCard>
       {/each}
+
+      {#if houseInfoA}
+        <!-- дома: символизм 1↔Овен…, знак на куспиде, управитель(и), трактовка.
+             Управитель — по авторской раскладке знака (SIGN_MYTHS). -->
+        <div class="grp">Дома</div>
+        {#each houseInfoA as h (h.house)}
+          <details class="posx">
+            <summary><span class="hbadge big">{['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][h.house - 1]}</span>
+              <b>{h.sign}</b>
+              <span class="posval">упр. {h.rulers.join(', ')}</span></summary>
+            <div class="posbody">
+              {#if h.lore}<div class="postext">{h.lore}</div>{/if}
+              <div class="posrole">Управитель дома — {h.rulers.join(' и ')}
+                ({h.rulers.length > 1 ? 'знак перехвачен: два управителя' : 'по знаку на куспиде'}).</div>
+            </div>
+          </details>
+        {/each}
+      {:else if personA && !personA.unknownTime}
+        <div class="hint small" style="margin-top:8px">Дома не показаны: не задано место рождения
+          (координаты). Впиши город в карточке человека — появятся куспиды и управители.</div>
+      {/if}
     {:else}
       <details class="positions">
         <summary>Позиции</summary>
@@ -815,6 +876,10 @@
     onclose={() => (detail = null)}
     onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
+{/if}
+
+{#if showPrompt}
+  <PromptSheet text={chartPromptText} onclose={() => (showPrompt = false)} />
 {/if}
 
 <style>
@@ -862,7 +927,14 @@
   .btn.danger { color: var(--rose); }
   .btn.add { width: 100%; margin-top: 6px; }
   .btn.open { width: 100%; margin-top: 10px; }
-  .btn.chatbtn { width: 100%; margin: 2px 0 8px; }
+  .chatrow { display: flex; gap: 8px; margin: 2px 0 8px; }
+  .btn.chatbtn { flex: 1; }
+  .btn.promptbtn { flex: 1; background: #ffffff10; }
+  /* римский номер дома у планеты/куспида */
+  .hbadge { flex: none; font-size: 0.7rem; font-weight: 700; color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    border-radius: 6px; padding: 1px 6px; font-variant-numeric: normal; }
+  .hbadge.big { font-size: 0.82rem; min-width: 2.2rem; text-align: center; }
 
   /* форма */
   .fld { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }

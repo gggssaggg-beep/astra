@@ -210,9 +210,38 @@ export async function applyQueuedNow(): Promise<OtaStatus> {
  * Защита от reload-петли: бандл, который прежде падал (откат Capgo), НЕ
  * автоприменяем (autoApply=false) — только вручную из настроек.
  */
+let otaBusyGuard = false;   // не запускать проверку параллельно (старт + resume)
+
+async function checkAndMaybeApply(): Promise<void> {
+  if (otaBusyGuard) return;
+  otaBusyGuard = true;
+  try {
+    const st = await checkOtaUpdate();
+    // Применяем (reload) ТОЛЬКО когда приложение НА ЭКРАНЕ. Свёрнутое —
+    // WebView заморожен, reload посреди фона может не сработать/оставить
+    // приложение в странном состоянии; применим при следующем возврате.
+    if (st.state === 'queued' && st.autoApply && document.visibilityState === 'visible') {
+      await applyQueuedNow();
+    }
+  } catch { /* сеть/манифест недоступны — тихо, попробуем при возврате */ }
+  finally { otaBusyGuard = false; }
+}
+
 export async function initOta(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   void ensureReady();     // не ждём сети/манифеста — отчитаться надо немедленно
-  const st = await checkOtaUpdate();
-  if (st.state === 'queued' && st.autoApply) await applyQueuedNow();
+  await checkAndMaybeApply();
+}
+
+/**
+ * Вызывать при ВОЗВРАЩЕНИИ приложения на экран (App appStateChange isActive,
+ * либо visibilitychange). Сворачивание/блокировка экрана в Android WebView
+ * ЗАМОРАЖИВАЕТ JS и рвёт скачивание бандла на середине («слетает загрузка
+ * обновлений если свернуть» — жалоба 2026-07-07). При возврате докачиваем
+ * начисто и применяем. checkOtaUpdate идемпотентен: недокачанный/битый бандл
+ * удаляется и качается заново.
+ */
+export async function resumeOta(): Promise<void> {
+  if (!Capacitor.isNativePlatform()) return;
+  await checkAndMaybeApply();
 }

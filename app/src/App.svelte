@@ -29,6 +29,7 @@
   import type { WheelInfo } from './lib/lore.ts';
   import { rescheduleAll, onNotificationTap } from './lib/reminders.ts';
   import { initPush } from './lib/push.ts';
+  import { resumeOta } from './lib/ota.ts';
   import { fontStack } from './lib/fonts.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
@@ -178,6 +179,8 @@
   onMount(async () => {
     if (Capacitor.isNativePlatform()) {
       void CapApp.addListener('backButton', onBack);
+      // вернулись на экран → докачать OTA, если сворачивание оборвало загрузку
+      void CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) void resumeOta(); });
     }
     onNotificationTap(openFromNotification);
     // пуши сообщества (FCM): регистрация токена при сессии; тап по пушу —

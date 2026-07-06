@@ -17,6 +17,8 @@
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
+  import { buildAstroPrompt } from '../lib/aiPrompt.ts';
+  import PromptSheet from './PromptSheet.svelte';
   import { fmtRelDay } from '../lib/format.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
@@ -98,6 +100,18 @@
       + `в приложении архетипы участников — что это сочетание значит для отношений и на что обратить внимание?`,
       { objects: [a.p1, a.p2], aspectSignature: sig, title });
   }
+
+  // «Промпт для любой ИИ» по этому межаспекту
+  let showPrompt = $state(false);
+  const promptText = $derived.by(() => buildAstroPrompt({
+    kind: 'aspect',
+    title: `аспект ${title}`,
+    aspects: [`${n1} ${a.aspect} ${n2}, орбис ${a.orb.toFixed(2)}°`],
+    focus: `${title}${pair ? ` — смысл пары: ${pair}` : ''}${unique ? `. Трактовка: ${unique}` : ''}`,
+    extra: twoPeople
+      ? 'Это межаспект двух людей (синастрия). Разбери, как он ощущается ВНУТРИ взаимодействия пары.'
+      : 'Разбери этот аспект: взаимодействие энергий через характер аспекта.',
+  }));
 
   // --- «Когда ещё этот аспект» — поиск по диапазону лет, как на главной ---
   // (жалоба: из натала блока не было, а с главной страницы — был)
@@ -186,6 +200,10 @@
     <span class="dg glyph">💬</span>
     <span>Обсудить с Claude<small>по заложенным архетипам участников</small></span>
   </button>
+  <button class="discuss ghost" onclick={() => (showPrompt = true)}>
+    <span class="dg glyph">📋</span>
+    <span>Промпт для любой ИИ<small>готовый текст для ChatGPT, Gemini и др.</small></span>
+  </button>
   <button class="discuss ghost" onclick={() => oncommunity?.(sig, title)}>
     <span class="dg glyph">✧</span>
     <span>Обсуждения сообщества{#if discCount} · {discCount}{/if}<small>
@@ -251,6 +269,10 @@
     </div>
   {/if}
 </section>
+
+{#if showPrompt}
+  <PromptSheet text={promptText} onclose={() => (showPrompt = false)} />
+{/if}
 
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 24; }

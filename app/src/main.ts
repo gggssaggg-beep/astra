@@ -13,11 +13,17 @@ import './lib/fonts.ts';   // выбор шрифта интерфейса (ре
 import './app.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
-import { initOta } from './lib/ota.ts';
+import { initOta, resumeOta } from './lib/ota.ts';
 
 // OTA: notifyAppReady нужно отправить КАК МОЖНО РАНЬШЕ (до тяжёлого mount) —
 // иначе Capgo решит, что новый бандл не поднялся, и откатит его к вшитому.
 void initOta();
+
+// Докачка при возврате: сворачивание/блокировка экрана в Android WebView
+// замораживает JS и рвёт скачивание бандла — при возврате на экран докачиваем.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') void resumeOta();
+});
 
 const app = mount(App, { target: document.getElementById('app')! });
 

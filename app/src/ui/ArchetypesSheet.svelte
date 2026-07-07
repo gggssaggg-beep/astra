@@ -65,8 +65,8 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Архетипы божеств" use:bottomSheet={{ onclose }}>
-  <header><h2>Архетипы божеств</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
+<section class="sheet glass" aria-label="Архетипы планет" use:bottomSheet={{ onclose }}>
+  <header><h2>Архетипы планет</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Нажми планету, чтобы раскрыть архетип и отредактировать его.</div>
 
   {#each items as it, i (it.object)}

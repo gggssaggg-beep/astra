@@ -1,10 +1,12 @@
 /**
- * Сборка «карты клиента» для отправки астрологу (кнопка «Написать астрологу» →
- * «Отправить свои данные», просьба владелицы 2026-07-07). Клиент выбирает
- * галочками, что приложить (положения / аспекты / дома); текст строится тем же
- * buildAstroPrompt, что и «Промпт для ИИ», поэтому у астролога карта приходит
- * готовым разбором с корректным расчётом. Доставка — Supabase (lib/community.ts:
- * sendClientChart → таблица client_charts, читает только астролог по RLS).
+ * Сборка «карты клиента» для отправки астрологу (кнопки «Отправить астрологу» /
+ * «через Telegram» в ui/AstrologerSheet). Астролог должна получить САМУ КАРТУ —
+ * структурированные данные рождения (Person), которые добавляются к ней В ПРОГРАММУ
+ * и дальше считаются локально (колесо/аспекты/дома/транзиты), — а НЕ ИИ-промпт
+ * (требование владелицы 2026-07-07). Поэтому payload = JSON-конверт {person, card}:
+ *   • person — данные рождения (кнопка «➕ Добавить карту в программу»);
+ *   • card   — человекочитаемая карточка (превью у астролога, текст для Telegram).
+ * Доставка — Supabase (lib/community.ts: sendClientChart → таблица client_charts).
  */
 import type { Engine } from '../engine/index.ts';
 import { staticAspects } from '../engine/index.ts';
@@ -12,10 +14,22 @@ import type { Person } from './models.ts';
 import { HOUSE_SYSTEMS } from './models.ts';
 import { natalPositions, birthInstantUTC } from './charts.ts';
 import { analyzeHouses, houseOfLon } from './houses.ts';
-import { buildAstroPrompt } from './aiPrompt.ts';
 import { fmtPosRx } from './format.ts';
 
 export interface ClientChartBlocks { positions: boolean; aspects: boolean; houses: boolean; }
+
+/** Конверт в payload строки client_charts: сама карта + читаемое превью. */
+export interface ClientChartEnvelope { v: 1; person: Person; card: string; }
+
+/** Разобрать payload входящей карты. Новый формат — JSON-конверт с person;
+ *  старые/чужие строки (или ИИ-промпт) → null, показываем как текст. */
+export function parseChartEnvelope(payload: string): ClientChartEnvelope | null {
+  try {
+    const o = JSON.parse(payload);
+    if (o && o.person && typeof o.person.birthDate === 'string') return o as ClientChartEnvelope;
+  } catch { /* не JSON — легаси-текст */ }
+  return null;
+}
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
 
@@ -27,11 +41,13 @@ export function personBirthLine(p: Person): string {
   return `${D}.${M}.${Y} · ${time} · ${p.birthTz}${place}`;
 }
 
-/** Собрать текст натальной карты клиента из выбранных блоков. */
+export interface ClientChartResult { summary: string; card: string; person: Person; payload: string; }
+
+/** Собрать карту клиента: структурированный Person + читаемая карточка + JSON-конверт. */
 export function buildClientChart(
   E: Engine, p: Person,
   opts: { orbOf: (n: string) => number; objects?: string[] | null; houseSystem: string; blocks: ClientChartBlocks },
-): { summary: string; text: string } {
+): ClientChartResult {
   const pos = natalPositions(E, p, opts.objects ?? undefined);
   const hasPlace = !!p.place && (p.place.lat !== 0 || p.place.lon !== 0);
   const houses = (!p.unknownTime && hasPlace)
@@ -40,24 +56,27 @@ export function buildClientChart(
   const houseOf = (lon: number): string => houses ? ROMAN[houseOfLon(lon, houses.cusps) - 1] : '';
   const houseInfo = (houses && opts.blocks.houses) ? analyzeHouses(houses.cusps) : null;
 
-  const positions = opts.blocks.positions
-    ? pos.map((b) => `${b.name} ${fmtPosRx(b.lon, b.retro)}${houseOf(b.lon) ? ` (${houseOf(b.lon)} дом)` : ''}`).join('; ')
-    : '(клиент не приложил положения)';
-
-  const aspects: string[] = [];
+  // --- читаемая карточка (НЕ ИИ-промпт): просто данные карты по-человечески ---
+  const L: string[] = [`Карта клиента · ${p.name}`, `Рождение: ${personBirthLine(p)}`];
+  if (houseInfo) {
+    const hsLabel = HOUSE_SYSTEMS.find((h) => h.id === opts.houseSystem)?.label ?? opts.houseSystem;
+    L.push(`Система домов: ${hsLabel}`);
+  }
+  if (opts.blocks.positions) {
+    L.push('Положения: ' + pos.map((b) =>
+      `${b.name} ${fmtPosRx(b.lon, b.retro)}${houseOf(b.lon) ? ` (${houseOf(b.lon)} дом)` : ''}`).join('; '));
+  }
   if (opts.blocks.aspects) {
     const asp = staticAspects(pos, opts.orbOf);
-    if (asp.length) aspects.push(asp.map((a) => `${a.p1} ${a.aspect} ${a.p2}, орбис ${a.orb.toFixed(2)}°`).join('; '));
+    L.push('Аспекты: ' + (asp.length
+      ? asp.map((a) => `${a.p1} ${a.aspect} ${a.p2}, орбис ${a.orb.toFixed(2)}°`).join('; ')
+      : 'нет в орбисе'));
   }
-  const housesLine = houseInfo
-    ? houseInfo.map((h) => `${ROMAN[h.house - 1]} ${h.sign} (упр. ${h.rulers.join(', ')})`).join('; ')
-    : undefined;
+  if (houseInfo) {
+    L.push('Дома: ' + houseInfo.map((h) => `${ROMAN[h.house - 1]} ${h.sign} (упр. ${h.rulers.join(', ')})`).join('; '));
+  }
+  const card = L.join('\n');
 
-  const text = buildAstroPrompt({
-    title: `Натал · ${p.name}`, kind: 'natal',
-    houseSystem: HOUSE_SYSTEMS.find((h) => h.id === opts.houseSystem)?.label ?? opts.houseSystem,
-    people: [{ name: p.name, birth: personBirthLine(p), positions, houses: housesLine }],
-    aspects,
-  });
-  return { summary: `Натал · ${p.name} · ${personBirthLine(p)}`, text };
+  const payload = JSON.stringify({ v: 1, person: p, card } satisfies ClientChartEnvelope);
+  return { summary: `Натал · ${p.name} · ${personBirthLine(p)}`, card, person: p, payload };
 }

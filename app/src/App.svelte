@@ -22,15 +22,18 @@
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
+  import HousesSheet from './ui/HousesSheet.svelte';
   import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
-  import { rescheduleAll, onNotificationTap } from './lib/reminders.ts';
+  import { rescheduleAll, onNotificationTap, notifyNewVersion } from './lib/reminders.ts';
   import { initPush } from './lib/push.ts';
-  import { resumeOta } from './lib/ota.ts';
+  import { resumeOta, appliedVersion } from './lib/ota.ts';
+  import { Preferences } from '@capacitor/preferences';
+  import { clientChartsUnread } from './lib/community.ts';
   import { fontStack } from './lib/fonts.ts';
   import { tick as buzzTick } from './lib/haptics.ts';
 
@@ -41,9 +44,11 @@
   let showCal = $state(false);
   let showJournal = $state(false);
   let showArch = $state(false);
+  let showHouses = $state(false);
   let showTracked = $state(false);
   let showSignMyths = $state(false);
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
+  let clientChartsWaiting = $state(0);   // бейдж «Карты»: новые карты от клиентов (только у астролога)
   let showChat = $state(false);
   let showAstrologer = $state(false);
   let showLibrary = $state(false);
@@ -153,6 +158,7 @@
     }
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
+    if (showHouses) { showHouses = false; showLibrary = true; return; }
     if (showSignMyths) { showSignMyths = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
     if (showCharts) {
@@ -174,18 +180,25 @@
 
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
-    showData = showJournal = showLibrary = showInterp = showArch = showTracked = showChat = false;
+    showData = showJournal = showLibrary = showInterp = showArch = showHouses = showTracked = showChat = false;
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   }
 
+  // Бейдж на «Картах»: сколько новых карт от клиентов ждёт астролога. У всех
+  // остальных 0 — clientChartsUnread гейтит по email (требование владелицы 2026-07-07).
+  async function refreshClientCharts(): Promise<void> {
+    try { clientChartsWaiting = await clientChartsUnread(); } catch { /* оффлайн/без входа */ }
+  }
+  onMount(() => { const t = setInterval(() => void refreshClientCharts(), 120000); return () => clearInterval(t); });
+
   onMount(async () => {
     if (Capacitor.isNativePlatform()) {
       void CapApp.addListener('backButton', onBack);
-      // вернулись на экран → докачать OTA, если сворачивание оборвало загрузку
-      void CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) void resumeOta(); });
+      // вернулись на экран → докачать OTA + освежить бейдж карт клиентов
+      void CapApp.addListener('appStateChange', ({ isActive }) => { if (isActive) { void resumeOta(); void refreshClientCharts(); } });
     }
     onNotificationTap(openFromNotification);
     // пуши сообщества (FCM): регистрация токена при сессии; тап по пушу —
@@ -199,6 +212,20 @@
     try {
       await hydrate();
       void hydrateKey();   // ключ Claude из durable-хранилища (не ждём — нужен только чату)
+      void refreshClientCharts();   // бейдж карт клиентов (0 у всех, кроме астролога)
+      // разовое уведомление «доступна новая версия» после применения OTA-бандла
+      // (просьба владелицы 2026-07-07). Ключ версии — durable; свежую установку
+      // (ещё не видела приветствие) не пингуем, вернувшихся — да, в т.ч. в этот раз.
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const applied = await appliedVersion();
+          const { value } = await Preferences.get({ key: 'astra:verNotified' });
+          if (value !== applied) {
+            await Preferences.set({ key: 'astra:verNotified', value: applied });
+            if (db.settings.get().seenWelcome) await notifyNewVersion(applied);
+          }
+        } catch { /* не критично */ }
+      }
       // разовая миграция (2026-07-06): горизонтальная система домов по умолчанию —
       // у уже установленных приложений в настройках лежал старый дефолт placidus
       if (!db.settings.get().houseSysV2) {
@@ -333,9 +360,9 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button class:on={showLibrary || showJournal || showInterp || showArch || showTracked}
+  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked}
     onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span></button>
+  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
   <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
@@ -348,13 +375,14 @@
 
 {#if showAstrologer && engine}
   <AstrologerSheet {engine} {orbOf} objects={settings.objects} houseSystem={settings.houseSystem}
-    tz={settings.tz} onclose={() => (showAstrologer = false)} />
+    tz={settings.tz} onclose={() => { showAstrologer = false; void refreshClientCharts(); }} />
 {/if}
 
 {#if showLibrary}
   <LibrarySheet onclose={() => (showLibrary = false)}
     onInterpretations={() => { showLibrary = false; showInterp = true; }}
     onArchetypes={() => { showLibrary = false; showArch = true; }}
+    onHouses={() => { showLibrary = false; showHouses = true; }}
     onTracked={() => { showLibrary = false; showTracked = true; }}
     onJournal={() => { showLibrary = false; showJournal = true; }}
     onSignMyths={() => { showLibrary = false; showSignMyths = true; }}
@@ -369,6 +397,10 @@
 {#if showInterp}
   <InterpretationsSheet onclose={() => { showInterp = false; showLibrary = true; }}
     onopen={(r) => { showInterp = false; pickAspect(r, 'interp'); }} />
+{/if}
+
+{#if showHouses}
+  <HousesSheet onclose={() => { showHouses = false; showLibrary = true; }} />
 {/if}
 
 {#if showArch}
@@ -468,6 +500,13 @@
   .tabbar .mid .ti { color: var(--accent); font-size: 1.5rem;
     text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 55%, transparent); }
   .tabbar .mid .tl { color: var(--accent); }
+  /* бейдж новых карт клиентов (виден только астрологу) */
+  .tabbar .mid { position: relative; }
+  .tabbar .mid .ncount { position: absolute; top: 2px; right: calc(50% - 22px);
+    min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--rose);
+    color: #fff; font-size: 0.64rem; font-weight: 700; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--rose) 70%, transparent); }
   .tabbar .tl { font-size: 0.7rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }
   .state { padding: 24px; text-align: center; color: var(--ink-dim); margin-top: 20px; }

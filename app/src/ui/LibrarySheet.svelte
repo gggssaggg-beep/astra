@@ -3,16 +3,16 @@
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onTracked, onJournal, onSignMyths, onChat }:
+  let { onclose, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
-      onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
+      onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onChat: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }}>
   <header><h2>Библиотека</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Журнал, трактовки, архетипы и отслеживаемые аспекты — в одном месте.</div>
+  <div class="hint">Журнал, значения аспектов и домов, архетипы и отслеживаемые аспекты — в одном месте.</div>
 
   <!-- тап: обводка обегает контур → открытие (единый паттерн GlowCard).
        Журнал переехал сюда из нижнего меню (просьба 2026-07-06) — там
@@ -28,14 +28,21 @@
   <GlowCard radius={14} onactivate={onInterpretations}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">📖</span>
-      <div class="txt"><b>Трактовки</b><small>свои тексты по парам и аспектам</small></div>
+      <div class="txt"><b>Значения аспектов</b><small>тексты по парам планет в аспекте + свои</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onHouses}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🏠</span>
+      <div class="txt"><b>Значения домов</b><small>знак на куспиде каждого дома</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onArchetypes}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">🏛</span>
-      <div class="txt"><b>Архетипы божеств</b><small>миф и архетип на каждую планету</small></div>
+      <div class="txt"><b>Архетипы планет</b><small>миф и архетип на каждую планету</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

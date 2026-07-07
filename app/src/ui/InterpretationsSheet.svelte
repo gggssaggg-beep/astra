@@ -3,7 +3,7 @@
   import { PLANET_GLYPH, ASPECTS } from '../engine/index.ts';
   import { db, onChange } from '../lib/db.ts';
   import { parseSignature } from '../lib/signature.ts';
-  import { orderedPairAspects } from '../lib/pairAspectLore.ts';
+  import { orderedPairAspects, LEAD_ORDER, ASPECT_ORDER } from '../lib/pairAspectLore.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
@@ -20,17 +20,32 @@
   // База трактовок пар планет — упорядочена астрологом (Луна со всеми, потом
   // Солнце без Луны, …; аспекты соединение→оппозиция→трин→квадрат→секстиль).
   const base = orderedPairAspects();
-  function openPair(p1: string, p2: string, aspect: string): void {
-    onopen({
-      p1, p2, aspect, symbol: ASPECTS[aspect]?.symbol ?? '',
-      exactOrb: 0, exactTime: null, beginTime: null, endTime: null,
-      applying: false, pos1: 0, pos2: 0, bucket: 'fast',
-    });
-  }
 
-  /** Открыть редактор трактовки: восстанавливаем мин. запись аспекта из сигнатуры. */
-  function open(sig: string) {
-    const { p1, p2, aspect } = parseSignature(sig);
+  // ── Фильтры (просьба астролога 2026-07-07) ─────────────────────────────────
+  // Планеты — «Вариант Б»: тап двух планет = конкретная пара (Марс+Венера →
+  // только Марс–Венера, 5 аспектов). Одна планета — все её пары; три и больше —
+  // все пары ВНУТРИ выбора. Аспекты — «сразу попасть на нужный аспект».
+  let selP = $state<string[]>([]);
+  let selA = $state<string[]>([]);
+  const toggleP = (p: string) => (selP = selP.includes(p) ? selP.filter((x) => x !== p) : [...selP, p]);
+  const toggleA = (a: string) => (selA = selA.includes(a) ? selA.filter((x) => x !== a) : [...selA, a]);
+  const clearF = () => { selP = []; selA = []; };
+  const anyF = $derived(selP.length > 0 || selA.length > 0);
+
+  function matchP(p1: string, p2: string): boolean {
+    if (selP.length === 0) return true;
+    if (selP.length === 1) return p1 === selP[0] || p2 === selP[0];
+    return selP.includes(p1) && selP.includes(p2); // пара целиком внутри выбора
+  }
+  const matchA = (a: string) => selA.length === 0 || selA.includes(a);
+
+  const baseView = $derived(base.filter((e) => matchP(e.p1, e.p2) && matchA(e.aspect)));
+  const mineView = $derived(
+    list.map((it) => ({ it, p: parseSignature(it.signature) }))
+        .filter(({ p }) => matchP(p.p1, p.p2) && matchA(p.aspect))
+  );
+
+  function openRec(p1: string, p2: string, aspect: string): void {
     onopen({
       p1, p2, aspect, symbol: ASPECTS[aspect]?.symbol ?? '',
       exactOrb: 0, exactTime: null, beginTime: null, endTime: null,
@@ -40,21 +55,40 @@
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Трактовки" use:bottomSheet={{ onclose }}>
-  <header><h2>Трактовки</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
+<section class="sheet glass" aria-label="Значения аспектов" use:bottomSheet={{ onclose }}>
+  <header><h2>Значения аспектов</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
 
   <div class="seg">
     <button class:on={tab === 'base'} onclick={() => (tab = 'base')}>База пар ({base.length})</button>
     <button class:on={tab === 'mine'} onclick={() => (tab = 'mine')}>Мои ({list.length})</button>
   </div>
 
+  <!-- фильтр: планеты (пара) + аспекты -->
+  <div class="filter">
+    <div class="chips">
+      {#each LEAD_ORDER as p (p)}
+        <button class="chip glyph" class:on={selP.includes(p)} onclick={() => toggleP(p)}
+          aria-pressed={selP.includes(p)} title={p}>{PLANET_GLYPH[p] ?? p}</button>
+      {/each}
+    </div>
+    <div class="chips asp">
+      {#each ASPECT_ORDER as a (a)}
+        <button class="chip glyph" class:on={selA.includes(a)} onclick={() => toggleA(a)}
+          aria-pressed={selA.includes(a)} title={a}>{ASPECTS[a]?.symbol ?? a}</button>
+      {/each}
+      {#if anyF}<button class="chip clear" onclick={clearF} title="Сбросить">✕</button>{/if}
+    </div>
+    <div class="fhint">
+      {#if selP.length >= 2}Пара: {selP.join(' · ')}{:else if selP.length === 1}Все пары с {selP[0]}{:else}Тап по двум планетам — конкретная пара; по аспекту — только он{/if}
+    </div>
+  </div>
+
   {#if tab === 'mine'}
-    {#if !list.length}
-      <div class="hint">Пока пусто. Свои трактовки пишутся тапом по карточке аспекта в ленте дня.</div>
+    {#if !mineView.length}
+      <div class="hint">{list.length ? 'Ничего под фильтр не подошло.' : 'Пока пусто. Свои трактовки пишутся тапом по карточке аспекта в ленте дня.'}</div>
     {/if}
-    {#each list as it (it.signature)}
-      {@const p = parseSignature(it.signature)}
-      <GlowCard radius={14} onactivate={() => open(it.signature)}>
+    {#each mineView as { it, p } (it.signature)}
+      <GlowCard radius={14} onactivate={() => openRec(p.p1, p.p2, p.aspect)}>
         <button class="item reveal" use:reveal>
           <span class="pair glyph">{PLANET_GLYPH[p.p1] ?? p.p1}<span class="a">{ASPECTS[p.aspect]?.symbol}</span>{PLANET_GLYPH[p.p2] ?? p.p2}</span>
           <div class="body">
@@ -65,10 +99,13 @@
       </GlowCard>
     {/each}
   {:else}
-    <div class="hint">Все сочетания планет — упорядочены: сперва Луна со всеми, затем
-      Солнце (без Луны), Меркурий (без Луны и Солнца) и так далее. Тап открывает разбор.</div>
-    {#each base as e (e.p1 + e.p2 + e.aspect)}
-      <GlowCard radius={14} onactivate={() => openPair(e.p1, e.p2, e.aspect)}>
+    {#if !baseView.length}
+      <div class="hint">Ничего под фильтр не подошло. Такой пары в аспекте не бывает (элонгация) или снимите часть фильтра.</div>
+    {:else}
+      <div class="hint">Тап открывает разбор. Порядок: сперва Луна со всеми, затем Солнце (без Луны) и так далее.</div>
+    {/if}
+    {#each baseView as e (e.p1 + e.p2 + e.aspect)}
+      <GlowCard radius={14} onactivate={() => openRec(e.p1, e.p2, e.aspect)}>
         <button class="item reveal" use:reveal>
           <span class="pair glyph">{PLANET_GLYPH[e.p1] ?? e.p1}<span class="a">{ASPECTS[e.aspect]?.symbol}</span>{PLANET_GLYPH[e.p2] ?? e.p2}</span>
           <div class="body">
@@ -94,6 +131,19 @@
   .seg button { flex: 1; background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink-dim);
     border-radius: 12px; padding: 9px 6px; font-size: 0.84rem; }
   .seg button.on { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }
+
+  /* фильтр-чипы: сам символ подсвечивается при выборе (не рамка) */
+  .filter { margin: 2px 0 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .chips.asp { margin-bottom: 4px; }
+  .chip { min-width: 2rem; height: 2rem; padding: 0 8px; display: inline-flex; align-items: center;
+    justify-content: center; background: #ffffff0c; border: 1px solid var(--glass-brd);
+    border-radius: 10px; color: var(--ink-dim); font-size: 1.1rem; line-height: 1; }
+  .chip.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-brd));
+    text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent); }
+  .chip.clear { font-size: 0.8rem; color: var(--ink-faint); }
+  .fhint { color: var(--ink-faint); font-size: 0.76rem; padding: 2px 0 4px; }
+
   .item { display: flex; align-items: flex-start; gap: 10px; width: 100%; text-align: left;
     background: transparent; border: none; border-top: 1px solid var(--glass-brd); color: var(--ink); padding: 11px 0; }
   .item:hover { background: #ffffff0a; }

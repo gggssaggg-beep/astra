@@ -32,6 +32,7 @@ const ID_TRANSIT_TO = 1199;
 const ID_MANAGED_TO = 1199;     // наш управляемый диапазон 1000..1199
 const ID_TEST_NOW = 9001;
 const ID_TEST_DELAYED = 9002;
+const ID_VERSION = 1250;        // «доступна новая версия» — вне диапазона отмены 1000..1199
 const DAILY_DAYS = 7;           // на сколько дней вперёд ставим сводки
 const SCAN_DAYS = 10;          // горизонт скана аспектов
 
@@ -260,6 +261,27 @@ export function onNotificationTap(
     const ex = action.notification?.extra as { dayAnchor?: string; signature?: string } | undefined;
     if (ex && (ex.dayAnchor || ex.signature)) { push('тап по уведомлению'); cb(ex); }
   });
+}
+
+/** Разовое уведомление «доступна новая версия» — после применения OTA-бандла
+ *  (просьба владелицы 2026-07-07). Приходит на телефон, зовёт открыть приложение. */
+export async function notifyNewVersion(version: string): Promise<void> {
+  try {
+    if (!NATIVE) {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted')
+        new Notification('Astra обновлена', { body: `Доступна новая версия (${version}).` });
+      return;
+    }
+    await ensureInit();
+    if (!(await granted())) { push('notifyNewVersion: нет разрешения'); return; }
+    await withTimeout(LocalNotifications.schedule({ notifications: [{
+      id: ID_VERSION,
+      title: '🔄 Доступна новая версия Astra',
+      body: `Приложение обновилось до ${version}. Открой — посмотри, что нового.`,
+      channelId: CH,
+    }] }), 8000, 'notifyNewVersion');
+    push(`notifyNewVersion ${version} ✓`);
+  } catch (e) { push('ОШИБКА notifyNewVersion: ' + (e instanceof Error ? e.message : String(e))); }
 }
 
 export async function sendTest(): Promise<string> {

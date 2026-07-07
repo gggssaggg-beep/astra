@@ -9,9 +9,9 @@
   import { onMount } from 'svelte';
   import type { Session } from '@supabase/supabase-js';
   import type { Engine } from '../engine/index.ts';
-  import { db } from '../lib/db.ts';
+  import { db, uid } from '../lib/db.ts';
   import { bottomSheet } from '../lib/sheet.ts';
-  import { buildClientChart, type ClientChartBlocks } from '../lib/clientChart.ts';
+  import { buildClientChart, parseChartEnvelope, type ClientChartBlocks, type ClientChartEnvelope } from '../lib/clientChart.ts';
   import { tgHref } from '../lib/telegram.ts';
   import { success, tap } from '../lib/haptics.ts';
   import {
@@ -44,12 +44,45 @@
     if (!configured()) { sendMsg = '⚠ Сообщество не подключено — отправка недоступна.'; return; }
     sending = true; sendMsg = null;
     try {
-      const { summary, text } = buildClientChart(engine, p, { orbOf, objects, houseSystem, blocks });
-      await sendClientChart({ fromName: p.name, summary, contact: contact.trim() || null, payload: text });
+      const { summary, payload } = buildClientChart(engine, p, { orbOf, objects, houseSystem, blocks });
+      await sendClientChart({ fromName: p.name, summary, contact: contact.trim() || null, payload });
       success();
       sendMsg = '✓ Отправлено. Астролог увидит вашу карту в приложении с датой отправки.';
     } catch (e) {
       sendMsg = '⚠ ' + (e instanceof Error ? e.message : String(e));
+    } finally { sending = false; }
+  }
+
+  /** Скопировать текст в буфер (навигатор → фолбэк execCommand для WebView). */
+  async function copyText(t: string): Promise<boolean> {
+    try {
+      if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(t); return true; }
+    } catch { /* нет доступа к clipboard API — фолбэк ниже */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok = document.execCommand('copy'); ta.remove(); return ok;
+    } catch { return false; }
+  }
+
+  /** Второй путь доставки (выбор владелицы «оба способа», 2026-07-07): Telegram
+   *  по ссылке НЕ умеет приложить текст сам — поэтому копируем карту в буфер и
+   *  открываем чат Киры; клиент вставляет и отправляет. Плюс к «Входящим» в приложении. */
+  async function sendViaTelegram(): Promise<void> {
+    const p = db.people.get(selId);
+    if (!p) { sendMsg = '⚠ Выбери, чью карту отправить.'; return; }
+    sending = true; sendMsg = null;
+    try {
+      const { card } = buildClientChart(engine, p, { orbOf, objects, houseSystem, blocks });
+      const ok = await copyText(card);
+      success();
+      if (ok) {
+        sendMsg = '✓ Карта скопирована. Откроется чат — вставьте её (долгое нажатие → «Вставить») и отправьте.';
+        window.location.href = astroTgHref;
+      } else {
+        sendMsg = '⚠ Не удалось скопировать карту. Отправьте её через «🔮 Отправить астрологу» (в приложение).';
+      }
     } finally { sending = false; }
   }
 
@@ -74,6 +107,20 @@
     try { await removeClientChart(c.id); inbox = inbox.filter((x) => x.id !== c.id); } catch { /* оффлайн */ }
   }
 
+  // Добавить присланную карту В ПРОГРАММУ (в db.people со своим id) — дальше
+  // астролог открывает её как обычную карту в «Добавить» (колесо/аспекты/дома/транзиты).
+  let addedIds = $state(new Set<string>());
+  let addedMsg = $state<string | null>(null);
+  let addedFor = $state<string | null>(null);
+  function addToProgram(c: ClientChart, env: ClientChartEnvelope): void {
+    const person = { ...env.person, id: uid(), createdAt: new Date().toISOString() };
+    db.people.put(person);
+    addedIds = new Set(addedIds).add(c.id);
+    addedFor = c.id;
+    addedMsg = `✓ «${person.name}» добавлена в программу. Открой её в нижнем меню «Добавить».`;
+    success();
+  }
+
   const fmtSent = (iso: string): string => new Intl.DateTimeFormat('ru-RU',
     { timeZone: tz, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
 </script>
@@ -94,8 +141,9 @@
       <p class="hint">Сначала добавь человека (свою карту) в нижнем меню «Добавить» —
         тогда сможешь отправить её астрологу.</p>
     {:else}
-      <p class="hint">Выбери, чью карту и какие данные отправить. Карта уйдёт астрологу
-        прямо в приложение — с корректным расчётом и датой отправки.</p>
+      <p class="hint">Выбери, чью карту и какие данные отправить. Два способа: прямо в
+        приложение астрологу («Входящие») или через Telegram — карта скопируется,
+        останется вставить её в чат.</p>
       <select class="select" bind:value={selId}>
         {#each people as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
       </select>
@@ -108,6 +156,8 @@
         placeholder="Ваш контакт для ответа (Telegram/@, необязательно)" />
       <button class="btn primary send" onclick={doSend} disabled={sending}>
         {sending ? 'Отправляю…' : '🔮 Отправить астрологу'}</button>
+      <button class="btn tgsend" onclick={sendViaTelegram} disabled={sending}>
+        ✈ Отправить через Telegram</button>
       {#if sendMsg}<div class="msg" class:err={sendMsg.startsWith('⚠')}>{sendMsg}</div>{/if}
       <p class="hint tiny">Дата и место рождения — чувствительные данные. Отправляются только
         астрологу; читать их может только она.</p>
@@ -131,10 +181,16 @@
             {#if !c.read}<span class="dot" aria-label="Новое"></span>{/if}
           </button>
           {#if openId === c.id}
-            <pre class="payload">{c.payload}</pre>
+            {@const env = parseChartEnvelope(c.payload)}
+            <pre class="payload">{env ? env.card : c.payload}</pre>
             <div class="row">
+              {#if env}
+                <button class="btn primary small" onclick={() => addToProgram(c, env)} disabled={addedIds.has(c.id)}>
+                  {addedIds.has(c.id) ? '✓ Добавлена' : '➕ Добавить карту в программу'}</button>
+              {/if}
               <button class="btn ghost small" onclick={() => delCard(c)}>Удалить</button>
             </div>
+            {#if addedMsg && addedFor === c.id}<div class="msg">{addedMsg}</div>{/if}
           {/if}
         </div>
       {/each}
@@ -167,6 +223,8 @@
   .btn:disabled { opacity: 0.5; }
   .tg { display: inline-block; text-decoration: none; text-align: center; width: 100%; }
   .send { width: 100%; margin-top: 4px; }
+  .tgsend { width: 100%; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; background: #ffffff10; border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-brd)); }
   .msg { margin-top: 10px; padding: 8px 12px; background: #ffffff10; border-radius: 10px; font-size: 0.86rem; color: var(--ink-dim); }
   .msg.err { background: color-mix(in srgb, var(--rose) 14%, transparent); color: var(--rose); }
   .card { border: 1px solid var(--glass-brd); border-radius: 12px; margin-top: 8px; overflow: hidden; }

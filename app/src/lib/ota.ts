@@ -227,6 +227,9 @@ async function checkAndMaybeApply(): Promise<void> {
   finally { otaBusyGuard = false; }
 }
 
+/** Реально применённая версия бандла (для разового уведомления об обновлении). */
+export async function appliedVersion(): Promise<string> { return currentApplied(); }
+
 export async function initOta(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
   void ensureReady();     // не ждём сети/манифеста — отчитаться надо немедленно

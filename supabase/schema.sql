@@ -311,15 +311,15 @@ create policy "client_charts: отправка всем" on public.client_charts
 -- читать входящие — только астролог (по email из JWT)
 drop policy if exists "client_charts: читает астролог" on public.client_charts;
 create policy "client_charts: читает астролог" on public.client_charts
-  for select to authenticated using ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+  for select to authenticated using ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com');
 
 -- пометить прочтённой — только астролог
 drop policy if exists "client_charts: правит астролог" on public.client_charts;
 create policy "client_charts: правит астролог" on public.client_charts
-  for update to authenticated using ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+  for update to authenticated using ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com');
 
 -- удалить входящую — только астролог
 drop policy if exists "client_charts: удаляет астролог" on public.client_charts;
 create policy "client_charts: удаляет астролог" on public.client_charts
-  for delete to authenticated using ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+  for delete to authenticated using ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com');

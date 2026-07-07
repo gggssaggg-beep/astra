@@ -29,11 +29,12 @@ const ADMIN_EMAIL = 'ggg.ssa.ggg@gmail.com';
 export const isAdmin = (session: Session | null): boolean =>
   !!session && (session.user.email ?? '').toLowerCase() === ADMIN_EMAIL;
 
-// Астролог = владелица (тот же аккаунт-админ). «Входящие» карты клиентов видит
-// ТОЛЬКО этот email (RLS на client_charts в schema.sql). Если появится отдельный
-// аккаунт астролога — поменять здесь И в schema.sql (client_charts SELECT/UPDATE).
-export const ASTROLOGER_EMAIL = ADMIN_EMAIL;
-export const isAstrologer = (session: Session | null): boolean => isAdmin(session);
+// Астролог — Кира Нарица. Получает карты клиентов, но НЕ админ сообщества (прав
+// модерации у неё нет). «Входящие» client_charts видит ТОЛЬКО этот email (RLS в
+// schema.sql). Поменять астролога — здесь И в schema.sql (client_charts политики).
+export const ASTROLOGER_EMAIL = 'k.naritsa@gmail.com';
+export const isAstrologer = (session: Session | null): boolean =>
+  !!session && (session.user.email ?? '').toLowerCase() === ASTROLOGER_EMAIL;
 
 // сессия Supabase должна переживать перезапуск → Preferences (localStorage ненадёжен)
 const prefStorage = {
@@ -376,6 +377,14 @@ export interface ClientChart {
   contact: string | null; payload: string; read: boolean;
 }
 
+// Таблицы client_charts может ещё не быть (владелица не прогнала обновлённый
+// schema.sql) — переводим сырую ошибку Postgres в понятную фразу.
+function friendlyChartsErr(msg: string): string {
+  return /client_charts|schema cache|does not exist|relation/i.test(msg)
+    ? 'Приём карт ещё не настроен на сервере. Загляни позже — астролог включит это.'
+    : msg;
+}
+
 /** Отправить свою карту астрологу. Вход не нужен — таблица только на запись. */
 export async function sendClientChart(p: {
   fromName: string; summary: string; contact?: string | null; payload: string;
@@ -384,7 +393,7 @@ export async function sendClientChart(p: {
   const { error } = await sb().from('client_charts').insert({
     from_name: p.fromName, summary: p.summary, contact: p.contact ?? null, payload: p.payload,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyChartsErr(error.message));
 }
 
 /** Входящие карты клиентов (видит только астролог; иначе RLS вернёт пусто). */
@@ -392,7 +401,7 @@ export async function listClientCharts(limit = 100): Promise<ClientChart[]> {
   if (!configured()) return [];
   const { data, error } = await sb().from('client_charts')
     .select('*').order('created_at', { ascending: false }).limit(limit);
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(friendlyChartsErr(error.message));
   return ((data ?? []) as Row[]).map((r) => ({
     id: r.id, created_at: r.created_at, from_name: r.from_name, summary: r.summary,
     contact: r.contact, payload: r.payload, read: r.read,

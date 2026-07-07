@@ -8,6 +8,7 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { getOtaStatus, checkOtaUpdate, applyQueuedNow } from '../lib/ota.ts';
+  import { tgHref } from '../lib/telegram.ts';
 
   // объекты для индивидуального орбиса (светила + планеты + узлы)
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
@@ -125,12 +126,10 @@
     finally { otaBusy = false; }
   }
 
-  // Обратная связь и консультации — в Telegram (просьба владелицы 2026-07-07).
-  // Ссылки на числовые Telegram-ID: схема tg://user?id=… открывает профиль в
-  // приложении Telegram (Android/iOS). ASTRO_TG также используется в шторке
-  // «написать астрологу» (ClientShareSheet) как канал отправки данных клиента.
-  const OWNER_TG = '7434799912';   // Telegram разработчика — обратная связь
-  const tgHref = (id: string) => `tg://user?id=${id}`;
+  // Обратная связь — в Telegram владелице (просьба 2026-07-07). По @username:
+  // числовой id не открывает личку (см. lib/telegram.ts). Консультация/отправка
+  // данных астрологу — в отдельной шторке AstrologerSheet (кнопка ниже).
+  const OWNER_TG = 'U314159';   // Telegram владелицы — обратная связь
 
   const connectNew = () => run(() => dataFile.connectNew(), 'Файл создан, данные сохраняются в него.');
   const connectExisting = () => run(() => dataFile.connectExisting(), 'Файл подключён, данные загружены.');

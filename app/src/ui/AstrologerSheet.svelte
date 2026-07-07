@@ -12,6 +12,7 @@
   import { db } from '../lib/db.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { buildClientChart, type ClientChartBlocks } from '../lib/clientChart.ts';
+  import { tgHref } from '../lib/telegram.ts';
   import { success, tap } from '../lib/haptics.ts';
   import {
     configured, initCommunityAuth, isAstrologer, sendClientChart,
@@ -22,9 +23,8 @@
     { engine: Engine; orbOf: (n: string) => number; objects?: string[] | null;
       houseSystem?: string; tz: string; onclose: () => void } = $props();
 
-  // Telegram астролога (числовой id → профиль в приложении Telegram)
-  const ASTRO_TG = '219740472';
-  const astroTgHref = `tg://user?id=${ASTRO_TG}`;
+  // Telegram астролога (Кира Нарица) — по @username, открывает ЛС
+  const astroTgHref = tgHref('leccinum_de_la_luna');
 
   let session = $state<Session | null>(null);
   onMount(() => initCommunityAuth((s) => (session = s)));

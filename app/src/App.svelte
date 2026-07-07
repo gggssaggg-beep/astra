@@ -18,6 +18,7 @@
   import TrackedSheet from './ui/TrackedSheet.svelte';
   import SignMythsSheet from './ui/SignMythsSheet.svelte';
   import ChartsSheet from './ui/ChartsSheet.svelte';
+  import AstrologerSheet from './ui/AstrologerSheet.svelte';
   import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
@@ -44,6 +45,7 @@
   let showSignMyths = $state(false);
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
   let showChat = $state(false);
+  let showAstrologer = $state(false);
   let showLibrary = $state(false);
   let showInterp = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
@@ -103,11 +105,13 @@
   const dateLabel = $derived.by(() => {
     const y = date.getUTCFullYear();
     const sameYear = y === todayCivil(settings.tz).getUTCFullYear();
-    // с чужим годом месяц короткий — «13 мар 2006, пт» влезает в шапку целиком
+    // с чужим годом месяц короткий + год ДВУМЯ цифрами («13 мар ’06, пт») —
+    // полный «2006» не влезал в шапку (жалоба владелицы 2026-07-07)
     const dm = new Intl.DateTimeFormat('ru-RU',
       { timeZone: 'UTC', day: 'numeric', month: sameYear ? 'long' : 'short' }).format(date);
     const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(date);
-    return sameYear ? `${dm}, ${wd}` : `${dm} ${y}, ${wd}`;
+    const yy = String(y % 100).padStart(2, '0');
+    return sameYear ? `${dm}, ${wd}` : `${dm} ’${yy}, ${wd}`;
   });
 
   // направление последнего листания — страница дня въезжает с нужной стороны
@@ -139,6 +143,7 @@
   function onBack() {
     if (selRec) { closeAspect(); return; }
     if (wheelInfo) { wheelInfo = null; return; }
+    if (showAstrologer) { showAstrologer = false; return; }
     if (showChat) { showChat = false; chatSeed = null; chatSource = null; return; }
     if (showCommunity) {
       // внутри Сообщества «Назад» идёт на шаг выше (профиль → тред → лента),
@@ -170,7 +175,7 @@
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
     showData = showJournal = showLibrary = showInterp = showArch = showTracked = showChat = false;
-    showCharts = false; showCommunity = false; selRec = null; wheelInfo = null;
+    showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -200,9 +205,13 @@
         db.settings.set({ ...db.settings.get(), houseSystem: 'horizontal', houseSysV2: true });
       }
       // разовая миграция (2026-07-06): новая тема «Аврора» по умолчанию
-      // («Космос»/«Рассвет» остаются в Настройках — мгновенный откат)
+      // («Рассвет» остаётся в Настройках — мгновенный откат)
       if (!db.settings.get().themeV2) {
         db.settings.set({ ...db.settings.get(), theme: 'aurora', themeV2: true });
+      }
+      // «Космос» удалён (2026-07-07): у кого он был выбран — переводим на Аврору
+      if ((db.settings.get().theme as string) === 'cosmos') {
+        db.settings.set({ ...db.settings.get(), theme: 'aurora' });
       }
       settings = db.settings.get();
       date = todayCivil(settings.tz);   // дата по сохранённому поясу
@@ -240,15 +249,14 @@
   // SystemBars ('DARK' = светлые иконки). Старый APK без SystemBars — тихий no-op.
   $effect(() => {
     const apply = () => {
-      const dark = settings.theme === 'cosmos' || settings.theme === 'aurora' ? true
-        : settings.theme === 'dawn' ? false
-        : !window.matchMedia('(prefers-color-scheme: light)').matches;
-      // aurora — отдельный дата-атрибут (свои переменные + живые сполохи)
-      document.documentElement.dataset.theme =
-        settings.theme === 'aurora' ? 'aurora' : dark ? 'dark' : 'light';
+      const systemLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+      // «Космос» удалён: тёмная тема = ТОЛЬКО «Аврора». Светлая = «Рассвет»
+      // (или авто при светлой системной теме). data-theme = 'aurora' | 'light'.
+      const light = settings.theme === 'dawn' || (settings.theme === 'auto' && systemLight);
+      document.documentElement.dataset.theme = light ? 'light' : 'aurora';
       if (Capacitor.isNativePlatform()) {
         registerPlugin<{ setStyle(o: { style: string }): Promise<void> }>('SystemBars')
-          .setStyle({ style: dark ? 'DARK' : 'LIGHT' })
+          .setStyle({ style: light ? 'LIGHT' : 'DARK' })
           .catch(() => { /* старый APK */ });
       }
     };
@@ -334,7 +342,13 @@
 
 {#if showData}
   <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged}
-    onhelp={() => { showData = false; showWelcome = true; }} />
+    onhelp={() => { showData = false; showWelcome = true; }}
+    onastrologer={() => (showAstrologer = true)} />
+{/if}
+
+{#if showAstrologer && engine}
+  <AstrologerSheet {engine} {orbOf} objects={settings.objects} houseSystem={settings.houseSystem}
+    tz={settings.tz} onclose={() => (showAstrologer = false)} />
 {/if}
 
 {#if showLibrary}

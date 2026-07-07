@@ -280,3 +280,46 @@ end $$;
 drop trigger if exists trg_call_push on public.notifications;
 create trigger trg_call_push after insert on public.notifications
   for each row execute function public.call_push();
+
+-- ============================================================================
+-- КАРТЫ КЛИЕНТОВ АСТРОЛОГУ (2026-07-07). Клиент из приложения отправляет свою
+-- натальную карту астрологу («написать астрологу → отправить данные»). Таблица
+-- ТОЛЬКО НА ЗАПИСЬ для всех (в т.ч. без входа); читает/правит/удаляет ТОЛЬКО
+-- астролог по email (совпадает с ASTROLOGER_EMAIL в lib/community.ts). Дату
+-- отправки астролог видит в СВОЁМ часовом поясе (форматирование в UI).
+-- ============================================================================
+create table if not exists public.client_charts (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  from_name text not null default 'клиент',
+  summary text not null default '',
+  contact text,
+  payload text not null,
+  read boolean not null default false
+);
+alter table public.client_charts enable row level security;
+
+-- явные гранты: anon должен уметь вставлять (клиент без входа), RLS всё равно гейтит
+grant insert on public.client_charts to anon, authenticated;
+grant select, update, delete on public.client_charts to authenticated;
+
+-- отправить карту может кто угодно (в т.ч. аноним) — разрешена только вставка
+drop policy if exists "client_charts: отправка всем" on public.client_charts;
+create policy "client_charts: отправка всем" on public.client_charts
+  for insert to anon, authenticated with check (true);
+
+-- читать входящие — только астролог (по email из JWT)
+drop policy if exists "client_charts: читает астролог" on public.client_charts;
+create policy "client_charts: читает астролог" on public.client_charts
+  for select to authenticated using ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+
+-- пометить прочтённой — только астролог
+drop policy if exists "client_charts: правит астролог" on public.client_charts;
+create policy "client_charts: правит астролог" on public.client_charts
+  for update to authenticated using ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com')
+  with check ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+
+-- удалить входящую — только астролог
+drop policy if exists "client_charts: удаляет астролог" on public.client_charts;
+create policy "client_charts: удаляет астролог" on public.client_charts
+  for delete to authenticated using ((auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');

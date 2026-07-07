@@ -13,8 +13,9 @@
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
 
-  let { onclose, onchanged, onhelp }:
-    { onclose: () => void; onchanged: () => void; onhelp?: () => void } = $props();
+  let { onclose, onchanged, onhelp, onastrologer }:
+    { onclose: () => void; onchanged: () => void; onhelp?: () => void;
+      onastrologer?: () => void } = $props();
 
   let cfg = $state<Settings>(db.settings.get());
   function save(patch: Partial<Settings>) {
@@ -124,11 +125,12 @@
     finally { otaBusy = false; }
   }
 
-  // Обратная связь на этапе теста: письмо разработчику с предзаполненной версией.
-  const DEV_EMAIL = 'ggg.ssa.ggg@gmail.com';
-  const feedbackHref = `mailto:${DEV_EMAIL}?subject=${encodeURIComponent('Astra — обратная связь')}`
-    + `&body=${encodeURIComponent(`Версия: ${APP_VERSION}\n\nЧто понравилось / что улучшить `
-      + `(особенно трактовки через архетипы):\n`)}`;
+  // Обратная связь и консультации — в Telegram (просьба владелицы 2026-07-07).
+  // Ссылки на числовые Telegram-ID: схема tg://user?id=… открывает профиль в
+  // приложении Telegram (Android/iOS). ASTRO_TG также используется в шторке
+  // «написать астрологу» (ClientShareSheet) как канал отправки данных клиента.
+  const OWNER_TG = '7434799912';   // Telegram разработчика — обратная связь
+  const tgHref = (id: string) => `tg://user?id=${id}`;
 
   const connectNew = () => run(() => dataFile.connectNew(), 'Файл создан, данные сохраняются в него.');
   const connectExisting = () => run(() => dataFile.connectExisting(), 'Файл подключён, данные загружены.');
@@ -178,7 +180,7 @@
         Крупный шрифт
       </label>
       <div class="seg">
-        {#each [['aurora', 'Аврора'], ['cosmos', 'Космос'], ['dawn', 'Рассвет'], ['auto', 'Авто']] as [id, label]}
+        {#each [['aurora', 'Аврора'], ['dawn', 'Рассвет ✨'], ['auto', 'Авто']] as [id, label]}
           <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
         {/each}
       </div>
@@ -375,13 +377,16 @@
     </div>
   </div>
 
-  <div class="group">Обратная связь</div>
+  <div class="group">Обратная связь и консультации</div>
   <div class="block">
-    <div class="lbl">Связаться с разработчиком</div>
-    <p class="hint small">Нравятся ли трактовки через архетипы? Что улучшить? Напиши —
-      на этапе теста это особенно важно.</p>
-    <a class="btn primary maillink" href={feedbackHref}>✉ Написать разработчику</a>
-    <p class="hint small" style="margin-top:8px">Или на почту: <b>{DEV_EMAIL}</b></p>
+    <div class="lbl">Связаться</div>
+    <p class="hint small">Вопросы по приложению, идеи, что улучшить (особенно трактовки
+      через архетипы) — в Telegram разработчику. Нужен разбор карты — напиши астрологу
+      и при желании отправь ей свои данные прямо из приложения.</p>
+    <div class="row">
+      <a class="btn primary maillink" href={tgHref(OWNER_TG)}>✈ Обратная связь</a>
+      <button class="btn maillink" onclick={() => { onclose(); onastrologer?.(); }}>🔮 Написать астрологу</button>
+    </div>
   </div>
 
   <div class="group">Обучение</div>

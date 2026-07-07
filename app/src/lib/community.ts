@@ -29,6 +29,12 @@ const ADMIN_EMAIL = 'ggg.ssa.ggg@gmail.com';
 export const isAdmin = (session: Session | null): boolean =>
   !!session && (session.user.email ?? '').toLowerCase() === ADMIN_EMAIL;
 
+// Астролог = владелица (тот же аккаунт-админ). «Входящие» карты клиентов видит
+// ТОЛЬКО этот email (RLS на client_charts в schema.sql). Если появится отдельный
+// аккаунт астролога — поменять здесь И в schema.sql (client_charts SELECT/UPDATE).
+export const ASTROLOGER_EMAIL = ADMIN_EMAIL;
+export const isAstrologer = (session: Session | null): boolean => isAdmin(session);
+
 // сессия Supabase должна переживать перезапуск → Preferences (localStorage ненадёжен)
 const prefStorage = {
   getItem: async (k: string) => (await Preferences.get({ key: k })).value,
@@ -357,6 +363,56 @@ export async function unreadCount(): Promise<number> {
   const me = await uidOf(); if (!me) return 0;
   const { count } = await sb().from('notifications')
     .select('*', { count: 'exact', head: true }).eq('recipient_id', me).eq('read', false);
+  return count ?? 0;
+}
+
+// --- Карты клиентов астрологу («написать астрологу», В ПРИЛОЖЕНИИ) -------------
+// Клиент отправляет свою натальную карту астрологу. Запись — write-only для всех
+// (в т.ч. без входа): RLS пускает INSERT, но SELECT/UPDATE/DELETE — только у
+// астролога (ASTROLOGER_EMAIL). Дату отправки астролог видит в СВОЁМ поясе (UI).
+
+export interface ClientChart {
+  id: string; created_at: string; from_name: string; summary: string;
+  contact: string | null; payload: string; read: boolean;
+}
+
+/** Отправить свою карту астрологу. Вход не нужен — таблица только на запись. */
+export async function sendClientChart(p: {
+  fromName: string; summary: string; contact?: string | null; payload: string;
+}): Promise<void> {
+  if (!configured()) throw new Error('Сообщество не подключено — отправка недоступна.');
+  const { error } = await sb().from('client_charts').insert({
+    from_name: p.fromName, summary: p.summary, contact: p.contact ?? null, payload: p.payload,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Входящие карты клиентов (видит только астролог; иначе RLS вернёт пусто). */
+export async function listClientCharts(limit = 100): Promise<ClientChart[]> {
+  if (!configured()) return [];
+  const { data, error } = await sb().from('client_charts')
+    .select('*').order('created_at', { ascending: false }).limit(limit);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Row[]).map((r) => ({
+    id: r.id, created_at: r.created_at, from_name: r.from_name, summary: r.summary,
+    contact: r.contact, payload: r.payload, read: r.read,
+  }));
+}
+
+export async function markClientChartRead(id: string): Promise<void> {
+  await sb().from('client_charts').update({ read: true }).eq('id', id);   // RLS: только астролог
+}
+export async function removeClientChart(id: string): Promise<void> {
+  await sb().from('client_charts').delete().eq('id', id);
+}
+
+/** Сколько непрочитанных карт клиентов (для метки у астролога; иначе 0). */
+export async function clientChartsUnread(): Promise<number> {
+  if (!configured()) return 0;
+  const s = (await sb().auth.getSession()).data.session;
+  if (!isAstrologer(s)) return 0;
+  const { count } = await sb().from('client_charts')
+    .select('*', { count: 'exact', head: true }).eq('read', false);
   return count ?? 0;
 }
 

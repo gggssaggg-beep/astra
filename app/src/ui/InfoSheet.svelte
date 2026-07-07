@@ -7,6 +7,8 @@
   import { PLANET_GLYPH, ZODIAC, SIGN_GLYPH } from '../engine/index.ts';
   import { db } from '../lib/db.ts';
   import { bottomSheet } from '../lib/sheet.ts';
+  import { buildAstroPrompt } from '../lib/aiPrompt.ts';
+  import PromptSheet from './PromptSheet.svelte';
 
   let { info, onclose, ondiscuss }:
     { info: WheelInfo; onclose: () => void; ondiscuss?: (seed: string) => void } = $props();
@@ -38,6 +40,32 @@
         + `и характер этого аспекта — что это сочетание значит?`);
     }
   }
+
+  // «Промпт для любой ИИ» — тот же готовый текст, что и рядом с Claude, но для
+  // вставки в ChatGPT/Gemini/др. Строится под тип тапнутого символа.
+  let showPrompt = $state(false);
+  const promptText = $derived.by(() => {
+    if (info.kind === 'planet') {
+      return buildAstroPrompt({
+        kind: 'natal', title: `архетип планеты ${info.name}`,
+        focus: `${info.name}${deity ? ` (${deity})` : ''}${archText ? ` — ${archText}` : ''}`,
+        extra: 'Разбор одной планеты как архетипа: её роль, ключевые мотивы, как проживается. Мифологию переводи на бытовой язык.',
+      });
+    }
+    if (info.kind === 'sign') {
+      return buildAstroPrompt({
+        kind: 'natal', title: `знак ${ZODIAC[info.index]}`,
+        focus: `${ZODIAC[info.index]}${sign ? ` — ${sign.role}. ${sign.text}` : ''}`,
+        extra: 'Разбери знак: стихия, характер, как в нём проявляются планеты. Бытовым языком.',
+      });
+    }
+    return buildAstroPrompt({
+      kind: 'aspect', title: `аспект ${info.p1} ${info.aspect} ${info.p2}`,
+      aspects: [`${info.p1} ${info.aspect} ${info.p2}${asp ? `, ${asp.angle}°` : ''}`],
+      focus: `${info.p1} ${info.aspect} ${info.p2}${asp ? ` — ${asp.short}. ${asp.text}` : ''}`,
+      extra: 'Разбери, как энергии участников взаимодействуют через характер этого аспекта.',
+    });
+  });
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -80,7 +108,14 @@
   <button class="discuss" onclick={discuss}>
     <span class="dg glyph">💬</span> Обсудить с Claude
   </button>
+  <button class="discuss ghost" onclick={() => (showPrompt = true)}>
+    <span class="dg glyph">📋</span> Промпт для любой ИИ
+  </button>
 </section>
+
+{#if showPrompt}
+  <PromptSheet text={promptText} onclose={() => (showPrompt = false)} />
+{/if}
 
 <style>
   .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
@@ -101,5 +136,6 @@
   .part .g { color: var(--silver); width: 1.3rem; text-align: center; }
   .discuss { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: var(--accent); border: none; color: var(--on-accent); font-weight: 600; border-radius: 14px; padding: 12px; }
+  .discuss.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); margin-top: 8px; }
   .dg { font-size: 1.1rem; }
 </style>

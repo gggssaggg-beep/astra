@@ -37,6 +37,8 @@
   import { forecastTransits, transitWindow, type TransitHit, type TransitWindow } from '../lib/forecast.ts';
   import type { BodyPosition } from '../engine/index.ts';
   import Wheel from './Wheel.svelte';
+  import { chartFigures } from '../lib/chartFigures.ts';
+  import ChartFigureCard from './ChartFigureCard.svelte';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
   import PromptSheet from './PromptSheet.svelte';
@@ -303,6 +305,13 @@
   const dhPlanets = $derived(new Set(doubleHits.map((h) => h.planet)));
   const singleTA = $derived(mode === 'triple' ? crossTA.filter((a) => !dhPlanets.has(a.p2)) : crossTA);
   const singleTB = $derived(mode === 'triple' ? crossTB.filter((a) => !dhPlanets.has(a.p2)) : crossTB);
+
+  // «Фигуры» карты (раунд 29): натал — классические; транзитные режимы —
+  // фигуры, ЗАМКНУТЫЕ транзитом (натальная заготовка + транзитная планета).
+  const chartFigs = $derived(chartFigures(mode, posA, posB, transitPos, orbOf));
+  let selFigKey = $state<string | null>(null);
+  $effect(() => { void mode; void pair; selFigKey = null; });   // смена карты сбрасывает выбор
+  const figStaticKeys = $derived(chartFigs.find((f) => f.key === selFigKey)?.staticKeys ?? null);
 
   // положения натала (одиночная карта): знак по долготе → разбор знака
   const signIdx = (lon: number): number => Math.floor((((lon % 360) + 360) % 360) / 30);
@@ -659,21 +668,21 @@
 
     {#if mode === 'natal'}
       <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} onstatictap={onStatic} />
+        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
       <div class="legend">натальная карта {personA?.name}</div>
     {:else if mode === 'synastry'}
       <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} onstatictap={onStatic} />
+        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
       <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name}</div>
     {:else if mode === 'transitNatal'}
       <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} onstatictap={onStatic} onscrub={scrubTransit} />
+        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
       <div class="legend">внутри — {personA?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
     {:else}
       <Wheel positions={posA} positionsOuter={posB} positionsOuter2={transitPos}
         staticAspects={crossTA} staticAspects2={crossTB} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} onstatictap={onStatic} onscrub={scrubTransit} />
+        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
       <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
     {/if}
@@ -700,6 +709,14 @@
     {#if (mode === 'synastry' || mode === 'triple') && personB?.unknownTime}
       <div class="warn">⚠ У {personB.name} время рождения не задано — {personB.slowOnly
         ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
+    {/if}
+
+    {#if chartFigs.length}
+      <div class="grp">◆ Фигуры{#if mode === 'transitNatal' || mode === 'triple'} — замыкает транзит{/if}</div>
+      {#each chartFigs as f (f.key)}
+        <ChartFigureCard fig={f} selected={selFigKey === f.key}
+          onactivate={() => (selFigKey = selFigKey === f.key ? null : f.key)} />
+      {/each}
     {/if}
 
     {#if mode === 'natal'}

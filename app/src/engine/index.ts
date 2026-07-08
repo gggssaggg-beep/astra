@@ -6,5 +6,7 @@ export { findAspectOccurrences } from './aspectSearch.ts';
 export type { AspectOccurrence } from './aspectSearch.ts';
 export { eventsOn } from './events.ts';
 export * from './static.ts';
+export { FIGURES, detectFigures, figureWindow, figureKey } from './figures.ts';
+export type { FigureSpec, FigureHit, FigureEdge, FigurePoint } from './figures.ts';
 export * from './constants.ts';
 export type * from './types.ts';

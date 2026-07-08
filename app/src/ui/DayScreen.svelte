@@ -1,10 +1,11 @@
 <script lang="ts">
   // Кэш тяжёлых расчётов дня — в ОБЩЕМ модуле lib/dayCache.ts (живёт между
   // пересозданиями компонента на листание и делится с чатом).
-  import { aspectsOnCached, eventsOnCached } from '../lib/dayCache.ts';
+  import { aspectsOnCached, eventsOnCached, figuresOnCached } from '../lib/dayCache.ts';
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
   import { fmtPos, fmtPosRx, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
+  import FigureCard from './FigureCard.svelte';
   import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
   import { reveal } from '../lib/reveal.ts';
@@ -78,6 +79,19 @@
   });
   const events = $derived(eventsOnCached(engine, dayStart));
 
+  // «Фигуры дня» — конфигурации аспектов (§ раунд 29). Тап по фигуре подсвечивает
+  // весь её полигон в колесе (набор линий) и раскрывает декомпозицию.
+  // крупные фигуры вперёд (большой крест выше одинокого треугольника); кэш
+  // возвращает ТУ ЖЕ ссылку — сортируем копию (Svelte 5 реактивность)
+  const figures = $derived([...figuresOnCached(engine, dayStart, orbOf, objects)]
+    .sort((a, b) => b.hit.spec.arity - a.hit.spec.arity || a.hit.spec.name.localeCompare(b.hit.spec.name, 'ru')));
+  let selFigureKey = $state<string | null>(null);
+  // смена дня сбрасывает выбор (ключ фигуры другого дня не совпадёт всё равно)
+  $effect(() => { void dayStart; selFigureKey = null; });
+  const selFigure = $derived(figures.find((f) => f.hit.key === selFigureKey) ?? null);
+  const figureSigs = $derived(selFigure
+    ? selFigure.hit.edges.map((e) => aspectSignature(e.p1, e.p2, e.aspect)) : null);
+
   // вертикальный порядок в блоках уже задан движком (aspects.ts: быстрые сверху
   // по sunRank, Луна — по времени точного аспекта) — здесь не пересортировываем
   const section = (title: string, list: AspectRecord[]) => ({ title, list });
@@ -86,7 +100,7 @@
 <div class="day">
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
-    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {oninfo} />
+    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs} {oninfo} />
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
          выглядит как загадочные «мои 4 утра» (вопрос владелицы) -->
     <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}`
@@ -140,6 +154,15 @@
         </div>
       {/each}
     </div>
+  {/if}
+
+  {#if figures.length}
+    <h3 class="sec">Фигуры дня</h3>
+    {#each figures as f (f.hit.key)}
+      <FigureCard hit={f.hit} window={f.window} {tz}
+        selected={selFigureKey === f.hit.key}
+        onactivate={() => (selFigureKey = selFigureKey === f.hit.key ? null : f.hit.key)} />
+    {/each}
   {/if}
 
   {#each [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}

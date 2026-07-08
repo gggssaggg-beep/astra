@@ -4,8 +4,8 @@
  * Раньше кэш жил в модуле DayScreen, а chat.ts считал те же сутки заново,
  * блокируя UI перед каждым сообщением.
  */
-import type { Engine, DayAspects, DayEvent } from '../engine/index.ts';
-import { aspectsOn, eventsOn } from '../engine/index.ts';
+import type { Engine, DayAspects, DayEvent, AspectRecord, FigureHit } from '../engine/index.ts';
+import { aspectsOn, eventsOn, detectFigures, figureWindow } from '../engine/index.ts';
 
 const CACHE_MAX = 48;
 function cached<T>(map: Map<string, T>, key: string, make: () => T): T {
@@ -18,6 +18,7 @@ function cached<T>(map: Map<string, T>, key: string, make: () => T): T {
 }
 const aspCache = new Map<string, DayAspects>();
 const evCache = new Map<string, DayEvent[]>();
+const figCache = new Map<string, DayFigure[]>();
 
 // базовые объекты для ключа орбисов (настройка орбиса меняет результат)
 const ORB_KEY_ORDER = ['Луна', 'Солнце', 'Меркурий', 'Венера', 'Марс', 'Раху',
@@ -39,4 +40,33 @@ export function aspectsOnCached(
 /** События суток (ингрессии/станции/лунации/затмения) с кэшем. */
 export function eventsOnCached(E: Engine, dayStart: Date): DayEvent[] {
   return cached(evCache, `${E.mode}|${dayStart.getTime()}`, () => eventsOn(E, dayStart));
+}
+
+/** «Фигура дня» — детектированная фигура + окно её сборки-распада (пересечение
+ *  интервалов рёбер, ЗАДАНИЕ §2.2). window=null — рёбра есть за сутки, но
+ *  ОДНОВРЕМЕННО не стоят (фигура «заготовка», не собирается целиком). */
+export interface DayFigure {
+  hit: FigureHit<AspectRecord>;
+  window: { begin: Date | null; end: Date | null } | null;
+}
+
+/** Фигуры суток с кэшем: рёбра = аспекты дня (все три ведра), точки = позиции
+ *  в полдень (пустые пары/сторона бриллианта различаются с запасом — классы
+ *  30°/150° отстоят на 120°, суточный ход их не путает). Ключ тот же, что у
+ *  aspectsOnCached. */
+export function figuresOnCached(
+  E: Engine, dayStart: Date,
+  orb: number | ((name: string) => number),
+  objects?: string[] | null,
+): DayFigure[] {
+  const orbOf = typeof orb === 'function' ? orb : () => orb;
+  const orbKey = ORB_KEY_ORDER.map((n) => orbOf(n)).join(',');
+  const objKey = objects ? objects.join(',') : 'all';
+  return cached(figCache, `${E.mode}|${dayStart.getTime()}|${orbKey}|${objKey}`, () => {
+    const day = aspectsOnCached(E, dayStart, orb, objects);
+    const edges: AspectRecord[] = [...day.slow, ...day.fast, ...day.moon];
+    const noon = new Date(dayStart.getTime() + 12 * 3_600_000);
+    const pts = E.positions(noon, objects ?? undefined).map((p) => ({ name: p.name, lon: p.lon }));
+    return detectFigures(pts, edges).map((hit) => ({ hit, window: figureWindow(hit.edges) }));
+  });
 }

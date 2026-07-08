@@ -29,15 +29,23 @@
   let { positions, aspects = [], positionsOuter = null, positionsOuter2 = null,
         staticAspects = null, staticAspects2 = null, houses = null,
         signStyle = 'gold', selectedSignature = null, selectedInfo = null,
-        selectedStaticKey = null, oninfo, onstatictap, onscrub }:
+        selectedStaticKey = null, figureSigs = null, figureStaticKeys = null,
+        oninfo, onstatictap, onscrub }:
     { positions: BodyPosition[]; aspects?: AspectRecord[];
       positionsOuter?: BodyPosition[] | null; positionsOuter2?: BodyPosition[] | null;
       staticAspects?: StaticAspect[] | null; staticAspects2?: StaticAspect[] | null;
       houses?: { cusps: number[]; asc: number; mc: number } | null;
       signStyle?: SignStyle; selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       selectedStaticKey?: string | null;
+      // Полигон фигуры: подсветить СРАЗУ набор рёбер (сигнатуры аспектов для
+      // транзитного колеса / staticKey для совмещённых карт). Правило «сам
+      // элемент, не рамка» — светятся линии, как у одиночного выбора.
+      figureSigs?: string[] | null; figureStaticKeys?: string[] | null;
       oninfo?: (info: WheelInfo) => void; onstatictap?: (key: string) => void;
       onscrub?: (deltaMs: number) => void } = $props();
+
+  const figSet = $derived(new Set(figureSigs ?? []));
+  const figKeySet = $derived(new Set(figureStaticKeys ?? []));
 
   // Прокрутка времени ПРЯМО в колесе (транзитные карты): тянешь по кругу — момент
   // транзита едет, полный оборот = сутки (суточное вращение неба). Малое смещение
@@ -158,6 +166,8 @@
   const toneColor = (asp: string) =>
     aspectTone(asp) === 'harm' ? 'var(--gold)' : aspectTone(asp) === 'tense' ? 'var(--rose)' : 'var(--silver)';
 
+  // подсветка активна, если выбран аспект ИЛИ подсвечен полигон фигуры
+  const anySel = $derived(!!effSig || figSet.size > 0);
   // линии аспектов между точками планет на внутреннем кольце
   const lines = $derived(
     aspects
@@ -165,9 +175,10 @@
         const l1 = lonByName.get(a.p1), l2 = lonByName.get(a.p2);
         if (l1 == null || l2 == null) return null;
         const A = pt(l1, rAspect), B = pt(l2, rAspect);
+        const sig = aspectSignature(a.p1, a.p2, a.aspect);
         return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying,
           aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol,
-          sel: !!effSig && aspectSignature(a.p1, a.p2, a.aspect) === effSig };
+          sel: (!!effSig && sig === effSig) || figSet.has(sig) };
       })
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
@@ -175,7 +186,7 @@
   // статичные линии: p1/p2 берём из указанных колец; без applying/времени —
   // только выделение по ключу. Набор 1 — внутреннее↔внешнее; набор 2 (тройная) —
   // среднее↔внешнее.
-  const anySelStatic = $derived(!!selectedStaticKey);
+  const anySelStatic = $derived(!!selectedStaticKey || figKeySet.size > 0);
   const buildStatic = (
     list: StaticAspect[] | null,
     m1: Map<string, number>, m2: Map<string, number>, ring: string,
@@ -188,7 +199,7 @@
       // kk — ключ рендера (в тройной карте один и тот же key может быть у линий
       // разных колец: «Солнце △ Луна» к наталу А и к наталу Б)
       return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect),
-        key, kk: ring + key, sel: key === selectedStaticKey };
+        key, kk: ring + key, sel: key === selectedStaticKey || figKeySet.has(key) };
     })
     .filter((x): x is NonNullable<typeof x> => x !== null);
   const slines = $derived(buildStatic(staticAspects, lonByName, lonOut, '1'));
@@ -320,7 +331,7 @@
            drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
       <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
         stroke-width={l.sel ? 2.8 : 1.2}
-        opacity={l.sel ? 1 : effSig ? 0.18 : l.dim ? 0.35 : 0.8}
+        opacity={l.sel ? 1 : anySel ? 0.18 : l.dim ? 0.35 : 0.8}
         class:selline={l.sel}
         style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
       {#if oninfo}

@@ -23,6 +23,10 @@
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
   import HousesSheet from './ui/HousesSheet.svelte';
+  import PlanetSignsSheet from './ui/PlanetSignsSheet.svelte';
+  import PlanetHousesSheet from './ui/PlanetHousesSheet.svelte';
+  import DispositorsSheet from './ui/DispositorsSheet.svelte';
+  import PlanetCuspsSheet from './ui/PlanetCuspsSheet.svelte';
   import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
@@ -45,6 +49,10 @@
   let showJournal = $state(false);
   let showArch = $state(false);
   let showHouses = $state(false);
+  let showPlanetSigns = $state(false);
+  let showPlanetHouses = $state(false);
+  let showDispositors = $state(false);
+  let showPlanetCusps = $state(false);
   let showTracked = $state(false);
   let showSignMyths = $state(false);
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
@@ -159,6 +167,10 @@
     if (showInterp) { showInterp = false; showLibrary = true; return; }
     if (showArch) { showArch = false; showLibrary = true; return; }
     if (showHouses) { showHouses = false; showLibrary = true; return; }
+    if (showPlanetSigns) { showPlanetSigns = false; showLibrary = true; return; }
+    if (showPlanetHouses) { showPlanetHouses = false; showLibrary = true; return; }
+    if (showDispositors) { showDispositors = false; showLibrary = true; return; }
+    if (showPlanetCusps) { showPlanetCusps = false; showLibrary = true; return; }
     if (showSignMyths) { showSignMyths = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
     if (showCharts) {
@@ -181,6 +193,7 @@
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
     showData = showJournal = showLibrary = showInterp = showArch = showHouses = showTracked = showChat = false;
+    showPlanetSigns = showPlanetHouses = showDispositors = showPlanetCusps = false;
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
@@ -360,7 +373,7 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked}
+  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked || showPlanetSigns || showPlanetHouses || showDispositors || showPlanetCusps || showSignMyths}
     onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
@@ -386,7 +399,11 @@
     onTracked={() => { showLibrary = false; showTracked = true; }}
     onJournal={() => { showLibrary = false; showJournal = true; }}
     onSignMyths={() => { showLibrary = false; showSignMyths = true; }}
-    onChat={() => { showLibrary = false; showChat = true; }} />
+    onChat={() => { showLibrary = false; showChat = true; }}
+    onPlanetSigns={() => { showLibrary = false; showPlanetSigns = true; }}
+    onPlanetHouses={() => { showLibrary = false; showPlanetHouses = true; }}
+    onDispositors={() => { showLibrary = false; showDispositors = true; }}
+    onPlanetCusps={() => { showLibrary = false; showPlanetCusps = true; }} />
 {/if}
 
 {#if showSignMyths}
@@ -401,6 +418,22 @@
 
 {#if showHouses}
   <HousesSheet onclose={() => { showHouses = false; showLibrary = true; }} />
+{/if}
+
+{#if showPlanetSigns}
+  <PlanetSignsSheet onclose={() => { showPlanetSigns = false; showLibrary = true; }} />
+{/if}
+
+{#if showPlanetHouses}
+  <PlanetHousesSheet onclose={() => { showPlanetHouses = false; showLibrary = true; }} />
+{/if}
+
+{#if showDispositors}
+  <DispositorsSheet onclose={() => { showDispositors = false; showLibrary = true; }} />
+{/if}
+
+{#if showPlanetCusps}
+  <PlanetCuspsSheet onclose={() => { showPlanetCusps = false; showLibrary = true; }} />
 {/if}
 
 {#if showArch}

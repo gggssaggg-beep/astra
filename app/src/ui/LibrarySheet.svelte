@@ -3,10 +3,12 @@
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat }:
+  let { onclose, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
+        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
-      onChat: () => void } = $props();
+      onChat: () => void; onPlanetSigns: () => void; onPlanetHouses: () => void;
+      onDispositors: () => void; onPlanetCusps: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -36,6 +38,34 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">🏠</span>
       <div class="txt"><b>Значения домов</b><small>знак на куспиде каждого дома</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onPlanetSigns}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🪐</span>
+      <div class="txt"><b>Планеты в знаках</b><small>архетип планеты в мифе знака</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onPlanetHouses}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🔭</span>
+      <div class="txt"><b>Планеты в домах</b><small>архетип планеты в чертогах дома</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onDispositors}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">👑</span>
+      <div class="txt"><b>Управители домов</b><small>диспозитор куспида и дом его положения</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onPlanetCusps}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">📐</span>
+      <div class="txt"><b>Аспекты планет к домам</b><small>архетип планеты аспектирует куспид дома</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

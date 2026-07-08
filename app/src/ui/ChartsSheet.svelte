@@ -155,13 +155,27 @@
   const transitLabel = $derived(fmts(tz).label.format(transitAt));
   function refreshTransit(): void { transitAt = new Date(); }
   function stepTransit(ms: number): void { transitAt = new Date(transitAt.getTime() + ms); }
-  // прокрутка прямо в основном колесе: оборот = сутки (см. Wheel.onscrub).
+  // масштаб прокрутки (просьба владелицы 2026-07-08): оборот диска и шаг ‹›
+  // = день, месяц или год — динамика транзитов на длинной дистанции
+  let scrubScale = $state<'day' | 'month' | 'year'>('day');
+  const SCRUB_MULT = { day: 1, month: 30, year: 365 } as const;
+  const SCRUB_CAP = { day: 'сутки за оборот', month: 'месяц за оборот', year: 'год за оборот' } as const;
+  const UNIT_NAME = { day: 'день', month: 'месяц', year: 'год' } as const;
+  // шаг кнопками ‹ › — календарный (месяц/год честные, не 30/365 суток)
+  function stepUnit(dir: 1 | -1): void {
+    if (scrubScale === 'day') { stepTransit(dir * 86_400_000); return; }
+    const d = new Date(transitAt);
+    if (scrubScale === 'month') d.setUTCMonth(d.getUTCMonth() + dir);
+    else d.setUTCFullYear(d.getUTCFullYear() + dir);
+    transitAt = d;
+  }
+  // прокрутка прямо в основном колесе: оборот = сутки×масштаб (см. Wheel.onscrub).
   // rAF-дебаунс: pointermove приходит чаще кадров, а каждый тик тянет WASM
   // positions()+аспекты — копим дельту и применяем раз в кадр.
   let scrubPending = 0;
   let scrubRaf = 0;
   function scrubTransit(deltaMs: number): void {
-    scrubPending += deltaMs;
+    scrubPending += deltaMs * SCRUB_MULT[scrubScale];
     if (scrubRaf) return;
     scrubRaf = requestAnimationFrame(() => {
       transitAt = new Date(transitAt.getTime() + scrubPending);
@@ -619,8 +633,8 @@
     {#snippet transitCtl()}
       <!-- один ровный ряд: ‹ [дата] [время] ОК › — без переносов и «кривизны» -->
       <div class="tctl">
-        <button class="mini navd" onclick={() => stepTransit(-86_400_000)}
-          aria-label="День назад" title="День назад">‹</button>
+        <button class="mini navd" onclick={() => stepUnit(-1)}
+          aria-label="Шаг назад: {UNIT_NAME[scrubScale]}" title="Назад: {UNIT_NAME[scrubScale]}">‹</button>
         <input class="tin" inputmode="numeric" maxlength="10" value={tDate} placeholder="ДД.ММ.ГГГГ" aria-label="Дата транзита"
           oninput={(e) => (tDate = maskDate((e.target as HTMLInputElement).value, tDate))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
@@ -628,13 +642,19 @@
           oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value, tTime))}
           onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
         <button class="mini ok" onclick={applyTransitFields} aria-label="Применить дату и время">ОК</button>
-        <button class="mini navd" onclick={() => stepTransit(86_400_000)}
-          aria-label="День вперёд" title="День вперёд">›</button>
+        <button class="mini navd" onclick={() => stepUnit(1)}
+          aria-label="Шаг вперёд: {UNIT_NAME[scrubScale]}" title="Вперёд: {UNIT_NAME[scrubScale]}">›</button>
       </div>
       <div class="tctl2">
         <button class="mini now" onclick={refreshTransit}>⌂ сейчас</button>
-        <span class="cap">крути колесо пальцем — сутки за оборот</span>
+        <!-- масштаб: и оборот диска, и шаг кнопок ‹ › -->
+        <div class="scale" role="group" aria-label="Масштаб прокрутки">
+          <button class="mini sc" class:on={scrubScale === 'day'} onclick={() => (scrubScale = 'day')}>день</button>
+          <button class="mini sc" class:on={scrubScale === 'month'} onclick={() => (scrubScale = 'month')}>месяц</button>
+          <button class="mini sc" class:on={scrubScale === 'year'} onclick={() => (scrubScale = 'year')}>год</button>
+        </div>
       </div>
+      <div class="tctl3"><span class="cap">крути колесо пальцем — {SCRUB_CAP[scrubScale]}</span></div>
     {/snippet}
 
     {#if mode === 'natal'}
@@ -996,7 +1016,12 @@
     border-radius: 12px; padding: 8px 6px; font: inherit; font-family: var(--font-mono);
     font-variant-numeric: tabular-nums; text-align: center; width: 6.6rem; min-width: 0; }
   .tin.tt { width: 3.9rem; }
-  .tctl2 { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 8px; }
+  .tctl2 { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 0; }
+  .tctl3 { text-align: center; margin: 4px 0 8px; }
+  .scale { display: flex; gap: 4px; }
+  .mini.sc { padding: 6px 10px; font-size: 0.74rem; }
+  .mini.sc.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-brd));
+    background: color-mix(in srgb, var(--accent) 14%, transparent); }
   .cap { color: var(--ink-faint); font-size: 0.72rem; }
   /* прогноз транзитов */
   .fc { margin-top: 14px; }

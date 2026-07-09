@@ -22,6 +22,8 @@ jobs:
       contents: write   # чтобы закоммитить готовый APK обратно в репо
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # полная история — номер сборки = число коммитов (совпадает с веб-версией)
 
       - name: Node.js
         uses: actions/setup-node@v4
@@ -39,8 +41,10 @@ jobs:
         run: |
           # раньше веб собирался с базовой '0.1.0', а манифест писал '0.1.0.NN' —
           # свежий APK сразу «видел обновление» и качал байт-в-байт тот же бандл
+          # номер сборки = число коммитов (git rev-list) — тот же счётчик, что у
+          # веб-версии (pages.yml), поэтому сайт и APK показывают ОДНУ версию.
           BASE=$(grep -oP "APP_VERSION = '\K[0-9.]+" src/lib/version.ts)
-          VER="${BASE}.${{ github.run_number }}"
+          VER="${BASE}.$(git rev-list --count HEAD)"
           sed -i "s/APP_VERSION = '[0-9.]*'/APP_VERSION = '${VER}'/" src/lib/version.ts
           echo "версия сборки: $VER"
 

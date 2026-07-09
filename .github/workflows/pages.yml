@@ -28,6 +28,17 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # полная история — номер сборки = число коммитов
+      - name: Штамп версии сборки (номер = число коммитов; совпадает с APK)
+        working-directory: app
+        run: |
+          # без штампа сайт показывал голую '0.1.0' — не понять, свежая ли версия.
+          # rev-list --count даёт тот же номер, что и APK-сборка на этом коммите.
+          BASE=$(grep -oP "APP_VERSION = '\K[0-9.]+" src/lib/version.ts)
+          VER="${BASE}.$(git rev-list --count HEAD)"
+          sed -i "s/APP_VERSION = '[0-9.]*'/APP_VERSION = '${VER}'/" src/lib/version.ts
+          echo "версия веб-сборки: $VER"
       - uses: actions/setup-node@v4
         with:
           node-version: 22

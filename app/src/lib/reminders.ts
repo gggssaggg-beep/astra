@@ -13,7 +13,7 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Engine, BodyPosition, AspectRecord } from '../engine/index.ts';
-import { aspectsOn, PLANET_GLYPH, signOf } from '../engine/index.ts';
+import { aspectsOn, PLANET_GLYPH, signOf, stationsBetween } from '../engine/index.ts';
 import { zonedDayStartUTC, todayCivil, fmtTime, civilOf } from './format.ts';
 import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
@@ -200,6 +200,18 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       slots.sort((a, b) => a.getTime() - b.getTime());
       const sorted = allAspects.slice().sort((x, y) =>
         (x.rec.exactTime as Date).getTime() - (y.rec.exactTime as Date).getTime());
+      // ретро-станции (разворот планеты R↔D) как события сводки — не только
+      // аспекты (жалоба: «Нептун → ретроград» не попадал в дайджест). Кладём в
+      // слот, чей интервал накрывает станцию.
+      const stationEvents: { at: Date; planet: string; toRetro: boolean }[] = [];
+      {
+        const from = new Date(now), to = new Date(now + DAILY_DAYS * 86_400_000);
+        for (const p of settings.objects) {
+          for (const st of stationsBetween(engine, p, from, to)) {
+            stationEvents.push({ at: st.at, planet: p, toRetro: st.toRetro });
+          }
+        }
+      }
       let did = ID_DAILY_FROM, dailyCount = 0;
       for (let i = 0; i < slots.length && did <= ID_DAILY_TO; i++) {
         const at = slots[i];
@@ -209,8 +221,13 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
           const t = (x.rec.exactTime as Date).getTime();
           return t >= at.getTime() && t < end;
         });
-        const items = win.slice(0, 6).map((x) =>
-          `${PLANET_GLYPH[x.rec.p1] ?? x.rec.p1}${x.rec.symbol}${PLANET_GLYPH[x.rec.p2] ?? x.rec.p2} ${fmtTime(x.rec.exactTime as Date, tz)}`);
+        const stWin = stationEvents.filter((s) =>
+          s.at.getTime() >= at.getTime() && s.at.getTime() < end);
+        const stItems = stWin.map((s) =>
+          `${PLANET_GLYPH[s.planet] ?? s.planet} ${s.toRetro ? '℞ ретроград' : 'D директ'} ${fmtTime(s.at, tz)}`);
+        // станции вперёд — они заметнее рядовых аспектов
+        const items = [...stItems, ...win.slice(0, 6).map((x) =>
+          `${PLANET_GLYPH[x.rec.p1] ?? x.rec.p1}${x.rec.symbol}${PLANET_GLYPH[x.rec.p2] ?? x.rec.p2} ${fmtTime(x.rec.exactTime as Date, tz)}`)];
         list.push({
           id: did++,
           title: twice ? (localMinutes(at, tz) < 720 ? 'Сводка дня' : 'Сводка на вечер и ночь') : 'Сводка неба',

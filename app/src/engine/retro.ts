@@ -88,3 +88,38 @@ export function retroPhase(E: Engine, planet: string, at: Date): RetroPhase {
   }
   return 'direct';
 }
+
+/** Момент разворота планеты (станция) для событий в сводке уведомлений. */
+export interface StationEvent { at: Date; jd: number; lon: number; toRetro: boolean }
+
+/**
+ * Все станции (развороты R↔D) планеты в интервале [from, to]. Солнце/Луна не
+ * ретроградят; узлы (Раху/Кету) вибрируют без настоящей петли — «станцией» их
+ * не считаем → для всех этих объектов пусто. Считается движком по смене знака
+ * скорости (шаг 0.5 сут + бисекция), диапазон короткий (сводка на неделю) —
+ * дёшево. `toRetro` — разворот в ретроград (директ→ретро).
+ */
+export function stationsBetween(E: Engine, planet: string, from: Date, to: Date): StationEvent[] {
+  if (planet === 'Солнце' || planet === 'Луна' || planet === 'Раху' || planet === 'Кету') return [];
+  const j0 = E.toJD(from), j1 = E.toJD(to);
+  const sp = (j: number) => E.lonSpeed(j, planet)[1];
+  const out: StationEvent[] = [];
+  let prevJ = j0, prevV = sp(j0);
+  for (let j = j0 + 0.5; j <= j1 + 0.5; j += 0.5) {
+    const v = sp(j);
+    if ((prevV <= 0) !== (v <= 0)) {
+      let lo = Math.min(prevJ, j), hi = Math.max(prevJ, j);
+      for (let i = 0; i < 40; i++) {
+        const mid = (lo + hi) / 2;
+        if ((sp(lo) <= 0) !== (sp(mid) <= 0)) hi = mid; else lo = mid;
+      }
+      const jd = (lo + hi) / 2;
+      const at = E.fromJD(jd);
+      if (at.getTime() >= from.getTime() && at.getTime() <= to.getTime()) {
+        out.push({ at, jd, lon: E.lon(jd, planet), toRetro: sp(jd - 0.3) > 0 && sp(jd + 0.3) < 0 });
+      }
+    }
+    prevJ = j; prevV = v;
+  }
+  return out;
+}

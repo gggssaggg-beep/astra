@@ -203,6 +203,28 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
   node.addEventListener('touchmove', onMove, { passive: false });
   node.addEventListener('touchend', onEnd);
   node.addEventListener('touchcancel', onEnd);
+
+  // Мягкое закрытие по ✕ и тапу вне шторки (бэкдроп): лист доезжает вниз, как при
+  // свайпе, а не исчезает рывком. Перехватываем клик в фазе ЗАХВАТА и гасим
+  // родной onclick={onclose} (мгновенный) — вместо него анимация + onclose в конце.
+  let closingSoft = false;
+  function softClose() {
+    if (closingSoft) return;
+    closingSoft = true;
+    tick();
+    node.style.transition = 'transform 0.2s ease-in';
+    node.style.transform = 'translate(-50%, 105%)';
+    if (backdrop) { backdrop.style.transition = 'opacity 0.2s ease'; backdrop.style.opacity = '0'; }
+    window.setTimeout(onclose, 190);
+  }
+  const onCloserCapture = (e: Event) => { e.preventDefault(); e.stopImmediatePropagation(); softClose(); };
+  const bdSib = node.previousElementSibling as HTMLElement | null;
+  const backdrop = bdSib && bdSib.classList.contains('backdrop') ? bdSib : null;
+  const closers: HTMLElement[] = [];
+  if (backdrop) closers.push(backdrop);
+  node.querySelectorAll<HTMLElement>('.x, .xbtn').forEach((el) => closers.push(el));
+  closers.forEach((el) => el.addEventListener('click', onCloserCapture, true));
+
   lockScroll();
   openStack.push(node);
   attachThread(node);
@@ -215,6 +237,7 @@ export function bottomSheet(node: HTMLElement, params: SheetParams) {
       node.removeEventListener('touchmove', onMove);
       node.removeEventListener('touchend', onEnd);
       node.removeEventListener('touchcancel', onEnd);
+      closers.forEach((el) => el.removeEventListener('click', onCloserCapture, true));
       unlockScroll();
       const i = openStack.indexOf(node);
       if (i >= 0) openStack.splice(i, 1);

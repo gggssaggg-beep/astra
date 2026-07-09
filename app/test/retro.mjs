@@ -5,7 +5,7 @@
  * Запуск:  node test/retro.mjs
  */
 import assert from 'node:assert/strict';
-import { createEngine, retroPhase } from '../src/engine/index.ts';
+import { createEngine, retroPhase, stationsBetween } from '../src/engine/index.ts';
 
 let n = 0;
 const ok = async (name, fn) => { await fn(); n++; console.log(`  ✓ ${name}`); };
@@ -41,6 +41,23 @@ await ok('прогон по всем планетам', () => {
     const ph = retroPhase(E, p, D(2024, 3, 15));
     assert.ok(typeof ph === 'string');
   }
+});
+
+console.log('=== stationsBetween: развороты Меркурия янв–фев 2022 ===');
+await ok('находит R-станцию (~14 янв) и D-станцию (~3 фев)', () => {
+  const sts = stationsBetween(E, 'Меркурий', D(2022, 1, 1), D(2022, 2, 15));
+  assert.equal(sts.length, 2, `станций: ${sts.length}`);
+  const r = sts.find((s) => s.toRetro), dd = sts.find((s) => !s.toRetro);
+  assert.ok(r && dd, 'есть и R и D');
+  assert.ok(r.at < dd.at, 'сначала R, потом D');
+  assert.equal(r.at.getUTCMonth(), 0, 'R в январе');
+  assert.ok(r.at.getUTCDate() >= 12 && r.at.getUTCDate() <= 16, `R день ${r.at.getUTCDate()}`);
+  assert.equal(dd.at.getUTCMonth(), 1, 'D в феврале');
+  assert.ok(dd.at.getUTCDate() >= 1 && dd.at.getUTCDate() <= 5, `D день ${dd.at.getUTCDate()}`);
+});
+await ok('Солнце и узлы станций не дают', () => {
+  assert.equal(stationsBetween(E, 'Солнце', D(2022, 1, 1), D(2022, 3, 1)).length, 0);
+  assert.equal(stationsBetween(E, 'Раху', D(2022, 1, 1), D(2022, 3, 1)).length, 0);
 });
 
 console.log(`\n=== РЕТРО: все ${n} проверок зелёные ===`);

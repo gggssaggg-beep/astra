@@ -39,6 +39,9 @@
   import Wheel from './Wheel.svelte';
   import { chartFigures } from '../lib/chartFigures.ts';
   import ChartFigureCard from './ChartFigureCard.svelte';
+  import DispositorChains from './DispositorChains.svelte';
+  import { cuspAspects } from '../lib/cuspAspects.ts';
+  import { PLANET_CUSP_LORE } from '../lib/planetCuspLore.ts';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
   import PromptSheet from './PromptSheet.svelte';
@@ -309,6 +312,11 @@
   // «Фигуры» карты (раунд 29): натал — классические; транзитные режимы —
   // фигуры, ЗАМКНУТЫЕ транзитом (натальная заготовка + транзитная планета).
   const chartFigs = $derived(chartFigures(mode, posA, posB, transitPos, orbOf));
+  // аспекты натальных планет к куспидам домов A (§4) — только если дома есть
+  const cuspAsp = $derived(mode === 'natal' && housesA ? cuspAspects(posA, housesA.cusps, orbOf) : []);
+  const ANGLE_LBL: Record<number, string> = { 1: 'Asc', 4: 'IC', 7: 'Dsc', 10: 'MC' };
+  let openCusp = $state<string | null>(null);
+  const cuspKey = (c: { planet: string; cusp: number; aspect: string }) => `${c.planet}|${c.cusp}|${c.aspect}`;
   let selFigKey = $state<string | null>(null);
   $effect(() => { void mode; void pair; selFigKey = null; });   // смена карты сбрасывает выбор
   const figStaticKeys = $derived(chartFigs.find((f) => f.key === selFigKey)?.staticKeys ?? null);
@@ -719,6 +727,31 @@
       {/each}
     {/if}
 
+    {#if mode === 'natal' && posA.length}
+      <div class="grp">⛓ Цепочки диспозиторов</div>
+      <div class="hint small">Каждая планета служит управителю своего знака — до «царя» карты (планеты в своём знаке) или кольца соправителей.</div>
+      <div class="glass dispbox"><DispositorChains positions={posA} /></div>
+    {/if}
+
+    {#if cuspAsp.length}
+      <div class="grp">📐 Аспекты к куспидам</div>
+      <div class="hint small">Планета аспектирует куспид дома — влияет своим архетипом на дела дома. Орбис куспида 1°.</div>
+      {#each cuspAsp as c (cuspKey(c))}
+        {@const key = cuspKey(c)}
+        {@const lore = PLANET_CUSP_LORE[`${c.planet}|${c.cusp}`]}
+        <GlowCard radius={12} selected={openCusp === key}
+          onactivate={() => (openCusp = openCusp === key ? null : key)}>
+          <div class="cusprow">
+            <span class="cg glyph">{c.glyph}</span>
+            <span class="csym glyph">{c.symbol}</span>
+            <span class="clbl">куспид {c.cusp}{#if ANGLE_LBL[c.cusp]} ({ANGLE_LBL[c.cusp]}){/if}</span>
+            <span class="corb">{c.orb.toFixed(2)}°</span>
+          </div>
+          {#if openCusp === key && lore}<div class="cusplore">{lore}</div>{/if}
+        </GlowCard>
+      {/each}
+    {/if}
+
     {#if mode === 'natal'}
       {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
       <!-- в одиночном натале владелец не подписывается: «Луна (Саша) ☌ Венера
@@ -1072,6 +1105,14 @@
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
   .grp.gold { color: var(--gold); }
+  .dispbox { padding: 12px 14px; margin: 6px 0 4px; }
+  .cusprow { display: flex; align-items: center; gap: 10px; padding: 2px; }
+  .cusprow .cg { font-size: 1.2rem; color: var(--silver); }
+  .cusprow .csym { font-size: 1rem; color: var(--ink-dim); }
+  .cusprow .clbl { flex: 1; font-size: 0.9rem; color: var(--ink); }
+  .cusprow .corb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink-dim); font-size: 0.85rem; }
+  .cusplore { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--glass-brd);
+    color: var(--ink-faint); font-size: 0.85rem; line-height: 1.5; }
   /* «двойное попадание» — транзитная планета бьёт в обе карты (выделено особо) */
   .dhblock { border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--glass-brd));
     background: color-mix(in srgb, var(--glass) 88%, var(--gold) 6%);

@@ -4,11 +4,11 @@
   import GlowCard from './GlowCard.svelte';
 
   let { onclose, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
-        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps }:
+        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onChat: () => void; onPlanetSigns: () => void; onPlanetHouses: () => void;
-      onDispositors: () => void; onPlanetCusps: () => void } = $props();
+      onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -80,6 +80,20 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">📜</span>
       <div class="txt"><b>Мифы знаков</b><small>бог на каждый знак зодиака и его грани</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onRetro}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">℞</span>
+      <div class="txt"><b>Ретроградность</b><small>фазы ретро сейчас: тень, станции, ход</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onDegree}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🔎</span>
+      <div class="txt"><b>Поиск градуса</b><small>когда планета проходила заданный градус</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

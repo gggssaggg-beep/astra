@@ -11,7 +11,11 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test:parity": "node test/parity.mjs",
     "test:static": "node test/static.mjs",
-    "test:figures": "node test/figures.mjs"
+    "test:figures": "node test/figures.mjs",
+    "test:dispositors": "node test/dispositors.mjs",
+    "test:degree": "node test/degree.mjs",
+    "test:cuspaspects": "node test/cuspaspects.mjs",
+    "test:retro": "node test/retro.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

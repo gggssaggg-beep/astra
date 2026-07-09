@@ -149,3 +149,16 @@
 ## Порядок
 1→(вопрос владелице: список фигур) реестр+движок фигур; 2 цепочки; 5 поиск
 градуса; 4 аспекты к куспидам; 3 ретро-тексты (можно контент-агентом раньше).
+
+## СТАТУС 2026-07-09 — ВЕСЬ РАУНД 29 СДЕЛАН
+- §1 Фигуры дня — `engine/figures.ts` (15 фигур, реестр из канона, детекция,
+  окна), день+карты+колесо+тексты `figureLore.ts`, сканер неба
+  `test/scan_figures.mjs`→`docs/FIGURES_SKY_DATES.md`. `test:figures` 51/51.
+- §2 Цепочки диспозиторов — `lib/dispositors.ts` + `ui/DispositorChains.svelte`
+  (натал-карта). `test:dispositors`.
+- §3 Фазы ретро — `engine/retro.ts` (`retroPhase`) + `lib/retroLore.ts` +
+  `ui/RetroSheet.svelte` (Библиотека, фаза «сейчас»). `test:retro`.
+- §4 Аспекты к куспидам — `lib/cuspAspects.ts` + раздел в натал-карте с
+  `PLANET_CUSP_LORE`. `test:cuspaspects`. (Транзит→натал куспиды — на будущее.)
+- §5 Поиск градуса — `engine/degreeSearch.ts` + `ui/DegreeSearchSheet.svelte`
+  (Библиотека). `test:degree`.

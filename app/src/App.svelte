@@ -27,6 +27,8 @@
   import PlanetHousesSheet from './ui/PlanetHousesSheet.svelte';
   import DispositorsSheet from './ui/DispositorsSheet.svelte';
   import PlanetCuspsSheet from './ui/PlanetCuspsSheet.svelte';
+  import DegreeSearchSheet from './ui/DegreeSearchSheet.svelte';
+  import RetroSheet from './ui/RetroSheet.svelte';
   import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
@@ -53,6 +55,8 @@
   let showPlanetHouses = $state(false);
   let showDispositors = $state(false);
   let showPlanetCusps = $state(false);
+  let showDegree = $state(false);
+  let showRetro = $state(false);
   let showTracked = $state(false);
   let showSignMyths = $state(false);
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
@@ -171,6 +175,8 @@
     if (showPlanetHouses) { showPlanetHouses = false; showLibrary = true; return; }
     if (showDispositors) { showDispositors = false; showLibrary = true; return; }
     if (showPlanetCusps) { showPlanetCusps = false; showLibrary = true; return; }
+    if (showDegree) { showDegree = false; showLibrary = true; return; }
+    if (showRetro) { showRetro = false; showLibrary = true; return; }
     if (showSignMyths) { showSignMyths = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
     if (showCharts) {
@@ -193,7 +199,7 @@
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
     showData = showJournal = showLibrary = showInterp = showArch = showHouses = showTracked = showChat = false;
-    showPlanetSigns = showPlanetHouses = showDispositors = showPlanetCusps = false;
+    showPlanetSigns = showPlanetHouses = showDispositors = showPlanetCusps = showDegree = showRetro = false;
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
@@ -373,7 +379,7 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked || showPlanetSigns || showPlanetHouses || showDispositors || showPlanetCusps || showSignMyths}
+  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked || showPlanetSigns || showPlanetHouses || showDispositors || showPlanetCusps || showDegree || showRetro || showSignMyths}
     onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
@@ -403,7 +409,9 @@
     onPlanetSigns={() => { showLibrary = false; showPlanetSigns = true; }}
     onPlanetHouses={() => { showLibrary = false; showPlanetHouses = true; }}
     onDispositors={() => { showLibrary = false; showDispositors = true; }}
-    onPlanetCusps={() => { showLibrary = false; showPlanetCusps = true; }} />
+    onPlanetCusps={() => { showLibrary = false; showPlanetCusps = true; }}
+    onDegree={() => { showLibrary = false; showDegree = true; }}
+    onRetro={() => { showLibrary = false; showRetro = true; }} />
 {/if}
 
 {#if showSignMyths}
@@ -434,6 +442,16 @@
 
 {#if showPlanetCusps}
   <PlanetCuspsSheet onclose={() => { showPlanetCusps = false; showLibrary = true; }} />
+{/if}
+
+{#if showDegree && engine}
+  <DegreeSearchSheet {engine} tz={settings.tz}
+    onclose={() => { showDegree = false; showLibrary = true; }}
+    ongoto={(d) => { showDegree = false; slideDir = Math.sign(d.getTime() - date.getTime()); date = d; }} />
+{/if}
+
+{#if showRetro && engine}
+  <RetroSheet {engine} onclose={() => { showRetro = false; showLibrary = true; }} />
 {/if}
 
 {#if showArch}

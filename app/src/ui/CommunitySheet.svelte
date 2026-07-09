@@ -301,7 +301,7 @@
           коснись ссылки — она вернёт в приложение уже с входом.</p>
       {:else}
         <div class="mailrow">
-          <input type="email" bind:value={email} placeholder="ваша почта…"
+          <input type="email" bind:value={email} placeholder="твоя почта…"
             onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
           <button class="btn primary" disabled={mailBusy || !email.trim()} onclick={loginEmail}>
             {mailBusy ? '…' : 'Прислать'}</button>
@@ -432,9 +432,9 @@
       </div>
       {#if !card.isMe}
         <button class="btn primary follow" class:following={card.iFollow} disabled={cardBusy} onclick={toggleFollow}>
-          {card.iFollow ? '✓ Вы подписаны' : '+ Подписаться'}</button>
+          {card.iFollow ? '✓ Ты подписан(а)' : '+ Подписаться'}</button>
       {:else}
-        <div class="hint">Это вы ✧</div>
+        <div class="hint">Это ты ✧</div>
       {/if}
     </div>
     <div class="lbl">Темы автора ({cardThreads.length})</div>

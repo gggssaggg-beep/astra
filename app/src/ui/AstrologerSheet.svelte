@@ -47,7 +47,7 @@
       const { summary, payload } = buildClientChart(engine, p, { orbOf, objects, houseSystem, blocks });
       await sendClientChart({ fromName: p.name, summary, contact: contact.trim() || null, payload });
       success();
-      sendMsg = '✓ Отправлено. Астролог увидит вашу карту в приложении с датой отправки.';
+      sendMsg = '✓ Отправлено. Астролог увидит твою карту в приложении с датой отправки.';
     } catch (e) {
       sendMsg = '⚠ ' + (e instanceof Error ? e.message : String(e));
     } finally { sending = false; }
@@ -78,10 +78,10 @@
       const ok = await copyText(card);
       success();
       if (ok) {
-        sendMsg = '✓ Карта скопирована. Откроется чат — вставьте её (долгое нажатие → «Вставить») и отправьте.';
+        sendMsg = '✓ Карта скопирована. Откроется чат — вставь её (долгое нажатие → «Вставить») и отправь.';
         window.location.href = astroTgHref;
       } else {
-        sendMsg = '⚠ Не удалось скопировать карту. Отправьте её через «🔮 Отправить астрологу» (в приложение).';
+        sendMsg = '⚠ Не удалось скопировать карту. Отправь её через «🔮 Отправить астрологу» (в приложение).';
       }
     } finally { sending = false; }
   }
@@ -153,7 +153,7 @@
         <label class="chk"><input type="checkbox" bind:checked={blocks.houses} /> Дома (если задано место и время)</label>
       </div>
       <input class="select" type="text" bind:value={contact}
-        placeholder="Ваш контакт для ответа (Telegram/@, необязательно)" />
+        placeholder="Твой контакт для ответа (Telegram/@, необязательно)" />
       <button class="btn primary send" onclick={doSend} disabled={sending}>
         {sending ? 'Отправляю…' : '🔮 Отправить астрологу'}</button>
       <button class="btn tgsend" onclick={sendViaTelegram} disabled={sending}>

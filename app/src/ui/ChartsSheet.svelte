@@ -42,6 +42,7 @@
   import DispositorChains from './DispositorChains.svelte';
   import { cuspAspects } from '../lib/cuspAspects.ts';
   import { PLANET_CUSP_LORE } from '../lib/planetCuspLore.ts';
+  import { transitCuspText } from '../lib/transitCuspLore.ts';
   import StaticAspectRow from './StaticAspectRow.svelte';
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
   import PromptSheet from './PromptSheet.svelte';
@@ -322,8 +323,13 @@
   const chartFigs = $derived(chartFigures(mode, posA, posB, transitPos, orbOf));
   // аспекты натальных планет к куспидам домов A (§4) — только если дома есть
   const cuspAsp = $derived(mode === 'natal' && housesA ? cuspAspects(posA, housesA.cusps, orbOf) : []);
+  // транзиты к натальным куспидам A: проходящие планеты активируют темы домов
+  // (снимок «сейчас»). Только в режимах с транзитом и когда дома A известны.
+  const transitCuspAsp = $derived((mode === 'transitNatal' || mode === 'triple') && housesA
+    ? cuspAspects(transitPos, housesA.cusps, orbOf) : []);
   const ANGLE_LBL: Record<number, string> = { 1: 'Asc', 4: 'IC', 7: 'Dsc', 10: 'MC' };
   let openCusp = $state<string | null>(null);
+  let openTCusp = $state<string | null>(null);
   const cuspKey = (c: { planet: string; cusp: number; aspect: string }) => `${c.planet}|${c.cusp}|${c.aspect}`;
   let selFigKey = $state<string | null>(null);
   $effect(() => { void mode; void pair; selFigKey = null; });   // смена карты сбрасывает выбор
@@ -746,7 +752,8 @@
     {#if mode === 'natal' && posA.length}
       <div class="grp">⛓ Цепочки диспозиторов</div>
       <div class="hint small">Каждая планета служит управителю своего знака — до «царя» карты (планеты в своём знаке) или кольца соправителей.</div>
-      <div class="glass dispbox"><DispositorChains positions={posA} /></div>
+      <div class="glass dispbox"><DispositorChains positions={posA}
+        onexplain={onchat ? (seed) => onchat(seed, { objects: [], title: 'Цепочки диспозиторов', selfContained: true }) : undefined} /></div>
     {/if}
 
     {#if cuspAsp.length}
@@ -764,6 +771,24 @@
             <span class="corb">{c.orb.toFixed(2)}°</span>
           </div>
           {#if openCusp === key && lore}<div class="cusplore">{lore}</div>{/if}
+        </GlowCard>
+      {/each}
+    {/if}
+
+    {#if transitCuspAsp.length}
+      <div class="grp">🚶 Транзиты к куспидам</div>
+      <div class="hint small">Проходящая планета задевает куспид натального дома — временно включает его тему. Снимок на текущий момент.</div>
+      {#each transitCuspAsp as c (cuspKey(c))}
+        {@const key = cuspKey(c)}
+        <GlowCard radius={12} selected={openTCusp === key}
+          onactivate={() => (openTCusp = openTCusp === key ? null : key)}>
+          <div class="cusprow">
+            <span class="cg glyph">{c.glyph}</span>
+            <span class="csym glyph">{c.symbol}</span>
+            <span class="clbl">куспид {c.cusp}{#if ANGLE_LBL[c.cusp]} ({ANGLE_LBL[c.cusp]}){/if}</span>
+            <span class="corb">{c.orb.toFixed(2)}°</span>
+          </div>
+          {#if openTCusp === key}<div class="cusplore">{transitCuspText(c.planet, c.cusp, c.aspect)}</div>{/if}
         </GlowCard>
       {/each}
     {/if}

@@ -9,7 +9,7 @@
   import { reveal } from '../lib/reveal.ts';
   import type { Engine, RetroPhase } from '../engine/index.ts';
   import { retroPhase, PLANET_GLYPH } from '../engine/index.ts';
-  import { PHASE_LABEL, PHASE_MEANING, RETRO_FLAVOR, NODES_RETRO } from '../lib/retroLore.ts';
+  import { PHASE_LABEL, PHASE_MEANING, PHASE_PRACTICE, RETRO_FLAVOR, NODES_RETRO } from '../lib/retroLore.ts';
 
   let { engine, onclose }: { engine: Engine; onclose: () => void } = $props();
 
@@ -45,6 +45,7 @@
         <div class="body">
           <div class="flavor">{RETRO_FLAVOR[p]}</div>
           <div class="nowline"><b>Сейчас — {PHASE_LABEL[ph]}:</b> {PHASE_MEANING[ph]}</div>
+          <div class="practice"><b>На практике:</b> {PHASE_PRACTICE[ph]}</div>
           <div class="phdr">Все фазы</div>
           {#each PHASES as f}
             <div class="ph" class:cur={f === ph}>
@@ -91,6 +92,9 @@
   .flavor { color: var(--ink-dim); font-size: 0.86rem; line-height: 1.5; padding: 8px; }
   .nowline { color: var(--ink); font-size: 0.86rem; line-height: 1.5; padding: 8px;
     border-left: 2px solid var(--gold); background: #ffffff08; border-radius: 8px; margin: 4px 0; }
+  .practice { color: var(--ink-dim); font-size: 0.86rem; line-height: 1.5; padding: 8px;
+    border-left: 2px solid var(--neon-cyan); background: #ffffff08; border-radius: 8px; margin: 4px 0; }
+  .practice b { color: var(--ink); }
   .phdr { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; margin: 10px 4px 4px; }
   .ph { padding: 6px 8px; border-radius: 8px; }
   .ph.cur { background: color-mix(in srgb, var(--glass) 80%, var(--gold) 8%); }

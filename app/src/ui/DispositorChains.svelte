@@ -6,10 +6,11 @@
    */
   import type { BodyPosition } from '../engine/index.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
-  import { chartDispositors } from '../lib/dispositors.ts';
+  import { chartDispositors, dispositorPrompt } from '../lib/dispositors.ts';
   import { sunRank } from '../engine/index.ts';
 
-  let { positions }: { positions: BodyPosition[] } = $props();
+  let { positions, onexplain }:
+    { positions: BodyPosition[]; onexplain?: (seed: string) => void } = $props();
   const res = $derived(chartDispositors(positions));
   const kingSet = $derived(new Set(res.kings));
   const g = (name: string) => PLANET_GLYPH[name] ?? name;
@@ -32,6 +33,12 @@
       {#if c.cycle.length}<span class="loop" title={c.king ? 'в своём знаке — царь' : 'кольцо рецепции'}>⟲</span>{/if}
     </div>
   {/each}
+
+  {#if onexplain && chains.length}
+    <button class="explain" onclick={() => onexplain?.(dispositorPrompt(res, positions))}>
+      🔮 Разобрать цепочки в чате
+    </button>
+  {/if}
 </div>
 
 <style>
@@ -44,4 +51,7 @@
   .node.king { color: var(--gold); text-shadow: 0 0 6px color-mix(in srgb, var(--gold) 45%, transparent); }
   .to { color: var(--ink-faint); font-size: 0.85rem; }
   .loop { color: var(--neon-cyan); font-size: 0.9rem; }
+  .explain { align-self: flex-start; margin-top: 6px; background: #ffffff12;
+    border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px;
+    padding: 8px 12px; font-size: 0.84rem; }
 </style>

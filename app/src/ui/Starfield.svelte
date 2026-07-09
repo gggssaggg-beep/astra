@@ -115,10 +115,19 @@
       }
       raf = requestAnimationFrame(frame);
     }
-    raf = requestAnimationFrame(frame);
+
+    // «Экономия аккумулятора»: при data-saver='on' на <html> НЕ крутим цикл —
+    // блёстки главный источник расхода. Реагируем на переключение тумблера вживую.
+    const saverOn = () => document.documentElement.dataset.saver === 'on';
+    function start() { if (!raf && !saverOn()) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+    function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } ctx!.clearRect(0, 0, w, h); }
+    start();
+    const mo = new MutationObserver(() => (saverOn() ? stop() : start()));
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-saver'] });
 
     return () => {
-      cancelAnimationFrame(raf);
+      stop();
+      mo.disconnect();
       window.removeEventListener('resize', resize);
     };
   });

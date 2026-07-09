@@ -184,6 +184,18 @@
         {/each}
       </div>
     </div>
+    <div class="lbl" style="margin-top:14px">Экономия аккумулятора</div>
+    <div class="seg">
+      {#each [['off', 'Выкл'], ['auto', 'Авто'], ['on', 'Вкл']] as [id, label]}
+        <button class:on={(cfg.batterySaver ?? 'auto') === id}
+          onclick={() => save({ batterySaver: id as 'off' | 'auto' | 'on' })}>{label}</button>
+      {/each}
+    </div>
+    <div class="hint small" style="margin-top:6px">
+      Гасит блёстки, сполохи фона, размытие и анимации — заметно бережёт батарею
+      на слабых телефонах. «Авто» включается сам при низком заряде.
+    </div>
+
     <div class="lbl" style="margin-top:14px">Шрифт интерфейса</div>
     <div class="fonts">
       {#each FONTS as f}

@@ -280,6 +280,25 @@
   (счётчик коммитов > прежнего run_number) — версия только растёт, OTA-безопасно
   (`isNewer` в `ota.ts`). Футер `DataPanel.svelte:436` → «Astra · версия 0.1.0.179».
 
+## Сделано 2026-07-09 (режим «Экономия аккумулятора»)
+- **Анализ расхода** (по убыванию): Starfield-блёстки (canvas 30 к/с, 81
+  частица, всегда, поверх всего — главный виновник) > аврора-дрейф фона
+  (`aurora-drift 52s infinite`) > `backdrop-filter: blur(12px)` на `.frost`/
+  `section.sheet` (дорого на мобильном GPU, пока открыта шторка) > мелкие
+  `infinite`-пульсации (breathe у карточек/линии) + drop-shadow глоу. Нет
+  websocket-подписок Supabase и WebGL.
+- **Тумблер** `settings.batterySaver: 'off'|'auto'|'on'` (дефолт `'auto'`),
+  сегмент в Настройках → Внешний вид. Механика: App ставит `data-saver='on'`
+  на `<html>` (как `data-theme`); `app.css` одним селектором гасит аврору,
+  blur, глоу-фильтры, все анимации (мгновенны, как reduced-motion — НЕ
+  play-state:paused, иначе шторка застынет за экраном); `Starfield.svelte`
+  читает тот же флаг через MutationObserver и не крутит rAF-цикл (live).
+- **Авто**: `lib/battery.ts` (`watchLowBattery`, Battery Status API — есть в
+  Android WebView/Chromium, нет в Safari → тихо 'не низкий') включает при
+  ≤20% и не на зарядке. Эффективно = `mode==='on' || (mode==='auto' && low)`.
+- Глубина = «Максимум» (режем всё дорогое). Смягчить = убрать из
+  `:root[data-saver='on']` блоки blur/анимаций.
+
 ## Осталось / план
 - **РАУНД 29 ЗАКРЫТ** (фигуры + §2–§5). Идеи на будущее из
   `docs/TASK_SKY_GEOMETRY.md`: тексты ретро можно расширить бесповоротно;

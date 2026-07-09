@@ -45,6 +45,8 @@ export interface Settings {
   houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
   houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
   themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)
+  batterySaver?: 'off' | 'auto' | 'on'; // экономия аккумулятора: off=полная графика,
+                              // on=всегда экономно, auto=включается при низком заряде
 }
 
 /** Системы домов для выбора в настройках (id → engine HOUSE_SYS; equalMC особо). */
@@ -153,4 +155,5 @@ export const DEFAULT_SETTINGS: Settings = {
   font: 'default',
   seenWelcome: false,
   houseSystem: 'horizontal',
+  batterySaver: 'auto',
 };

@@ -38,6 +38,7 @@
   import type { WheelInfo } from './lib/lore.ts';
   import { rescheduleAll, onNotificationTap, notifyNewVersion } from './lib/reminders.ts';
   import { initPush } from './lib/push.ts';
+  import { watchLowBattery } from './lib/battery.ts';
   import { resumeOta, appliedVersion } from './lib/ota.ts';
   import { Preferences } from '@capacitor/preferences';
   import { clientChartsUnread } from './lib/community.ts';
@@ -325,6 +326,17 @@
   // выбранный шрифт интерфейса — переопределяем --font-body на корне
   $effect(() => {
     document.documentElement.style.setProperty('--font-body', fontStack(settings.font ?? 'default'));
+  });
+
+  // «Экономия аккумулятора»: рубим блёстки/аврору/размытие/анимации. Флаг
+  // data-saver на корне — CSS гасит графику (app.css), Starfield читает его и
+  // не крутит цикл. 'auto' = включать при низком заряде (Battery API).
+  let lowBattery = $state(false);
+  $effect(() => watchLowBattery((low) => (lowBattery = low)));   // отписка = возврат watch
+  $effect(() => {
+    const mode = settings.batterySaver ?? 'auto';
+    const on = mode === 'on' || (mode === 'auto' && lowBattery);
+    document.documentElement.dataset.saver = on ? 'on' : 'off';
   });
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.

@@ -61,11 +61,19 @@
   let detailA = $state<string | null>(null);
   let detailB = $state<string | null>(null);
   let detailWin = $state<TransitWindow | null>(null);
+  // «натив+транзит» для поиска «когда ещё»: неподвижный натальный градус a.p1 +
+  // движущаяся (транзитная/эфемеридная) планета a.p2. Работает во ВСЕХ режимах:
+  // натал/синастрия — тоже «когда транзит a.p2 замкнёт натальный a.p1».
+  let detailAnchor = $state<{ lon: number; planet: string } | null>(null);
   // natalPos — набор натальных позиций (для транзит-режимов: p1 из натала, p2 —
   // транзитная планета) → считаем ОКНО аспекта (вход орбиса → точно → выход).
   function openDetail(a: StaticAspect, oa: string | null, ob: string | null,
     natalPos: BodyPosition[] | null = null, ring: 'A' | 'B' = 'A'): void {
     selKey = staticKey(a); detail = a; detailA = oa; detailB = ob; detailWin = null;
+    // фикс. долгота a.p1: из переданного натального набора либо из posA/posB
+    const lon1 = (natalPos ?? posA).find((p) => p.name === a.p1)?.lon
+      ?? posA.find((p) => p.name === a.p1)?.lon ?? posB.find((p) => p.name === a.p1)?.lon;
+    detailAnchor = lon1 != null ? { lon: lon1, planet: a.p2 } : null;
     if (ob === 'транзит' && natalPos) {
       const cached = winFor(a, ring);          // окно уже посчитано для строки?
       if (cached !== undefined) { detailWin = cached; return; }
@@ -492,6 +500,14 @@
   // транзит+натал = человек + небо на рассматриваемый момент; тройная = двое + небо.
   const posLine = (pos: BodyPosition[], withHouse: boolean): string =>
     pos.map((p) => `${p.name} ${fmtPosRx(p.lon, p.retro)}${withHouse && houseOfA(p.lon) ? ` (${houseOfA(p.lon)} дом)` : ''}`).join('; ');
+  // точные числа для самостоятельных расчётов ИИ: эклиптическая долгота 0–360° и
+  // скорость °/сут (− = ретроград). Куспиды A добавляем к его строке.
+  const rawLine = (pos: BodyPosition[]): string =>
+    pos.map((p) => `${p.name} ${p.lon.toFixed(3)}° v=${p.speed >= 0 ? '+' : ''}${p.speed.toFixed(3)}`).join('; ');
+  const rawA = (): string => {
+    const cusps = housesA ? ` | Куспиды°: ${housesA.cusps.map((c, i) => `${i + 1}:${c.toFixed(2)}`).join(', ')}` : '';
+    return rawLine(posA) + cusps;
+  };
   const aspLine = (list: StaticAspect[], oa: string, ob: string): string =>
     list.slice(0, 20).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}°`).join('; ');
   const housesLine = (): string | undefined =>
@@ -502,22 +518,22 @@
     const people: PromptPerson[] = [];
     const aspects: string[] = [];
     if (mode === 'natal') {
-      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine() });
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       if (natalAsp.length) aspects.push(aspLine(natalAsp, personA.name, personA.name));
     } else if (mode === 'synastry' && personB) {
-      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine() });
-      people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false) });
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
+      people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
       if (crossSyn.length) aspects.push('Межаспекты: ' + aspLine(crossSyn, personA.name, personB.name));
     } else {
-      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine() });
-      if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false) });
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
+      if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
       if (crossTA.length) aspects.push(`Транзит → ${personA.name}: ` + aspLine(crossTA, personA.name, 'транзит'));
       if (personB && crossTB.length) aspects.push(`Транзит → ${personB.name}: ` + aspLine(crossTB, personB.name, 'транзит'));
     }
     return buildAstroPrompt({
       title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects,
       transit: (mode === 'transitNatal' || mode === 'triple')
-        ? { label: transitLabel, positions: posLine(transitPos, false) } : undefined,
+        ? { label: transitLabel, positions: posLine(transitPos, false), raw: rawLine(transitPos) } : undefined,
       extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).' : undefined,
     });
   });
@@ -943,7 +959,7 @@
 
 {#if detail}
   <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz} win={detailWin}
-    {engine} {orbOf}
+    {engine} {orbOf} anchor={detailAnchor}
     ongoto={ongoto ? (d) => { detail = null; ongoto?.(d); } : null}
     onclose={() => (detail = null)}
     onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}

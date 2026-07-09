@@ -23,6 +23,16 @@ function signedFn(E: Engine, n1: string, n2: string, target: number): (j: number
   return (j) => Math.abs(delta(j)) - target;
 }
 
+// То же, но ВТОРОЕ тело — ФИКСИРОВАННАЯ долгота (натальная точка): движущаяся
+// планета `n1` против неподвижного `fixedLon`. Для «натив+транзит» — когда
+// транзитная планета делает аспект к натальному градусу.
+function signedFnPoint(E: Engine, n1: string, fixedLon: number, target: number): (j: number) => number {
+  const delta = (j: number) => angdiff(E.lon(j, n1), fixedLon);
+  if (target === 0) return delta;
+  if (target === 180) return (j) => angdiff(delta(j), 180);
+  return (j) => Math.abs(delta(j)) - target;
+}
+
 export interface AspectOccurrence { exact: Date; jd: number; begin: Date; end: Date; }
 
 /** Края окна орбиса вокруг точного момента jd: где |f| = orb (аспект — ИНТЕРВАЛ,
@@ -77,6 +87,45 @@ export async function findAspectOccurrences(
     prevJ = j; prevV = v;
     // передышка почаще: 4000 шагов × 2 WASM-вызова держали главный поток
     // сотни мс — кнопка «Ищу…» и анимации замирали (жалоба «нет плавности»)
+    if (++sinceYield >= 500) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); }
+  }
+  return { list: out, truncated: false };
+}
+
+/**
+ * «Натив + транзит»: все моменты, когда ТРАНЗИТНАЯ планета `planet` делает аспект
+ * `aspect` к НЕПОДВИЖНОЙ долготе `fixedLon` (натальный градус) в [from, to].
+ * Именно это нужно в совмещённых картах: аспект строки — планета×натальная точка,
+ * а не два транзитных тела (жалоба владелицы 2026-07-09). Возвращает те же
+ * AspectOccurrence (вход→точно→выход), что и findAspectOccurrences.
+ */
+export async function findAspectToPoint(
+  E: Engine, planet: string, fixedLon: number, aspect: string,
+  from: Date, to: Date, orb = 1, maxResults = 120,
+): Promise<{ list: AspectOccurrence[]; truncated: boolean }> {
+  const spec = (ASPECTS as Record<string, { angle: number; symbol: string }>)[aspect];
+  if (!spec || to <= from) return { list: [], truncated: false };
+  const f = signedFnPoint(E, planet, fixedLon, spec.angle);
+  const jdFrom = E.toJD(from), jdTo = E.toJD(to);
+  const fast = planet === 'Луна';
+  const step = fast ? 1 / 24 : 0.25; // Луна — 1ч, планеты — 6ч
+
+  const out: AspectOccurrence[] = [];
+  let prevJ = jdFrom, prevV = f(jdFrom), sinceYield = 0;
+  for (let j = jdFrom + step; j <= jdTo; j += step) {
+    const v = f(j);
+    if ((prevV <= 0) !== (v <= 0) && Math.abs(prevV - v) < 30) {
+      let lo = prevJ, hi = j;
+      for (let i = 0; i < 50; i++) {
+        const mid = (lo + hi) / 2;
+        if ((f(lo) <= 0) !== (f(mid) <= 0)) hi = mid; else lo = mid;
+      }
+      const jd = (lo + hi) / 2;
+      const w = windowEdges(f, jd, orb, fast);
+      out.push({ jd, exact: E.fromJD(jd), begin: E.fromJD(w.begin), end: E.fromJD(w.end) });
+      if (out.length >= maxResults) return { list: out, truncated: true };
+    }
+    prevJ = j; prevV = v;
     if (++sinceYield >= 500) { sinceYield = 0; await new Promise((r) => setTimeout(r, 0)); }
   }
   return { list: out, truncated: false };

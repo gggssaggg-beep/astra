@@ -29,6 +29,7 @@
   import PlanetCuspsSheet from './ui/PlanetCuspsSheet.svelte';
   import DegreeSearchSheet from './ui/DegreeSearchSheet.svelte';
   import RetroSheet from './ui/RetroSheet.svelte';
+  import FiguresSheet from './ui/FiguresSheet.svelte';
   import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
@@ -57,6 +58,7 @@
   let showPlanetCusps = $state(false);
   let showDegree = $state(false);
   let showRetro = $state(false);
+  let showFigures = $state(false);
   let showTracked = $state(false);
   let showSignMyths = $state(false);
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
@@ -177,6 +179,7 @@
     if (showPlanetCusps) { showPlanetCusps = false; showLibrary = true; return; }
     if (showDegree) { showDegree = false; showLibrary = true; return; }
     if (showRetro) { showRetro = false; showLibrary = true; return; }
+    if (showFigures) { showFigures = false; showLibrary = true; return; }
     if (showSignMyths) { showSignMyths = false; showLibrary = true; return; }
     if (showTracked) { showTracked = false; showLibrary = true; return; }
     if (showCharts) {
@@ -199,7 +202,7 @@
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
     showData = showJournal = showLibrary = showInterp = showArch = showHouses = showTracked = showChat = false;
-    showPlanetSigns = showPlanetHouses = showDispositors = showPlanetCusps = showDegree = showRetro = false;
+    showPlanetSigns = showPlanetHouses = showDispositors = showPlanetCusps = showDegree = showRetro = showFigures = false;
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
@@ -379,7 +382,7 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked || showPlanetSigns || showPlanetHouses || showDispositors || showPlanetCusps || showDegree || showRetro || showSignMyths}
+  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked || showPlanetSigns || showPlanetHouses || showDispositors || showPlanetCusps || showDegree || showRetro || showFigures || showSignMyths}
     onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
@@ -411,7 +414,8 @@
     onDispositors={() => { showLibrary = false; showDispositors = true; }}
     onPlanetCusps={() => { showLibrary = false; showPlanetCusps = true; }}
     onDegree={() => { showLibrary = false; showDegree = true; }}
-    onRetro={() => { showLibrary = false; showRetro = true; }} />
+    onRetro={() => { showLibrary = false; showRetro = true; }}
+    onFigures={() => { showLibrary = false; showFigures = true; }} />
 {/if}
 
 {#if showSignMyths}
@@ -452,6 +456,10 @@
 
 {#if showRetro && engine}
   <RetroSheet {engine} onclose={() => { showRetro = false; showLibrary = true; }} />
+{/if}
+
+{#if showFigures}
+  <FiguresSheet onclose={() => { showFigures = false; showLibrary = true; }} />
 {/if}
 
 {#if showArch}

@@ -4,11 +4,12 @@
   import GlowCard from './GlowCard.svelte';
 
   let { onclose, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
-        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro }:
+        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures }:
     { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onChat: () => void; onPlanetSigns: () => void; onPlanetHouses: () => void;
-      onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void } = $props();
+      onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void;
+      onFigures: () => void } = $props();
 </script>
 
 <div class="backdrop" onclick={onclose} role="presentation"></div>
@@ -66,6 +67,13 @@
     <button class="row reveal" use:reveal>
       <span class="ic glyph">📐</span>
       <div class="txt"><b>Аспекты планет к домам</b><small>архетип планеты аспектирует куспид дома</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+  <GlowCard radius={14} onactivate={onFigures}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">◆</span>
+      <div class="txt"><b>Фигуры дня</b><small>конфигурации аспектов: тригон, тау, парус…</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>

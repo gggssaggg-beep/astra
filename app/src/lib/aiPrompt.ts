@@ -8,16 +8,21 @@
 
 const CALC_RULES =
   'Данные УЖЕ рассчитаны в приложении по Swiss Ephemeris (тропический зодиак, '
-  + 'расчёт в UTC, аспект — интервал вход→точно→выход орбиса). Не пересчитывай '
-  + 'астрономию и не сомневайся в числах: проверки уже выполнены (элонгации '
-  + 'Меркурия <28° и Венеры <48° от Солнца соблюдены; углы через кратчайшую дугу '
-  + 'с переходом через 0° Овна). Твоя задача — ТРАКТОВАТЬ.';
+  + 'расчёт в UTC, аспект — интервал вход→точно→выход орбиса). Числам можно '
+  + 'доверять: проверки выполнены (элонгации Меркурия <28° и Венеры <48° от '
+  + 'Солнца соблюдены; углы через кратчайшую дугу с переходом через 0° Овна). '
+  + 'Ниже, помимо читаемых позиций, даны ТОЧНЫЕ ЧИСЛА — эклиптические долготы '
+  + '(0–360°), скорости (°/сут, «−» = ретроград) и куспиды домов. Можешь '
+  + 'опираться на них для СОБСТВЕННЫХ расчётов (дополнительные и минорные '
+  + 'аспекты, средние точки/мидпойнты, попадание градуса в дом, орбисы), если '
+  + 'это углубит разбор. Приоритет — трактовать понятным, бытовым языком.';
 
 export interface PromptPerson {
   name: string;
   birth: string;          // «23.03.1989 · 02:40 · Asia/Novosibirsk · Новосибирск»
   positions: string;      // «Солнце 2°09′ Овна (I дом ℞?)…»
   houses?: string;        // «I 5°Овна (упр. Марс)…» — если есть
+  raw?: string;           // точные числа для расчётов ИИ: «Солнце 2.152° v=+0.98; …»
 }
 
 export interface AstroPrompt {
@@ -25,7 +30,7 @@ export interface AstroPrompt {
   kind: 'natal' | 'synastry' | 'transitNatal' | 'triple' | 'day' | 'aspect';
   houseSystem?: string;   // человекочитаемое название системы домов
   people?: PromptPerson[];
-  transit?: { label: string; positions: string };
+  transit?: { label: string; positions: string; raw?: string };
   aspects?: string[];     // строки аспектов рассматриваемой карты
   focus?: string;         // конкретный аспект/вопрос, если окно — про один аспект
   extra?: string;         // доп. пояснение по типу карты
@@ -43,8 +48,12 @@ export function buildAstroPrompt(p: AstroPrompt): string {
     L.push(`\n=== ${per.name} ===\nРождение: ${per.birth}.`);
     L.push(`Положения: ${per.positions}.`);
     if (per.houses) L.push(`Дома (куспиды и управители): ${per.houses}.`);
+    if (per.raw) L.push(`Точные числа (долгота°/скорость): ${per.raw}.`);
   }
-  if (p.transit) L.push(`\n=== Транзит (небо на ${p.transit.label}) ===\n${p.transit.positions}.`);
+  if (p.transit) {
+    L.push(`\n=== Транзит (небо на ${p.transit.label}) ===\n${p.transit.positions}.`);
+    if (p.transit.raw) L.push(`Точные числа (долгота°/скорость): ${p.transit.raw}.`);
+  }
   if (p.aspects?.length) L.push(`\n=== Аспекты ===\n${p.aspects.join('; ')}.`);
   if (p.focus) L.push(`\nВ фокусе: ${p.focus}.`);
 

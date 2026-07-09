@@ -8,7 +8,7 @@
    */
   import { untrack } from 'svelte';
   import type { StaticAspect, Engine, AspectOccurrence } from '../engine/index.ts';
-  import { PLANET_GLYPH, findAspectOccurrences } from '../engine/index.ts';
+  import { PLANET_GLYPH, findAspectOccurrences, findAspectToPoint } from '../engine/index.ts';
   import { civilOf } from '../lib/format.ts';
   import { expandYear } from '../lib/inputmask.ts';
   import { db, uid, onChange } from '../lib/db.ts';
@@ -26,10 +26,14 @@
   import { tap, success } from '../lib/haptics.ts';
 
   let { a, ownerA = null, ownerB = null, tz, win = null, engine = null, orbOf = null,
-        ongoto = null, onclose, onchat, oncommunity }:
+        anchor = null, ongoto = null, onclose, onchat, oncommunity }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null; tz: string;
       win?: { begin: Date; exact: Date; end: Date } | null;
       engine?: Engine | null; orbOf?: ((name: string) => number) | null;
+      // «натив+транзит»: аспект строки — это транзитная планета (planet) к
+      // НЕПОДВИЖНОМУ натальному градусу (lon) объекта a.p1. Поиск «когда ещё»
+      // ищет именно это, а не два транзитных тела (жалоба владелицы 2026-07-09).
+      anchor?: { lon: number; planet: string } | null;
       ongoto?: ((d: Date) => void) | null;
       onclose: () => void;
       onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
@@ -136,7 +140,11 @@
       const from = new Date(Date.UTC(y0, 0, 1));
       const to = new Date(Date.UTC(y1 + 1, 0, 1));
       const pairOrb = orbOf ? Math.max(orbOf(a.p1), orbOf(a.p2)) : 1;
-      const res = await findAspectOccurrences(engine, a.p1, a.p2, a.aspect, from, to, pairOrb);
+      // натив+транзит: транзитный anchor.planet к натальному градусу anchor.lon
+      // (объект a.p1). Без anchor (главный экран) — два транзитных тела.
+      const res = anchor
+        ? await findAspectToPoint(engine, anchor.planet, anchor.lon, a.aspect, from, to, pairOrb)
+        : await findAspectOccurrences(engine, a.p1, a.p2, a.aspect, from, to, pairOrb);
       occ = res.list; truncated = res.truncated;
     } catch { occ = []; }
     finally { searching = false; searched = true; }
@@ -241,6 +249,10 @@
   {#if engine && ongoto}
     <div class="block">
       <div class="lbl">Когда ещё этот аспект</div>
+      {#if anchor}
+        <div class="hint" style="margin-bottom:8px">Когда транзитный <b>{a.p2}</b> снова {a.aspect}
+          натальному <b>{a.p1}</b>{ownerA ? ` (${ownerA})` : ''} — по неподвижному градусу.</div>
+      {/if}
       <div class="rangerow">
         <input class="year" type="number" bind:value={fromYear} min="1800" max="2200" placeholder="2025" aria-label="Год с" />
         <span class="hint">по</span>
@@ -262,7 +274,7 @@
         {:else}
           <div class="hint" style="margin-top:8px">В диапазоне {fromYear}–{toYear} этот аспект не встречается.</div>
         {/if}
-      {:else}
+      {:else if !anchor}
         <div class="hint" style="margin-top:6px">Точные даты, когда <b>{a.p1} {a.aspect} {a.p2}</b>
           повторяется в небе. По дате можно нажать — откроется картинка того дня.</div>
       {/if}

@@ -31,10 +31,23 @@
     const id = setInterval(() => (nowMs = Date.now()), 60_000); // живое «сейчас», без перегруза
     return () => clearInterval(id);
   });
+  // прокрутка колеса дня: тянешь по кругу — момент снимка едет (оборот = сутки),
+  // как в «Картах». Смена дня сбрасывает прокрутку. rAF-дебаунс: pointermove
+  // чаще кадров, а каждый тик тянет WASM positions() — копим дельту на кадр.
+  let scrubOffset = $state(0);
+  $effect(() => { void date; scrubOffset = 0; });
+  let scrubPending = 0, scrubRaf = 0;
+  function scrubWheel(deltaMs: number): void {
+    scrubPending += deltaMs;
+    if (scrubRaf) return;
+    scrubRaf = requestAnimationFrame(() => { scrubOffset += scrubPending; scrubPending = 0; scrubRaf = 0; });
+  }
+  const scrubbed = $derived(scrubOffset !== 0);
+  function resetScrub(): void { scrubOffset = 0; }
   const snapshot = $derived.by(() => {
     const todayStart = zonedDayStartUTC(todayCivil(tz), tz).getTime();
     const tod = Math.min(Math.max(nowMs - todayStart, 0), 86_400_000 - 1); // мс от местной полуночи
-    return new Date(dayStart.getTime() + tod);
+    return new Date(dayStart.getTime() + tod + scrubOffset);
   });
 
   const positions = $derived(engine.positions(snapshot, objects ?? undefined));
@@ -100,11 +113,19 @@
 <div class="day">
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
-    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs} {oninfo} />
+    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
+      {oninfo} onscrub={scrubWheel} />
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
-         выглядит как загадочные «мои 4 утра» (вопрос владелицы) -->
-    <div class="snaptime">{isToday ? `сейчас · ${fmtTime(snapshot, tz)}`
-      : `на ${fmtTime(snapshot, tz)} — тот же час, что сейчас`}</div>
+         выглядит как загадочные «мои 4 утра» (вопрос владелицы). Прокрутка колеса
+         двигает момент — тогда показываем прокрученное время и кнопку «сейчас». -->
+    <div class="snaptime">
+      {#if scrubbed}
+        <button class="resetnow" onclick={resetScrub}>↺ сейчас</button>
+        <span>прокрутка · {fmtTime(snapshot, tz)}</span>
+      {:else}
+        {isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)} — тот же час, что сейчас`}
+      {/if}
+    </div>
     <!-- легенда цветов линий/кромок — «невзначай», одной тихой строкой -->
     <div class="legend">
       <span class="lg harm">гармония</span><span class="lg tense">напряжение</span><span class="lg neutral">нейтрально</span>
@@ -198,7 +219,10 @@
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude; }
-  .snaptime { text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+  .snaptime { display: flex; align-items: center; justify-content: center; gap: 8px;
+    text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+  .resetnow { background: #ffffff12; border: 1px solid var(--glass-brd); color: var(--accent);
+    border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-family: var(--font-mono); }
   /* тихая легенда цветов: чёрточка цвета линии + слово, не отвлекает */
   .legend { display: flex; justify-content: center; gap: 14px; margin-top: 4px;
     color: var(--ink-faint); font-size: 0.68rem; }

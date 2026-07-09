@@ -259,6 +259,12 @@ section.sheet h2 {
 :root[data-saver='on'] section.sheet {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  /* Без блюра полупрозрачное стекло (--glass alpha 0.48–0.76) пропускало нижний
+     экран НАСКВОЗЬ — «нижняя страница проступает, ничего не понятно». Кладём
+     НЕПРОЗРАЧНУЮ основу под тонировку: слой-градиент из --glass поверх сплошного
+     --bg-1 (два color нельзя — второй `background` обязан быть картинкой). Тон
+     остаётся «стеклянным» для каждой темы, но панель больше не просвечивает. */
+  background: linear-gradient(var(--glass), var(--glass)), var(--bg-1) !important;
 }
 :root[data-saver='on'] .glow-overlay rect,
 :root[data-saver='on'] .selline,

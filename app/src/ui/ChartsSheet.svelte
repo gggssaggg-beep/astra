@@ -1149,12 +1149,14 @@
     font-weight: 600; margin: 12px 2px 6px; }
   .grp.gold { color: var(--gold); }
   .dispbox { padding: 12px 14px; margin: 6px 0 4px; }
-  .cusprow { display: flex; align-items: center; gap: 10px; padding: 2px; }
+  /* горизонтальный отступ, чтобы неоновая рамка/глоу GlowCard не наезжали на
+     буквы у края («рамка съедает буквы») */
+  .cusprow { display: flex; align-items: center; gap: 10px; padding: 4px 10px; }
   .cusprow .cg { font-size: 1.2rem; color: var(--silver); }
   .cusprow .csym { font-size: 1rem; color: var(--ink-dim); }
   .cusprow .clbl { flex: 1; font-size: 0.9rem; color: var(--ink); }
   .cusprow .corb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); color: var(--ink-dim); font-size: 0.85rem; }
-  .cusplore { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--glass-brd);
+  .cusplore { margin-top: 8px; padding: 8px 10px 2px; border-top: 1px solid var(--glass-brd);
     color: var(--ink-faint); font-size: 0.85rem; line-height: 1.5; }
   /* «двойное попадание» — транзитная планета бьёт в обе карты (выделено особо) */
   .dhblock { border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--glass-brd));

@@ -245,7 +245,11 @@
           const { value } = await Preferences.get({ key: 'astra:verNotified' });
           if (value !== applied) {
             await Preferences.set({ key: 'astra:verNotified', value: applied });
-            if (db.settings.get().seenWelcome) await notifyNewVersion(applied);
+            // ВРЕМЕННО отключено по просьбе владелицы (2026-07-09): при частых
+            // правках пинги «доступна новая версия» надоедают. Вернуть = true.
+            // Версия выше уже помечена показанной → при возврате не будет backlog-а.
+            const SEND_UPDATE_PINGS = false;
+            if (SEND_UPDATE_PINGS && db.settings.get().seenWelcome) await notifyNewVersion(applied);
           }
         } catch { /* не критично */ }
       }

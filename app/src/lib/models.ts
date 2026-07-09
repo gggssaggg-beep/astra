@@ -28,9 +28,14 @@ export interface Settings {
   theme: ThemeMode;
   signStyle: SignStyle;       // стиль символов знаков в колесе
   notifyDaily: boolean;       // ежедневное уведомление-сводка
-  dailyNotifyTime: string;    // 'HH:MM' для ежедневного уведомления
+  dailyNotifyTime: string;    // 'HH:MM' — время сводки (для 'twice' — утренней)
+  dailyDigestMode?: 'once' | 'twice';  // сводка раз в сутки или дважды (утро+вечер)
+  dailyNotifyTime2?: string;  // 'HH:MM' — вечерняя сводка (режим 'twice')
   notifyAspects: boolean;     // уведомления в момент точного аспекта
   notifyTransits?: boolean;   // уведомления о транзитах к натальной карте
+  quietEnabled?: boolean;     // «тихое время» — не слать точечные пинги ночью
+  quietFrom?: string;         // 'HH:MM' начало тихого окна (по умолч. 22:00)
+  quietTo?: string;           // 'HH:MM' конец тихого окна (по умолч. 08:00)
   transitSelfId?: string;     // id человека = «моя карта» (чей натал отслеживаем)
   transitCusps?: boolean;     // включать куспиды домов (не только планеты)
   largeFont: boolean;         // крупный шрифт (доступность)
@@ -136,8 +141,13 @@ export const DEFAULT_SETTINGS: Settings = {
   signStyle: 'gold',
   notifyDaily: false,
   dailyNotifyTime: '09:00',
+  dailyDigestMode: 'once',
+  dailyNotifyTime2: '21:00',
   notifyAspects: false,
   notifyTransits: false,
+  quietEnabled: true,
+  quietFrom: '22:00',
+  quietTo: '08:00',
   transitCusps: false,
   largeFont: false,
   font: 'default',

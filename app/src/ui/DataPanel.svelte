@@ -219,13 +219,32 @@
     <label class="toggle">
       <input type="checkbox" checked={cfg.notifyDaily}
         onchange={(e) => onNotifyToggle('notifyDaily', (e.target as HTMLInputElement).checked)} />
-      Ежедневная сводка дня
+      Ежедневная сводка неба
     </label>
-    <div class="orb" style="margin-top:8px">
-      <span class="small">в</span>
-      <input type="time" value={cfg.dailyNotifyTime}
-        onchange={(e) => save({ dailyNotifyTime: (e.target as HTMLInputElement).value })} />
-    </div>
+    {#if cfg.notifyDaily}
+      <div class="orb" style="margin-top:8px">
+        <span class="small">приходит</span>
+        <select class="select" value={cfg.dailyDigestMode ?? 'once'}
+          onchange={(e) => save({ dailyDigestMode: (e.target as HTMLSelectElement).value as 'once' | 'twice' })}>
+          <option value="once">раз в сутки</option>
+          <option value="twice">дважды в сутки</option>
+        </select>
+      </div>
+      <div class="orb" style="margin-top:8px">
+        <span class="small">{(cfg.dailyDigestMode ?? 'once') === 'twice' ? 'утром в' : 'в'}</span>
+        <input type="time" value={cfg.dailyNotifyTime}
+          onchange={(e) => save({ dailyNotifyTime: (e.target as HTMLInputElement).value })} />
+        {#if (cfg.dailyDigestMode ?? 'once') === 'twice'}
+          <span class="small">и вечером в</span>
+          <input type="time" value={cfg.dailyNotifyTime2 ?? '21:00'}
+            onchange={(e) => save({ dailyNotifyTime2: (e.target as HTMLInputElement).value })} />
+        {/if}
+      </div>
+      {#if (cfg.dailyDigestMode ?? 'once') === 'twice'}
+        <div class="hint small" style="margin-top:6px">Каждая сводка перечисляет аспекты до следующей —
+          вечерняя так забирает ночные.</div>
+      {/if}
+    {/if}
     <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyAspects}
         onchange={(e) => onNotifyToggle('notifyAspects', (e.target as HTMLInputElement).checked)} />
@@ -251,6 +270,24 @@
         </label>
         {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека в нижнем меню «Добавить».</div>{/if}
       </div>
+    {/if}
+
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.quietEnabled ?? true}
+        onchange={(e) => save({ quietEnabled: (e.target as HTMLInputElement).checked })} />
+      Тихое время (не беспокоить)
+    </label>
+    {#if cfg.quietEnabled ?? true}
+      <div class="orb" style="margin-top:8px">
+        <span class="small">с</span>
+        <input type="time" value={cfg.quietFrom ?? '22:00'}
+          onchange={(e) => save({ quietFrom: (e.target as HTMLInputElement).value })} />
+        <span class="small">до</span>
+        <input type="time" value={cfg.quietTo ?? '08:00'}
+          onchange={(e) => save({ quietTo: (e.target as HTMLInputElement).value })} />
+      </div>
+      <div class="hint small" style="margin-top:6px">В это время точечные пинги аспектов и транзитов
+        не приходят. Сводка приходит по своему расписанию.</div>
     {/if}
 
     <div style="margin-top:10px">

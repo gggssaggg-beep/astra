@@ -12,29 +12,36 @@
  */
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
-import type { Engine, BodyPosition } from '../engine/index.ts';
+import type { Engine, BodyPosition, AspectRecord } from '../engine/index.ts';
 import { aspectsOn, PLANET_GLYPH, signOf } from '../engine/index.ts';
 import { zonedDayStartUTC, todayCivil, fmtTime, civilOf } from './format.ts';
 import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
 import { aspectSignature } from './signature.ts';
+import { inQuietHours, hmToMinutes, localMinutes } from './quiet.ts';
 import { db } from './db.ts';
 import { natalPositions, birthInstantUTC } from './charts.ts';
 import { forecastTransits } from './forecast.ts';
 
 const NATIVE = Capacitor.isNativePlatform();
 const CH = 'care';
-const ID_DAILY_FROM = 1000;     // сводки: сегодня..+6 (одноразовые, свой текст на день)
-const ID_ASPECT_FROM = 1010;    // моменты точных аспектов
-const ID_ASPECT_TO = 1099;
-const ID_TRANSIT_FROM = 1100;   // транзиты к натальной карте
-const ID_TRANSIT_TO = 1199;
-const ID_MANAGED_TO = 1199;     // наш управляемый диапазон 1000..1199
+const ID_DAILY_FROM = 1000;     // сводки-слоты (раз/дважды в сутки × дней) — до 1029
+const ID_DAILY_TO = 1029;
+const ID_ASPECT_FROM = 1030;    // моменты точных аспектов
+const ID_ASPECT_TO = 1129;
+const ID_TRANSIT_FROM = 1130;   // транзиты к натальной карте
+const ID_TRANSIT_TO = 1229;
+const ID_MANAGED_TO = 1229;     // наш управляемый диапазон 1000..1229
 const ID_TEST_NOW = 9001;
 const ID_TEST_DELAYED = 9002;
-const ID_VERSION = 1250;        // «доступна новая версия» — вне диапазона отмены 1000..1199
+const ID_VERSION = 1250;        // «доступна новая версия» — вне диапазона отмены 1000..1229
 const DAILY_DAYS = 7;           // на сколько дней вперёд ставим сводки
 const SCAN_DAYS = 10;          // горизонт скана аспектов
+
+// тихое время + разбор HH:MM — чистые функции в lib/quiet.ts (тестируемы в Node)
+const inQuiet = (at: Date, tz: string, s: Settings): boolean =>
+  inQuietHours(at, tz, { enabled: s.quietEnabled, from: s.quietFrom, to: s.quietTo });
+const hm = hmToMinutes;
 
 // — журнал шагов: каждый нативный вызов оставляет след —
 const MAX_LOG = 30;
@@ -132,21 +139,20 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
 
     const list: Parameters<typeof LocalNotifications.schedule>[0]['notifications'] = [];
 
-    // Один проход по дням: аспекты дня считаем ОДИН раз и используем и для
-    // ежедневной сводки (краткий дайджест «глиф-аспект-глиф ЧЧ:ММ»), и для
-    // отдельных уведомлений в момент точного аспекта. Сводки — одноразовые на
-    // каждый день (свой текст), а не одно повторяющееся с общей фразой.
+    // Один проход по дням: аспекты дня считаем ОДИН раз и копим в общий список.
+    // Из него собираем (1) точечные уведомления в момент аспекта (с учётом
+    // «тихого времени») и (2) сводки-слоты: раз или дважды в сутки — каждая
+    // сводка перечисляет аспекты ОТ своего момента ДО следующей сводки.
     const orb = orbResolver(settings);
     const now = Date.now();
-    const [dhh, dmm] = (settings.dailyNotifyTime || '09:00').split(':').map(x => parseInt(x, 10));
-    const DH = isNaN(dhh) ? 9 : dhh, DM = isNaN(dmm) ? 0 : dmm;
     const breathe = () => new Promise(r => setTimeout(r, 0));
-    let aid = ID_ASPECT_FROM, dailyCount = 0, aspectCount = 0;
+    let aid = ID_ASPECT_FROM, aspectCount = 0, quietSkipped = 0;
+    const allAspects: { rec: AspectRecord; anchor: string }[] = [];
 
     for (let d = 0; d < SCAN_DAYS; d++) {
-      const needDaily = settings.notifyDaily && d < DAILY_DAYS;
       const needAspects = settings.notifyAspects && aid <= ID_ASPECT_TO;
-      if (!needDaily && !needAspects) continue;
+      const needCollect = settings.notifyDaily && d <= DAILY_DAYS;   // +1 день — на вечернее окно
+      if (!needAspects && !needCollect) continue;
       await breathe();
       if (stale()) { push('reschedule: прерван более свежим вызовом'); return; }
 
@@ -155,37 +161,14 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       const dayStart = zonedDayStartUTC(civil, tz);
       const res = aspectsOn(engine, dayStart, orb, false);
       const dayAspects = [...res.fast, ...res.slow];
-
-      // extra.dayAnchor/signature — чтобы тап по уведомлению открыл нужный день и
-      // выделил аспект (App.svelte слушает localNotificationActionPerformed)
       const anchor = civil.toISOString();
 
-      if (needDaily) {
-        const at = new Date(dayStart.getTime() + (DH * 60 + DM) * 60_000);
-        if (at.getTime() > now + 60_000) {
-          const withTime = dayAspects
-            .filter(a => a.exactTime)
-            .sort((a, b) => (a.exactTime as Date).getTime() - (b.exactTime as Date).getTime());
-          const items = withTime.slice(0, 6)
-            .map(a => `${PLANET_GLYPH[a.p1] ?? a.p1}${a.symbol}${PLANET_GLYPH[a.p2] ?? a.p2} ${fmtTime(a.exactTime as Date, tz)}`);
-          const firstSig = withTime.length
-            ? aspectSignature(withTime[0].p1, withTime[0].p2, withTime[0].aspect) : null;
-          list.push({
-            id: ID_DAILY_FROM + d,
-            title: 'Сводка неба',
-            body: items.length ? items.join(' · ') : 'Особых аспектов нет — спокойный день.',
-            channelId: CH,
-            extra: { dayAnchor: anchor, signature: firstSig },
-            schedule: { at, allowWhileIdle: true },
-          });
-          dailyCount++;
-        }
-      }
-
-      if (needAspects) {
-        for (const a of dayAspects) {
-          if (aid > ID_ASPECT_TO) break;
-          if (!a.exactTime || a.exactTime.getTime() <= now + 60_000) continue;
+      for (const a of dayAspects) {
+        if (!a.exactTime) continue;
+        if (needCollect) allAspects.push({ rec: a, anchor });
+        // точечный пинг — только будущее и вне тихого времени
+        if (needAspects && aid <= ID_ASPECT_TO && a.exactTime.getTime() > now + 60_000) {
+          if (inQuiet(a.exactTime, tz, settings)) { quietSkipped++; continue; }
           list.push({
             id: aid++,
             title: `${PLANET_GLYPH[a.p1] ?? a.p1} ${a.symbol} ${PLANET_GLYPH[a.p2] ?? a.p2}`,
@@ -198,8 +181,49 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
         }
       }
     }
-    if (settings.notifyDaily) push(`сводок запланировано: ${dailyCount}`);
-    if (settings.notifyAspects) push(`аспектов запланировано: ${aspectCount}`);
+    if (settings.notifyAspects) push(`аспектов запланировано: ${aspectCount} (тихих пропущено: ${quietSkipped})`);
+
+    // Сводки-слоты. Раз в сутки: один слот на день (Tm). Дважды: утро (Tm) +
+    // вечер (Te). Каждый слот показывает аспекты [слот → следующий слот) —
+    // вечерняя сводка так забирает НОЧНЫЕ аспекты (просьба владелицы).
+    if (settings.notifyDaily && !stale()) {
+      const twice = settings.dailyDigestMode === 'twice';
+      const mMin = hm(settings.dailyNotifyTime, '09:00');
+      const eMin = hm(settings.dailyNotifyTime2, '21:00');
+      const slots: Date[] = [];
+      for (let d = 0; d < DAILY_DAYS; d++) {
+        const civil = todayCivil(tz); civil.setUTCDate(civil.getUTCDate() + d);
+        const ds = zonedDayStartUTC(civil, tz).getTime();
+        slots.push(new Date(ds + mMin * 60_000));
+        if (twice) slots.push(new Date(ds + eMin * 60_000));
+      }
+      slots.sort((a, b) => a.getTime() - b.getTime());
+      const sorted = allAspects.slice().sort((x, y) =>
+        (x.rec.exactTime as Date).getTime() - (y.rec.exactTime as Date).getTime());
+      let did = ID_DAILY_FROM, dailyCount = 0;
+      for (let i = 0; i < slots.length && did <= ID_DAILY_TO; i++) {
+        const at = slots[i];
+        if (at.getTime() <= now + 60_000) continue;
+        const end = (slots[i + 1] ?? new Date(at.getTime() + 86_400_000)).getTime();
+        const win = sorted.filter((x) => {
+          const t = (x.rec.exactTime as Date).getTime();
+          return t >= at.getTime() && t < end;
+        });
+        const items = win.slice(0, 6).map((x) =>
+          `${PLANET_GLYPH[x.rec.p1] ?? x.rec.p1}${x.rec.symbol}${PLANET_GLYPH[x.rec.p2] ?? x.rec.p2} ${fmtTime(x.rec.exactTime as Date, tz)}`);
+        list.push({
+          id: did++,
+          title: twice ? (localMinutes(at, tz) < 720 ? 'Сводка дня' : 'Сводка на вечер и ночь') : 'Сводка неба',
+          body: items.length ? items.join(' · ') : 'Особых аспектов нет — спокойный отрезок.',
+          channelId: CH,
+          extra: { dayAnchor: civilOf(at, tz).toISOString(), signature: win.length
+            ? aspectSignature(win[0].rec.p1, win[0].rec.p2, win[0].rec.aspect) : null },
+          schedule: { at, allowWhileIdle: true },
+        });
+        dailyCount++;
+      }
+      push(`сводок запланировано: ${dailyCount} (${twice ? 'дважды в сутки' : 'раз в сутки'})`);
+    }
 
     // транзиты к натальной карте («моя карта») — планеты и/или куспиды домов
     if (settings.notifyTransits && !stale()) {
@@ -226,6 +250,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
         for (const hh of hits) {
           if (tid > ID_TRANSIT_TO) break;
           if (hh.when.getTime() <= now + 60_000) continue;
+          if (inQuiet(hh.when, tz, settings)) continue;   // тихое время — без ночных пингов
           list.push({
             id: tid++,
             title: `${hh.tGlyph} ${hh.symbol} ${hh.nGlyph}`,

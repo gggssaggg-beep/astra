@@ -16,7 +16,8 @@
     "test:degree": "node test/degree.mjs",
     "test:cuspaspects": "node test/cuspaspects.mjs",
     "test:retro": "node test/retro.mjs",
-    "test:aspectpoint": "node test/aspectpoint.mjs"
+    "test:aspectpoint": "node test/aspectpoint.mjs",
+    "test:quiet": "node test/quiet.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

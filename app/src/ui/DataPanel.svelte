@@ -162,7 +162,8 @@
     <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
   </header>
 
-  <div class="group">Внешний вид</div>
+  <details class="sec">
+    <summary class="group">Внешний вид</summary>
   <div class="block">
     <div class="lbl">Тема</div>
     <div class="seg">
@@ -210,7 +211,9 @@
     </div>
   </div>
 
-  <div class="group">Расчёты</div>
+  </details>
+  <details class="sec">
+    <summary class="group">Расчёты</summary>
 
   <div class="block">
     <div class="lbl">Часовой пояс</div>
@@ -281,7 +284,9 @@
       рождения (координаты). Без места — колесо без домов.</div>
   </div>
 
-  <div class="group">Уведомления</div>
+  </details>
+  <details class="sec">
+    <summary class="group">Уведомления</summary>
   <div class="block">
     <label class="toggle">
       <input type="checkbox" checked={cfg.notifyDaily}
@@ -370,7 +375,9 @@
       «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
   </div>
 
-  <div class="group">Данные</div>
+  </details>
+  <details class="sec">
+    <summary class="group">Данные</summary>
   {#if apiOk}
     <!-- Только настоящий десктоп-браузер (Chrome/Edge). На телефоне блок скрыт:
          там данные durable в Preferences, а бэкап — через Экспорт/Импорт ниже. -->
@@ -411,7 +418,9 @@
 
   {#if msg}<div class="msg">{msg}</div>{/if}
 
-  <div class="group">Обновление приложения</div>
+  </details>
+  <details class="sec">
+    <summary class="group">Обновление приложения</summary>
   <div class="block">
     <div class="lbl">Живое обновление (OTA)</div>
     <p class="hint small">Веб-часть обновляется без переустановки APK. «Проверить» скачает
@@ -434,7 +443,9 @@
     </div>
   </div>
 
-  <div class="group">Помощь и связь</div>
+  </details>
+  <details class="sec">
+    <summary class="group">Помощь и связь</summary>
   <div class="block">
     <div class="lbl">Связаться</div>
     <p class="hint small">Вопросы по приложению, идеи, что улучшить (особенно трактовки
@@ -452,6 +463,7 @@
       Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
       и получить разбор.</div>
   </div>
+  </details>
 
   <footer>Astra · версия {APP_VERSION}{#if ota.applied !== APP_VERSION} · бандл {ota.applied}{/if}</footer>
 </section>
@@ -490,7 +502,14 @@
   .fname { font-size: 0.72rem; color: var(--ink-faint); font-family: var(--font-mono); }
   .small { font-size: 0.78rem; color: var(--ink-faint); }
   .group { margin: 16px 2px 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
-  .group:first-of-type { margin-top: 4px; }
+  /* сворачиваемые разделы (accordion): заголовок = <summary>, блоки — внутри <details> */
+  details.sec { border-top: 1px solid var(--glass-brd); }
+  details.sec:first-of-type { border-top: none; }
+  summary.group { list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; justify-content: space-between; margin: 0; padding: 13px 2px; }
+  summary.group::-webkit-details-marker { display: none; }
+  summary.group::after { content: '▾'; color: var(--ink-faint); font-size: 0.9rem; transition: transform 0.2s ease; }
+  details.sec[open] > summary.group::after { transform: rotate(180deg); }
   /* тумблеры объектов */
   .objgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
   .objchip { display: flex; align-items: center; gap: 6px; background: #ffffff0c;

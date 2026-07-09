@@ -263,6 +263,12 @@
       if (!db.settings.get().themeV2) {
         db.settings.set({ ...db.settings.get(), theme: 'aurora', themeV2: true });
       }
+      // разовая миграция (2026-07-10): тихое время по умолчанию теперь до 09:00 —
+      // у кого лежал старый дефолт 08:00, поднимаем до 09:00 (кастомные не трогаем)
+      if (!db.settings.get().quietV2) {
+        const s = db.settings.get();
+        db.settings.set({ ...s, quietTo: s.quietTo === '08:00' ? '09:00' : s.quietTo, quietV2: true });
+      }
       // «Космос» удалён (2026-07-07): у кого он был выбран — переводим на Аврору
       if ((db.settings.get().theme as string) === 'cosmos') {
         db.settings.set({ ...db.settings.get(), theme: 'aurora' });

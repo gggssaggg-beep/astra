@@ -45,6 +45,7 @@ export interface Settings {
   houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
   houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
   themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)
+  quietV2?: boolean;          // разовая миграция тихого времени на 22:00–09:00 (2026-07-10)
   batterySaver?: 'off' | 'auto' | 'on'; // экономия аккумулятора: off=полная графика,
                               // on=всегда экономно, auto=включается при низком заряде
   nodalAxisFigures?: boolean; // строить фигуры на оси узлов (Раху☍Кету всегда 180°);
@@ -151,7 +152,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifyTransits: false,
   quietEnabled: true,
   quietFrom: '22:00',
-  quietTo: '08:00',
+  quietTo: '09:00',   // тихое время по умолчанию 22:00–09:00 (просьба владелицы 2026-07-10)
   transitCusps: false,
   largeFont: false,
   font: 'default',

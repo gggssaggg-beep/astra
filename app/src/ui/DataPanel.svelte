@@ -164,36 +164,20 @@
 
   <div class="group">Внешний вид</div>
   <div class="block">
-    <div class="lbl">Символы знаков</div>
+    <div class="lbl">Тема</div>
+    <div class="seg">
+      {#each [['aurora', 'Аврора'], ['dawn', 'Рассвет ✨'], ['auto', 'Авто']] as [id, label]}
+        <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
+      {/each}
+    </div>
+
+    <div class="lbl" style="margin-top:14px">Символы знаков</div>
     <div class="styles">
       {#each SIGN_STYLES as st}
         <button class="style st-{st.id}" class:on={cfg.signStyle === st.id} onclick={() => setSign(st.id)}>
           <span class="sw"></span>{st.label}
         </button>
       {/each}
-    </div>
-    <div class="two">
-      <label class="toggle">
-        <input type="checkbox" checked={cfg.largeFont}
-          onchange={(e) => save({ largeFont: (e.target as HTMLInputElement).checked })} />
-        Крупный шрифт
-      </label>
-      <div class="seg">
-        {#each [['aurora', 'Аврора'], ['dawn', 'Рассвет ✨'], ['auto', 'Авто']] as [id, label]}
-          <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
-        {/each}
-      </div>
-    </div>
-    <div class="lbl" style="margin-top:14px">Экономия аккумулятора</div>
-    <div class="seg">
-      {#each [['off', 'Выкл'], ['auto', 'Авто'], ['on', 'Вкл']] as [id, label]}
-        <button class:on={(cfg.batterySaver ?? 'auto') === id}
-          onclick={() => save({ batterySaver: id as 'off' | 'auto' | 'on' })}>{label}</button>
-      {/each}
-    </div>
-    <div class="hint small" style="margin-top:6px">
-      Гасит блёстки, сполохи фона, размытие и анимации — заметно бережёт батарею
-      на слабых телефонах. «Авто» включается сам при низком заряде.
     </div>
 
     <div class="lbl" style="margin-top:14px">Шрифт интерфейса</div>
@@ -206,10 +190,30 @@
         </button>
       {/each}
     </div>
+
+    <label class="toggle" style="margin-top:14px">
+      <input type="checkbox" checked={cfg.largeFont}
+        onchange={(e) => save({ largeFont: (e.target as HTMLInputElement).checked })} />
+      Крупный шрифт
+    </label>
+
+    <div class="lbl" style="margin-top:14px">Экономия аккумулятора</div>
+    <div class="seg">
+      {#each [['off', 'Выкл'], ['auto', 'Авто'], ['on', 'Вкл']] as [id, label]}
+        <button class:on={(cfg.batterySaver ?? 'auto') === id}
+          onclick={() => save({ batterySaver: id as 'off' | 'auto' | 'on' })}>{label}</button>
+      {/each}
+    </div>
+    <div class="hint small" style="margin-top:6px">
+      Гасит блёстки, сполохи фона, размытие и анимации — заметно бережёт батарею
+      на слабых телефонах. «Авто» включается сам при низком заряде.
+    </div>
   </div>
 
-  <div class="group">Часовой пояс</div>
+  <div class="group">Расчёты</div>
+
   <div class="block">
+    <div class="lbl">Часовой пояс</div>
     <!-- прозрачность прежде всего (вопрос владелицы «откуда пояс? не деанонит?») -->
     <div class="hint small" style="margin-bottom:8px">🔒 Пояс взят из настроек самого телефона —
       офлайн, без GPS и интернета. Местоположение приложение не знает и никуда не отправляет.</div>
@@ -224,6 +228,57 @@
     </select>
     <div class="hint small">Все времена и положения (колесо, планеты, точные аспекты, события)
       показываются в этом поясе; можно изменить вручную.</div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">Объекты</div>
+    <div class="hint small">Что участвует в расчётах: аспекты дня, колесо, совмещённые карты, прогноз.
+      Выключенное не считается и не рисуется.</div>
+    <div class="objgrid">
+      {#each ORB_OBJ as o}
+        <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
+          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
+        </button>
+      {/each}
+    </div>
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.nodalAxisFigures ?? false}
+        onchange={(e) => save({ nodalAxisFigures: (e.target as HTMLInputElement).checked })} />
+      Строить фигуры на оси узлов
+    </label>
+    <div class="hint small" style="margin-top:4px">Раху и Кету всегда строго напротив (180°) — это ось, а не аспект. Обычно фигуры на ней не строят: иначе «косой парус» на Луне+узлах висит почти всё время. Включи, если хочешь видеть и их.</div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">Орбис</div>
+    <div class="orb">
+      <span class="small">по умолчанию</span>
+      <input type="number" min="0.5" max="12" step="0.5" value={cfg.defaultOrb}
+        onchange={(e) => save({ defaultOrb: Math.max(0.5, Math.min(12, +(e.target as HTMLInputElement).value || 1)) })} />
+      <span>°</span>
+    </div>
+    <div class="hint small">Можно задать орбис отдельно по светилам и планетам (пусто = по умолчанию).
+      Для пары берётся больший из двух орбисов.</div>
+    <div class="orbgrid">
+      {#each ORB_OBJ as o}
+        <label class="orbcell">
+          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>
+          <input type="number" min="0.5" max="12" step="0.5" placeholder={String(DEFAULT_ORBS[o] ?? cfg.defaultOrb)}
+            value={cfg.orbs[o] ?? ''} onchange={(e) => setOrb(o, (e.target as HTMLInputElement).value)} />
+          <span class="u">°</span>
+        </label>
+      {/each}
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">Дома</div>
+    <select class="select" value={cfg.houseSystem ?? 'horizontal'}
+      onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
+      {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
+    </select>
+    <div class="hint small" style="margin-top:8px">Дома рисуются в натальных картах, где задано место
+      рождения (координаты). Без места — колесо без домов.</div>
   </div>
 
   <div class="group">Уведомления</div>
@@ -315,58 +370,6 @@
       «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
   </div>
 
-  <div class="group">Объекты</div>
-  <div class="block">
-    <div class="hint small">Что участвует в расчётах: аспекты дня, колесо, совмещённые карты, прогноз.
-      Выключенное не считается и не рисуется.</div>
-    <div class="objgrid">
-      {#each ORB_OBJ as o}
-        <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
-          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
-        </button>
-      {/each}
-    </div>
-    <label class="toggle" style="margin-top:12px">
-      <input type="checkbox" checked={cfg.nodalAxisFigures ?? false}
-        onchange={(e) => save({ nodalAxisFigures: (e.target as HTMLInputElement).checked })} />
-      Строить фигуры на оси узлов
-    </label>
-    <div class="hint small" style="margin-top:4px">Раху и Кету всегда строго напротив (180°) — это ось, а не аспект. Обычно фигуры на ней не строят: иначе «косой парус» на Луне+узлах висит почти всё время. Включи, если хочешь видеть и их.</div>
-  </div>
-
-  <div class="group">Дома</div>
-  <div class="block">
-    <div class="lbl">Система домов</div>
-    <select class="select" value={cfg.houseSystem ?? 'horizontal'}
-      onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
-      {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
-    </select>
-    <div class="hint small" style="margin-top:8px">Дома рисуются в натальных картах, где задано место
-      рождения (координаты). Без места — колесо без домов.</div>
-  </div>
-
-  <div class="group">Орбис</div>
-  <div class="block">
-    <div class="orb">
-      <span class="small">по умолчанию</span>
-      <input type="number" min="0.5" max="12" step="0.5" value={cfg.defaultOrb}
-        onchange={(e) => save({ defaultOrb: Math.max(0.5, Math.min(12, +(e.target as HTMLInputElement).value || 1)) })} />
-      <span>°</span>
-    </div>
-    <div class="hint small">Можно задать орбис отдельно по светилам и планетам (пусто = по умолчанию).
-      Для пары берётся больший из двух орбисов.</div>
-    <div class="orbgrid">
-      {#each ORB_OBJ as o}
-        <label class="orbcell">
-          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>
-          <input type="number" min="0.5" max="12" step="0.5" placeholder={String(DEFAULT_ORBS[o] ?? cfg.defaultOrb)}
-            value={cfg.orbs[o] ?? ''} onchange={(e) => setOrb(o, (e.target as HTMLInputElement).value)} />
-          <span class="u">°</span>
-        </label>
-      {/each}
-    </div>
-  </div>
-
   <div class="group">Данные</div>
   {#if apiOk}
     <!-- Только настоящий десктоп-браузер (Chrome/Edge). На телефоне блок скрыт:
@@ -431,7 +434,7 @@
     </div>
   </div>
 
-  <div class="group">Обратная связь и консультации</div>
+  <div class="group">Помощь и связь</div>
   <div class="block">
     <div class="lbl">Связаться</div>
     <p class="hint small">Вопросы по приложению, идеи, что улучшить (особенно трактовки
@@ -442,9 +445,8 @@
       <button class="btn maillink" onclick={() => { onclose(); onastrologer?.(); }}>🔮 Написать астрологу</button>
     </div>
   </div>
-
-  <div class="group">Обучение</div>
   <div class="block">
+    <div class="lbl">Обучение</div>
     <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
     <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
       Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
@@ -489,7 +491,6 @@
   .small { font-size: 0.78rem; color: var(--ink-faint); }
   .group { margin: 16px 2px 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
   .group:first-of-type { margin-top: 4px; }
-  .two { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
   /* тумблеры объектов */
   .objgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
   .objchip { display: flex; align-items: center; gap: 6px; background: #ffffff0c;

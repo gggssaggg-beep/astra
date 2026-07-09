@@ -326,6 +326,12 @@
         </button>
       {/each}
     </div>
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.nodalAxisFigures ?? false}
+        onchange={(e) => save({ nodalAxisFigures: (e.target as HTMLInputElement).checked })} />
+      Строить фигуры на оси узлов
+    </label>
+    <div class="hint small" style="margin-top:4px">Раху и Кету всегда строго напротив (180°) — это ось, а не аспект. Обычно фигуры на ней не строят: иначе «косой парус» на Луне+узлах висит почти всё время. Включи, если хочешь видеть и их.</div>
   </div>
 
   <div class="group">Дома</div>

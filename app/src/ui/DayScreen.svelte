@@ -14,9 +14,9 @@
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
-  let { engine, date, orbOf, tz, objects = null, signStyle = 'gold', selectedSignature = null, selectedInfo = null, onAspect, oninfo }:
+  let { engine, date, orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false, selectedSignature = null, selectedInfo = null, onAspect, oninfo }:
     { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string;
-      objects?: string[] | null; signStyle?: SignStyle;
+      objects?: string[] | null; signStyle?: SignStyle; nodalAxisFigures?: boolean;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void } = $props();
 
@@ -96,7 +96,7 @@
   // весь её полигон в колесе (набор линий) и раскрывает декомпозицию.
   // крупные фигуры вперёд (большой крест выше одинокого треугольника); кэш
   // возвращает ТУ ЖЕ ссылку — сортируем копию (Svelte 5 реактивность)
-  const figures = $derived([...figuresOnCached(engine, dayStart, orbOf, objects)]
+  const figures = $derived([...figuresOnCached(engine, dayStart, orbOf, objects, nodalAxisFigures)]
     .sort((a, b) => b.hit.spec.arity - a.hit.spec.arity || a.hit.spec.name.localeCompare(b.hit.spec.name, 'ru')));
   let selFigureKey = $state<string | null>(null);
   // смена дня сбрасывает выбор (ключ фигуры другого дня не совпадёт всё равно)

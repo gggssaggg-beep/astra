@@ -5,7 +5,7 @@
  * блокируя UI перед каждым сообщением.
  */
 import type { Engine, DayAspects, DayEvent, AspectRecord, FigureHit } from '../engine/index.ts';
-import { aspectsOn, eventsOn, detectFigures, figureWindow } from '../engine/index.ts';
+import { aspectsOn, eventsOn, detectFigures, figureWindow, isNodalAxisPair } from '../engine/index.ts';
 
 const CACHE_MAX = 48;
 function cached<T>(map: Map<string, T>, key: string, make: () => T): T {
@@ -58,13 +58,16 @@ export function figuresOnCached(
   E: Engine, dayStart: Date,
   orb: number | ((name: string) => number),
   objects?: string[] | null,
+  nodalAxis = false,   // строить ли фигуры на оси узлов (Раху☍Кету); по умолч. нет
 ): DayFigure[] {
   const orbOf = typeof orb === 'function' ? orb : () => orb;
   const orbKey = ORB_KEY_ORDER.map((n) => orbOf(n)).join(',');
   const objKey = objects ? objects.join(',') : 'all';
-  return cached(figCache, `${E.mode}|${dayStart.getTime()}|${orbKey}|${objKey}`, () => {
+  return cached(figCache, `${E.mode}|${dayStart.getTime()}|${orbKey}|${objKey}|${nodalAxis}`, () => {
     const day = aspectsOnCached(E, dayStart, orb, objects);
-    const edges: AspectRecord[] = [...day.slow, ...day.fast, ...day.moon];
+    let edges: AspectRecord[] = [...day.slow, ...day.fast, ...day.moon];
+    // ось узлов всегда 180° — не считаем её ребром фигуры (иначе постоянный шум)
+    if (!nodalAxis) edges = edges.filter((e) => !isNodalAxisPair(e.p1, e.p2));
     const noon = new Date(dayStart.getTime() + 12 * 3_600_000);
     const pts = E.positions(noon, objects ?? undefined).map((p) => ({ name: p.name, lon: p.lon }));
     return detectFigures(pts, edges).map((hit) => ({ hit, window: figureWindow(hit.edges) }));

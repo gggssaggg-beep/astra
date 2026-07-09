@@ -11,7 +11,7 @@
  * ним подсвечивается полигон; натальные/транзитные внутренние рёбра не
  * рисуются (dispKey=null), но участвуют в сборке и в декомпозиции карточки.
  */
-import { detectFigures, staticAspects, synastryAspects, staticKey, PLANET_GLYPH } from '../engine/index.ts';
+import { detectFigures, staticAspects, synastryAspects, staticKey, PLANET_GLYPH, isNodalAxisPair } from '../engine/index.ts';
 import type { BodyPosition, StaticAspect } from '../engine/index.ts';
 
 export type Ring = 'A' | 'B' | 'T';
@@ -58,6 +58,7 @@ export function chartFigures(
   mode: ChartMode,
   posA: BodyPosition[], posB: BodyPosition[], posT: BodyPosition[],
   orbOf: (name: string) => number,
+  nodalAxis = false,   // строить ли фигуры на оси узлов ОДНОЙ карты (Раху☍Кету)
 ): ChartFigure[] {
   const points: { name: string; lon: number }[] = [];
   const edges: ChartEdge[] = [];
@@ -85,7 +86,11 @@ export function chartFigures(
     edges.push(...grp(synastryAspects(posA, posB, orbOf), 'A', 'B', false));  // AB линиями не рисуется
   }
 
-  const hits = detectFigures<ChartEdge>(points, edges);
+  // ось узлов ОДНОГО кольца (Раху☍Кету одной карты) всегда 180° — по умолчанию
+  // не ребро фигуры (кросс-кольцевые Раху/Кету разных карт — реальный аспект)
+  const useEdges = nodalAxis ? edges
+    : edges.filter((e) => !(e.p1[0] === e.p2[0] && isNodalAxisPair(e.p1.slice(2), e.p2.slice(2))));
+  const hits = detectFigures<ChartEdge>(points, useEdges);
   const out: ChartFigure[] = [];
   for (const h of hits) {
     const members = h.planets.map(untag);

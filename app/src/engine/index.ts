@@ -10,7 +10,7 @@ export { retroPhase, stationsBetween } from './retro.ts';
 export type { RetroPhase, StationEvent } from './retro.ts';
 export { eventsOn } from './events.ts';
 export * from './static.ts';
-export { FIGURES, detectFigures, figureWindow, figureKey } from './figures.ts';
+export { FIGURES, detectFigures, figureWindow, figureKey, isNodalAxisPair } from './figures.ts';
 export type { FigureSpec, FigureHit, FigureEdge, FigurePoint } from './figures.ts';
 export * from './constants.ts';
 export type * from './types.ts';

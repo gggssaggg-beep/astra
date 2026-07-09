@@ -384,6 +384,7 @@
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} {date} {orbOf} tz={settings.tz} objects={settings.objects} signStyle={settings.signStyle}
+          nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}
           onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
       </div>
@@ -486,6 +487,7 @@
 {#if showCharts && engine}
   <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
     tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
+    nodalAxisFigures={settings.nodalAxisFigures ?? false}
     initialMode={showCharts.mode ?? 'transitNatal'}
     onchat={(seed, source) => openChat(seed, source)}
     oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}

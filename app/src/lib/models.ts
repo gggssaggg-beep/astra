@@ -47,6 +47,8 @@ export interface Settings {
   themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)
   batterySaver?: 'off' | 'auto' | 'on'; // экономия аккумулятора: off=полная графика,
                               // on=всегда экономно, auto=включается при низком заряде
+  nodalAxisFigures?: boolean; // строить фигуры на оси узлов (Раху☍Кету всегда 180°);
+                              // по умолч. false — иначе постоянный шум (косой парус Луна+узлы)
 }
 
 /** Системы домов для выбора в настройках (id → engine HOUSE_SYS; equalMC особо). */
@@ -156,4 +158,5 @@ export const DEFAULT_SETTINGS: Settings = {
   seenWelcome: false,
   houseSystem: 'horizontal',
   batterySaver: 'auto',
+  nodalAxisFigures: false,
 };

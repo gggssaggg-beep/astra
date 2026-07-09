@@ -49,9 +49,11 @@
   import GlowCard from './GlowCard.svelte';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
+        nodalAxisFigures = false,
         initialMode = 'transitNatal', onclose, onchat, oncommunity, ongoto }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
+      nodalAxisFigures?: boolean;
       initialMode?: Mode; onclose: () => void;
       onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string; selfContained?: boolean }) => void;
       oncommunity?: (sig: string, title: string) => void;
@@ -320,7 +322,7 @@
 
   // «Фигуры» карты (раунд 29): натал — классические; транзитные режимы —
   // фигуры, ЗАМКНУТЫЕ транзитом (натальная заготовка + транзитная планета).
-  const chartFigs = $derived(chartFigures(mode, posA, posB, transitPos, orbOf));
+  const chartFigs = $derived(chartFigures(mode, posA, posB, transitPos, orbOf, nodalAxisFigures));
   // аспекты натальных планет к куспидам домов A (§4) — только если дома есть
   const cuspAsp = $derived(mode === 'natal' && housesA ? cuspAspects(posA, housesA.cusps, orbOf) : []);
   // транзиты к натальным куспидам A: проходящие планеты активируют темы домов

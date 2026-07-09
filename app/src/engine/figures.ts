@@ -147,6 +147,12 @@ function derive(raw: RawSpec): FigureSpec {
 /** Реестр фигур — 15, от простых к сложным (порядок = порядок описаний). */
 export const FIGURES: FigureSpec[] = RAW.map(derive);
 
+/** Оппозиция Раху–Кету — это ОСЬ узлов (всегда ровно 180° по геометрии), не
+ *  найденная конфигурация. Фигуры на ней (постоянные косые паруса/тау на
+ *  Луне+узлах) — шум; по умолчанию их не строим. true, если пара — ось узлов. */
+export const isNodalAxisPair = (a: string, b: string): boolean =>
+  (a === 'Раху' && b === 'Кету') || (a === 'Кету' && b === 'Раху');
+
 const BY_ID = new Map(FIGURES.map((f) => [f.id, f]));
 // самопроверка ссылок contains (ошибку реестра ловим на загрузке, не в бою)
 for (const f of FIGURES) for (const c of f.contains) {

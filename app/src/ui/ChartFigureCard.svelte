@@ -8,6 +8,7 @@
    */
   import type { ChartFigure } from '../lib/chartFigures.ts';
   import { figureLore } from '../lib/figureLore.ts';
+  import { reveal } from '../lib/reveal.ts';
 
   let { fig, selected = false, onactivate }:
     { fig: ChartFigure; selected?: boolean; onactivate?: () => void } = $props();
@@ -19,7 +20,7 @@
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div class="fig glass reveal" class:clickable={!!onactivate} class:selected class:wow={fig.closedByTransit}
   role={onactivate ? 'button' : undefined} tabindex={onactivate ? 0 : undefined}
-  onclick={() => onactivate?.()}
+  onclick={() => onactivate?.()} use:reveal
   onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onactivate?.()}>
   <div class="row top">
     <span class="name">{fig.name}</span>

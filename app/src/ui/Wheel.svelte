@@ -114,7 +114,9 @@
   //     0° Овна (359° и 1°) больше не рвётся и не слипается.
   // (2) Уровень выбирается ГРИДИ по последней долготе на каждом радиусе (раньше
   //     цикл %3 в стеллиуме >3 планет возвращал 4-ю на радиус 1-й — налегали).
-  const placeRing = (poss: BodyPosition[], baseR: number, step: number): { p: BodyPosition; r: number }[] => {
+  // (3) Число уровней `levels` — параметр: тесный стеллиум из 4–5 планет требует
+  //     больше радиусов, иначе лишние глифы слипаются на самом глубоком уровне.
+  const placeRing = (poss: BodyPosition[], baseR: number, step: number, levels = 3): { p: BodyPosition; r: number }[] => {
     if (!poss.length) return [];
     const sorted = [...poss].sort((a, b) => a.lon - b.lon);
     let cut = 0, best = -1;
@@ -124,7 +126,7 @@
       if (gap > best) { best = gap; cut = next; }
     }
     const ring = cut ? [...sorted.slice(cut), ...sorted.slice(0, cut)] : sorted;
-    const lastAt = [-999, -999, -999];   // последняя «расправленная» долгота на уровне
+    const lastAt: number[] = new Array(levels).fill(-999);   // последняя «расправленная» долгота на уровне
     const out: { p: BodyPosition; r: number }[] = [];
     let prev = -Infinity, offset = 0;
     for (const p of ring) {
@@ -144,7 +146,9 @@
   const rInner = $derived(triple ? 58 : double ? 72 : rPlanet);
   const rMid = $derived(triple ? 84 : 106);
   const rOut2 = 110;
-  const placedInner = $derived(placeRing(positions, rInner, triple ? 11 : double ? 12 : 16));
+  // одиночное (день) кольцо просторнее → до 5 уровней разноса: плотный стеллиум
+  // 4–5 планет в пределах ~8° не слипается. В двойном/тройном места меньше → 3.
+  const placedInner = $derived(placeRing(positions, rInner, triple ? 11 : double ? 12 : 16, triple || double ? 3 : 5));
   const placedMid = $derived(positionsOuter ? placeRing(positionsOuter, rMid, 11) : []);
   const placedOut2 = $derived(triple && positionsOuter2 ? placeRing(positionsOuter2, rOut2, 11) : []);
   // ключ = кольцо+имя: при скрабе транзита натальные глифы не перерисовываются

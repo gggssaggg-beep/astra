@@ -51,6 +51,13 @@
     const tod = Math.min(Math.max(nowMs - todayStart, 0), 86_400_000 - 1); // мс от местной полуночи
     return new Date(dayStart.getTime() + tod + scrubOffset);
   });
+  // при прокрутке ЗА ПОЛНОЧЬ показываем и ДАТУ снимка, не только время — иначе
+  // «кручу-кручу, а дата та же» (жалоба владелицы). Ярлык дня — в поясе tz.
+  const dfKey = (d: Date) => new Intl.DateTimeFormat('en-CA',
+    { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const dfDay = (d: Date) => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: tz, day: 'numeric', month: 'short' }).format(d);
+  const scrubCrossesDay = $derived(scrubbed && dfKey(snapshot) !== dfKey(dayStart));
 
   const positions = $derived(engine.positions(snapshot, objects ?? undefined));
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
@@ -150,7 +157,7 @@
     <div class="snaptime">
       {#if scrubbed}
         <button class="resetnow" onclick={resetScrub}>↺ сейчас</button>
-        <span>прокрутка · {fmtTime(snapshot, tz)}</span>
+        <span>прокрутка · {#if scrubCrossesDay}<b class="scrubday">{dfDay(snapshot)}</b>,&nbsp;{/if}{fmtTime(snapshot, tz)}</span>
       {:else}
         {isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)} — тот же час, что сейчас`}
       {/if}
@@ -256,6 +263,7 @@
     text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   .resetnow { background: #ffffff12; border: 1px solid var(--glass-brd); color: var(--accent);
     border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-family: var(--font-mono); }
+  .scrubday { color: var(--accent); font-weight: 600; }
   /* тихая легенда цветов: чёрточка цвета линии + слово, не отвлекает */
   .legend { display: flex; justify-content: center; gap: 14px; margin-top: 4px;
     color: var(--ink-faint); font-size: 0.68rem; }

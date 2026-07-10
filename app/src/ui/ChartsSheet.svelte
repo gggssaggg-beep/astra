@@ -752,47 +752,53 @@
     {/if}
 
     {#if mode === 'natal' && posA.length}
-      <div class="grp">⛓ Цепочки диспозиторов</div>
-      <div class="hint small">Каждая планета служит управителю своего знака — до «царя» карты (планеты в своём знаке) или кольца соправителей.</div>
-      <div class="glass dispbox"><DispositorChains positions={posA}
-        onexplain={onchat ? (seed) => onchat(seed, { objects: [], title: 'Цепочки диспозиторов', selfContained: true }) : undefined} /></div>
+      <details class="fold">
+        <summary class="grp">⛓ Цепочки диспозиторов</summary>
+        <div class="hint small">Каждая планета служит управителю своего знака — до «царя» карты (планеты в своём знаке) или кольца соправителей.</div>
+        <div class="glass dispbox"><DispositorChains positions={posA}
+          onexplain={onchat ? (seed) => onchat(seed, { objects: [], title: 'Цепочки диспозиторов', selfContained: true }) : undefined} /></div>
+      </details>
     {/if}
 
     {#if cuspAsp.length}
-      <div class="grp">📐 Аспекты к куспидам</div>
-      <div class="hint small">Планета аспектирует куспид дома — влияет своим архетипом на дела дома. Орбис куспида 1°.</div>
-      {#each cuspAsp as c (cuspKey(c))}
-        {@const key = cuspKey(c)}
-        {@const lore = PLANET_CUSP_LORE[`${c.planet}|${c.cusp}`]}
-        <GlowCard radius={12} selected={openCusp === key}
-          onactivate={() => (openCusp = openCusp === key ? null : key)}>
-          <div class="cusprow">
-            <span class="cg glyph">{c.glyph}</span>
-            <span class="csym glyph">{c.symbol}</span>
-            <span class="clbl">куспид {c.cusp}{#if ANGLE_LBL[c.cusp]} ({ANGLE_LBL[c.cusp]}){/if}</span>
-            <span class="corb">{c.orb.toFixed(2)}°</span>
-          </div>
-          {#if openCusp === key && lore}<div class="cusplore">{lore}</div>{/if}
-        </GlowCard>
-      {/each}
+      <details class="fold">
+        <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length}</summary>
+        <div class="hint small">Планета аспектирует куспид дома — влияет своим архетипом на дела дома. Орбис куспида 1°.</div>
+        {#each cuspAsp as c (cuspKey(c))}
+          {@const key = cuspKey(c)}
+          {@const lore = PLANET_CUSP_LORE[`${c.planet}|${c.cusp}`]}
+          <GlowCard radius={12} selected={openCusp === key}
+            onactivate={() => (openCusp = openCusp === key ? null : key)}>
+            <div class="cusprow">
+              <span class="cg glyph">{c.glyph}</span>
+              <span class="csym glyph">{c.symbol}</span>
+              <span class="clbl">куспид {c.cusp}{#if ANGLE_LBL[c.cusp]} ({ANGLE_LBL[c.cusp]}){/if}</span>
+              <span class="corb">{c.orb.toFixed(2)}°</span>
+            </div>
+            {#if openCusp === key && lore}<div class="cusplore">{lore}</div>{/if}
+          </GlowCard>
+        {/each}
+      </details>
     {/if}
 
     {#if transitCuspAsp.length}
-      <div class="grp">🚶 Транзиты к куспидам</div>
-      <div class="hint small">Проходящая планета задевает куспид натального дома — временно включает его тему. Снимок на текущий момент.</div>
-      {#each transitCuspAsp as c (cuspKey(c))}
-        {@const key = cuspKey(c)}
-        <GlowCard radius={12} selected={openTCusp === key}
-          onactivate={() => (openTCusp = openTCusp === key ? null : key)}>
-          <div class="cusprow">
-            <span class="cg glyph">{c.glyph}</span>
-            <span class="csym glyph">{c.symbol}</span>
-            <span class="clbl">куспид {c.cusp}{#if ANGLE_LBL[c.cusp]} ({ANGLE_LBL[c.cusp]}){/if}</span>
-            <span class="corb">{c.orb.toFixed(2)}°</span>
-          </div>
-          {#if openTCusp === key}<div class="cusplore">{transitCuspText(c.planet, c.cusp, c.aspect)}</div>{/if}
-        </GlowCard>
-      {/each}
+      <details class="fold">
+        <summary class="grp">🚶 Транзиты к куспидам · {transitCuspAsp.length}</summary>
+        <div class="hint small">Проходящая планета задевает куспид натального дома — временно включает его тему. Снимок на текущий момент.</div>
+        {#each transitCuspAsp as c (cuspKey(c))}
+          {@const key = cuspKey(c)}
+          <GlowCard radius={12} selected={openTCusp === key}
+            onactivate={() => (openTCusp = openTCusp === key ? null : key)}>
+            <div class="cusprow">
+              <span class="cg glyph">{c.glyph}</span>
+              <span class="csym glyph">{c.symbol}</span>
+              <span class="clbl">куспид {c.cusp}{#if ANGLE_LBL[c.cusp]} ({ANGLE_LBL[c.cusp]}){/if}</span>
+              <span class="corb">{c.orb.toFixed(2)}°</span>
+            </div>
+            {#if openTCusp === key}<div class="cusplore">{transitCuspText(c.planet, c.cusp, c.aspect)}</div>{/if}
+          </GlowCard>
+        {/each}
+      </details>
     {/if}
 
     {#if mode === 'natal'}
@@ -1148,6 +1154,11 @@
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
   .grp.gold { color: var(--gold); }
+  .fold { margin: 0; }
+  .fold summary { cursor: pointer; list-style: none; }
+  .fold summary::-webkit-details-marker { display: none; }
+  .fold summary::before { content: '▸ '; }
+  .fold[open] summary::before { content: '▾ '; }
   .dispbox { padding: 12px 14px; margin: 6px 0 4px; }
   /* горизонтальный отступ, чтобы неоновая рамка/глоу GlowCard не наезжали на
      буквы у края («рамка съедает буквы») */

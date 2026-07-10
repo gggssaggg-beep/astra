@@ -9,6 +9,7 @@
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { getOtaStatus, checkOtaUpdate, applyQueuedNow } from '../lib/ota.ts';
   import { tgHref } from '../lib/telegram.ts';
+  import Hint from './Hint.svelte';
 
   // объекты для индивидуального орбиса (светила + планеты + узлы)
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
@@ -255,7 +256,7 @@
   </div>
 
   <div class="block">
-    <div class="lbl">Орбис</div>
+    <div class="lbl">Орбис <Hint k="orb" /></div>
     <div class="orb">
       <span class="small">по умолчанию</span>
       <input type="number" min="0.5" max="12" step="0.5" value={cfg.defaultOrb}
@@ -277,7 +278,7 @@
   </div>
 
   <div class="block">
-    <div class="lbl">Дома</div>
+    <div class="lbl">Дома <Hint k="house-system" /></div>
     <select class="select" value={cfg.houseSystem ?? 'horizontal'}
       onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
       {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}

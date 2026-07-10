@@ -8,6 +8,7 @@
   import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { db } from '../lib/db.ts';
+  import Hint from './Hint.svelte';
 
   let { rec, tz, onpick, selected = false, discussions = 0 }:
     { rec: AspectRecord; tz: string; onpick?: (r: AspectRecord) => void; selected?: boolean;
@@ -44,6 +45,7 @@
     <span class="names">{rec.p1} {rec.aspect} {rec.p2}</span>
     {#if discussions}<span class="disc" title="в сообществе есть обсуждение">💬 {discussions}</span>{/if}
     {#if live}<span class="live tone-{tone}" title="сейчас в орбисе"></span>{/if}
+    {#if onpick}<Hint k="orb-current" />{/if}
     <span class="orb" title="текущий орбис">{rec.exactOrb.toFixed(2)}°<span class="arr">{applyingArrow(rec.applying)}</span></span>
   </div>
 

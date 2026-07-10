@@ -8,6 +8,7 @@
   import FigureCard from './FigureCard.svelte';
   import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
+  import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { discussionCounts } from '../lib/community.ts';
@@ -121,6 +122,9 @@
   // вертикальный порядок в блоках уже задан движком (aspects.ts: быстрые сверху
   // по sunRank, Луна — по времени точного аспекта) — здесь не пересортировываем
   const section = (title: string, list: AspectRecord[]) => ({ title, list });
+  // «?» про аспекты — только на первой НЕпустой секции (не троить подсказку)
+  const firstAspectSec = $derived(
+    day.moon.length ? 'Луна' : day.fast.length ? 'Быстрые' : day.slow.length ? 'Медленные' : null);
 </script>
 
 <div class="day">
@@ -153,18 +157,19 @@
     <div class="moon glass">
       <span class="g glyph">{moon.glyph}</span>
       <div>
-        <div class="lbl">Луна</div>
+        <div class="lbl">Луна <Hint k="position" /></div>
         <div class="pos">{fmtPosRx(moon.lon, moon.retro)}</div>
       </div>
       {#if phase}
         <div class="phase">
           <span class="pem">{phase.em}</span>
-          <div><div class="lbl">Фаза</div><div class="pname">{phase.name} · {phase.illum}%</div></div>
+          <div><div class="lbl">Фаза <Hint k="moon-phase" /></div><div class="pname">{phase.name} · {phase.illum}%</div></div>
         </div>
       {/if}
     </div>
   {/if}
 
+  <h3 class="sec">Планеты сейчас <Hint k="planet" /></h3>
   <div class="positions glass">
     {#each planets as p}
       <!-- каждая планета своей строкой С ИМЕНЕМ: «☉ Солнце — 2°09′ Рака»
@@ -178,7 +183,7 @@
   </div>
 
   {#if events.length}
-    <h3 class="sec">События дня</h3>
+    <h3 class="sec">События дня <Hint k="day-events" /></h3>
     <div class="events glass">
       {#each events as ev}
         <div class="ev k-{ev.kind}">
@@ -193,7 +198,7 @@
   {#if figures.length}
     <!-- «по желанию» (просьба владелицы): раздел свёрнут, как разделы карт -->
     <details class="fold">
-      <summary class="sec">Фигуры дня · {figures.length}<span class="arr">▸</span></summary>
+      <summary class="sec">Фигуры дня · {figures.length}<Hint k="figure" /><span class="arr">▸</span></summary>
       {#each figures as f (f.hit.key)}
         <FigureCard hit={f.hit} window={f.window} {tz}
           selected={selFigureKey === f.hit.key}
@@ -204,7 +209,7 @@
 
   {#each [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}
     {#if s.list.length}
-      <h3 class="sec">{s.title}</h3>
+      <h3 class="sec">{s.title}{#if s.title === firstAspectSec} <Hint k="aspect" />{/if}</h3>
       {#each s.list as rec (rec.p1 + rec.p2 + rec.aspect)}
         {@const sig = aspectSignature(rec.p1, rec.p2, rec.aspect)}
         <!-- тап: обводка обегает карточку → ПОТОМ открывается трактовка; выбранный

@@ -34,6 +34,9 @@
   import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
+  import GlossarySheet from './ui/GlossarySheet.svelte';
+  import { glossState, closeGloss } from './lib/studyStore.svelte.ts';
+  import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
@@ -122,6 +125,27 @@
     showChat = true;
   }
 
+  // «Подробнее →» из глоссария: закрыть «?» и открыть соответствующую шторку
+  // (мишени — уже существующие; ничего нового не заводим)
+  function openGlossTarget(target: GlossSheet) {
+    closeGloss();
+    switch (target) {
+      case 'library': showLibrary = true; break;
+      case 'interpretations': openLib('interp'); break;
+      case 'houses': openLib('houses'); break;
+      case 'archetypes': openLib('arch'); break;
+      case 'signMyths': openLib('signMyths'); break;
+      case 'retro': openLib('retro'); break;
+      case 'figures': openLib('figures'); break;
+      case 'dispositors': openLib('dispositors'); break;
+      case 'planetCusps': openLib('planetCusps'); break;
+      case 'degree': openLib('degree'); break;
+      case 'charts': showCharts = {}; break;
+      case 'chartsSynastry': showCharts = { mode: 'synastry' }; break;
+      case 'settings': showData = true; break;
+    }
+  }
+
   // резолвер орбиса (индивидуально по объекту, пара — больший из двух)
   const orbOf = $derived(orbResolver(settings));
 
@@ -169,6 +193,7 @@
   // Аппаратная кнопка/жест «Назад» на Android: закрываем ВЕРХНЮЮ открытую шторку,
   // а не выходим из приложения. Если ничего не открыто — сворачиваем (не убиваем).
   function onBack() {
+    if (glossState.key) { closeGloss(); return; }   // «?» — самый верхний слой
     if (selRec) { closeAspect(); return; }
     if (wheelInfo) { wheelInfo = null; return; }
     if (showAstrologer) { showAstrologer = false; return; }
@@ -537,6 +562,11 @@
 
 {#if showWelcome}
   <Welcome onclose={dismissWelcome} />
+{/if}
+
+<!-- контекстная «?» — поверх всех шторок (z-index 32/33), один монтаж на всё приложение -->
+{#if glossState.key}
+  <GlossarySheet k={glossState.key} onclose={closeGloss} onnavigate={openGlossTarget} />
 {/if}
 
 {#if showChat && engine}

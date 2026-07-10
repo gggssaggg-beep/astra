@@ -20,6 +20,7 @@
   import SimilarNotes from './aspect/SimilarNotes.svelte';
   import OccurrenceSearch from './aspect/OccurrenceSearch.svelte';
   import SignContext from './aspect/SignContext.svelte';
+  import Hint from './Hint.svelte';
 
   let { rec, engine, date, tz, orbOf, onclose, ondiscuss, ongoto, oncommunity }:
     { rec: AspectRecord; engine: Engine; date: Date; tz: string;
@@ -85,7 +86,7 @@
     </div>
   </header>
 
-  {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}°</div>
+  {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}° <Hint k="aspect-window" /></div>
   {:else}<div class="exact">Пара и аспект без привязки ко дню — общий разбор</div>{/if}
 
   <div class="block">

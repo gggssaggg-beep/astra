@@ -178,12 +178,15 @@
   {/if}
 
   {#if figures.length}
-    <h3 class="sec">Фигуры дня</h3>
-    {#each figures as f (f.hit.key)}
-      <FigureCard hit={f.hit} window={f.window} {tz}
-        selected={selFigureKey === f.hit.key}
-        onactivate={() => (selFigureKey = selFigureKey === f.hit.key ? null : f.hit.key)} />
-    {/each}
+    <!-- «по желанию» (просьба владелицы): раздел свёрнут, как разделы карт -->
+    <details class="fold">
+      <summary class="sec">Фигуры дня · {figures.length}<span class="arr">▸</span></summary>
+      {#each figures as f (f.hit.key)}
+        <FigureCard hit={f.hit} window={f.window} {tz}
+          selected={selFigureKey === f.hit.key}
+          onactivate={() => (selFigureKey = selFigureKey === f.hit.key ? null : f.hit.key)} />
+      {/each}
+    </details>
   {/if}
 
   {#each [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}
@@ -276,6 +279,11 @@
     margin-left: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
     color: var(--ink-dim); }
   .sec { margin: 16px 4px 4px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); }
+  /* «Фигуры дня» — свёрнутый раздел (по желанию): summary заменяет .sec */
+  details.fold summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+  details.fold summary::-webkit-details-marker { display: none; }
+  details.fold summary .arr { transition: transform 0.2s ease; }
+  details.fold[open] summary .arr { transform: rotate(90deg); }
   .events { padding: 6px 12px; margin: 8px 0; }
   /* затухающий hairline-разделитель — тоньше и «дороже» сплошной линии */
   .ev { display: flex; align-items: center; gap: 10px; padding: 9px 2px; position: relative; }

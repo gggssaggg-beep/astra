@@ -47,6 +47,7 @@
   import StaticInterpretationSheet from './StaticInterpretationSheet.svelte';
   import PromptSheet from './PromptSheet.svelte';
   import GlowCard from './GlowCard.svelte';
+  import Hint from './Hint.svelte';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
         nodalAxisFigures = false,
@@ -576,6 +577,7 @@
       {#each MODES as m}
         <button class:on={mode === m.id} onclick={() => setMode(m.id)}>{m.label}</button>
       {/each}
+      <Hint k="transit" />
     </div>
     <div class="hint">{MODES.find((m) => m.id === mode)!.hint} — выбери
       {needCount === 1 ? 'человека' : 'двух людей'}.</div>
@@ -715,7 +717,7 @@
     {:else if mode === 'synastry'}
       <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
-      <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name}</div>
+      <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name} <Hint k="synastry" /></div>
     {:else if mode === 'transitNatal'}
       <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
@@ -775,7 +777,7 @@
 
     {#if cuspAsp.length}
       <details class="fold">
-        <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length}</summary>
+        <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length} <Hint k="cusp" /></summary>
         <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.</div>
         {#each cuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
@@ -968,7 +970,7 @@
       {#if houseInfoA}
         <!-- дома: символизм 1↔Овен…, знак на куспиде, управитель(и), трактовка.
              Управитель — по авторской раскладке знака (SIGN_MYTHS). -->
-        <div class="grp">Дома</div>
+        <div class="grp">Дома <Hint k="house" /></div>
         {#each houseInfoA as h (h.house)}
           <details class="posx">
             <summary><span class="hbadge big">{['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][h.house - 1]}</span>

@@ -159,8 +159,8 @@
   }
 </script>
 
-<div class="backdrop" onclick={handleClose} role="presentation"></div>
-<section class="sheet glass" aria-label="Трактовка межаспекта" use:bottomSheet={{ onclose: handleClose }}>
+<div class="backdrop sheet-backdrop" onclick={handleClose} role="presentation"></div>
+<section class="sheet glass sheet-base" aria-label="Трактовка межаспекта" use:bottomSheet={{ onclose: handleClose }}>
   <header>
     <div class="ttl glyph">
       {PLANET_GLYPH[a.p1] ?? a.p1}<span class="asp">{a.symbol}</span>{PLANET_GLYPH[a.p2] ?? a.p2}
@@ -290,11 +290,9 @@
 {/if}
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 24; }
-  .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 25; padding: 16px 16px calc(18px + var(--safe-bottom));
-    border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
-  @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+  /* геометрия/бэкдроп — глобальные .sheet-base/.sheet-backdrop (app.css); тут только z-index */
+  .backdrop { z-index: 24; }
+  .sheet { z-index: 25; }
   header { display: flex; align-items: center; justify-content: space-between; }
   .ttl { font-size: 1.4rem; display: flex; align-items: center; gap: 6px; }
   .asp { margin: 0 2px; opacity: 0.85; }

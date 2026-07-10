@@ -71,8 +71,8 @@
   });
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Описание символа" use:bottomSheet={{ onclose }}>
+<div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
+<section class="sheet glass sheet-base" aria-label="Описание символа" use:bottomSheet={{ onclose }}>
   <header>
     {#if info.kind === 'planet'}
       <div class="title"><span class="g glyph">{PLANET_GLYPH[info.name] ?? '•'}</span>
@@ -127,11 +127,9 @@
 {/if}
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
-  .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 27; padding: 16px 16px calc(18px + var(--safe-bottom));
-    border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
-  @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+  /* геометрия/бэкдроп — глобальные .sheet-base/.sheet-backdrop (app.css); тут только z-index */
+  .backdrop { z-index: 26; }
+  .sheet { z-index: 27; }
   header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .title { display: flex; align-items: center; gap: 12px; }
   .title .g { font-size: 1.9rem; color: var(--silver); width: 1.6rem; text-align: center; }

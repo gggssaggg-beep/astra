@@ -126,7 +126,8 @@
 
     // «Экономия аккумулятора»: при data-saver='on' на <html> НЕ крутим цикл —
     // блёстки главный источник расхода. Реагируем на переключение тумблера вживую.
-    const saverOn = () => document.documentElement.dataset.saver === 'on';
+    const saverOn = () => document.documentElement.dataset.saver === 'on'
+      || document.documentElement.dataset.saver === 'max';
     function start() { if (!raf && !saverOn()) { last = performance.now(); raf = requestAnimationFrame(frame); } }
     function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; } ctx!.clearRect(0, 0, w, h); }
     start();

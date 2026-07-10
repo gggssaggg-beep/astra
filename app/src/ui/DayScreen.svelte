@@ -30,7 +30,15 @@
 
   let nowMs = $state(Date.now());
   $effect(() => {
-    const id = setInterval(() => (nowMs = Date.now()), 60_000); // живое «сейчас», без перегруза
+    // живое «сейчас». При критическом заряде (data-saver='max') обновляем раз в
+    // 5 мин, а не раз в минуту — реже дёргаем WASM positions()+перерисовку колеса
+    // (Б-9 энерго-аудита). Таймер-тик дешёвый; дорога реактивная цепочка nowMs.
+    let last = Date.now();
+    const id = setInterval(() => {
+      if (document.documentElement.dataset.saver === 'max' && Date.now() - last < 300_000) return;
+      last = Date.now();
+      nowMs = Date.now();
+    }, 60_000);
     return () => clearInterval(id);
   });
   // прокрутка колеса дня: тянешь по кругу — момент снимка едет (оборот = сутки),

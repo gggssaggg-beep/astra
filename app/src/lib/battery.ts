@@ -5,7 +5,9 @@
  * (режим 'auto' тогда просто = 'off'), ошибок не поднимаем.
  */
 
-export type BatteryListener = (low: boolean) => void;
+// low = ≤20% не на зарядке (режим «Экономия»); critical = ≤10% не на зарядке
+// (аварийный режим 'max' — ещё реже будим движок/радио).
+export type BatteryListener = (low: boolean, critical: boolean) => void;
 
 interface BatteryLike {
   level: number;              // 0..1
@@ -14,19 +16,22 @@ interface BatteryLike {
   removeEventListener(type: string, cb: () => void): void;
 }
 
-const LOW = 0.2; // ≤20% и не на зарядке → «низкий заряд»
+const LOW = 0.2;      // ≤20% и не на зарядке → «низкий заряд»
+const CRITICAL = 0.1; // ≤10% и не на зарядке → критический (аварийный 'max')
 
 /**
- * Следить за низким зарядом. Дёргает cb при каждом изменении (и один раз сразу).
- * Возвращает функцию отписки. Если Battery API недоступен — сразу cb(false).
+ * Следить за низким зарядом. Дёргает cb(low, critical) при каждом изменении (и
+ * один раз сразу). Возвращает функцию отписки. Нет Battery API — сразу cb(false,false).
  */
 export function watchLowBattery(cb: BatteryListener): () => void {
   const nav = navigator as Navigator & { getBattery?: () => Promise<BatteryLike> };
-  if (typeof nav.getBattery !== 'function') { cb(false); return () => {}; }
+  if (typeof nav.getBattery !== 'function') { cb(false, false); return () => {}; }
 
   let bat: BatteryLike | null = null;
   let cancelled = false;
-  const update = () => { if (bat) cb(bat.level <= LOW && !bat.charging); };
+  const update = () => {
+    if (bat) cb(bat.level <= LOW && !bat.charging, bat.level <= CRITICAL && !bat.charging);
+  };
 
   nav.getBattery().then((b) => {
     if (cancelled) return;
@@ -34,7 +39,7 @@ export function watchLowBattery(cb: BatteryListener): () => void {
     b.addEventListener('levelchange', update);
     b.addEventListener('chargingchange', update);
     update();
-  }).catch(() => cb(false));
+  }).catch(() => cb(false, false));
 
   return () => {
     cancelled = true;

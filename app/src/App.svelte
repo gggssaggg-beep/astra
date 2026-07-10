@@ -257,7 +257,8 @@
     // при открытии не страдает — есть обновление на возврат в приложение (ниже,
     // appStateChange) и на старте. (Б-4 энерго-аудита.)
     const t = setInterval(() => {
-      if (document.documentElement.dataset.saver === 'on') return;
+      // экономия (on) и критический (max) — радио не будим (Б-4/Б-9)
+      if (document.documentElement.dataset.saver !== 'off') return;
       void refreshClientCharts();
     }, 300000);
     return () => clearInterval(t);
@@ -389,18 +390,23 @@
   // data-saver на корне — CSS гасит графику (app.css), Starfield читает его и
   // не крутит цикл. 'auto' = включать при низком заряде (Battery API).
   let lowBattery = $state(false);
-  $effect(() => watchLowBattery((low) => (lowBattery = low)));   // отписка = возврат watch
+  let critBattery = $state(false);
+  $effect(() => watchLowBattery((low, crit) => { lowBattery = low; critBattery = crit; }));   // отписка = возврат watch
   const saverActive = $derived(
     (settings.batterySaver ?? 'auto') === 'on'
     || ((settings.batterySaver ?? 'auto') === 'auto' && lowBattery));
+  // критический заряд (≤10%, не на зарядке) → аварийный 'max' поверх любого
+  // режима: та же графика, что 'on', плюс JS-троттлинг (реже тик/полл). Иначе
+  // 'on' при saverActive, иначе 'off'. saverOn = «графику режем» (on ИЛИ max).
+  const saverOn = $derived(critBattery || saverActive);
   $effect(() => {
-    document.documentElement.dataset.saver = saverActive ? 'on' : 'off';
+    document.documentElement.dataset.saver = critBattery ? 'max' : saverActive ? 'on' : 'off';
   });
   // SMIL-переливы знаков (shimmer/rainbow) CSS-правилом animation-duration не
-  // останавливаются → в «Экономии» подменяем стиль колеса на статичный «золото»
-  // (Б-1 энерго-аудита). Без saver — стиль пользователя как есть.
+  // останавливаются → при экономии подменяем стиль колеса на статичный «золото»
+  // (Б-1 энерго-аудита). Без экономии — стиль пользователя как есть.
   const effSignStyle = $derived(
-    saverActive && (settings.signStyle === 'shimmer' || settings.signStyle === 'rainbow')
+    saverOn && (settings.signStyle === 'shimmer' || settings.signStyle === 'rainbow')
       ? 'gold' : settings.signStyle);
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.

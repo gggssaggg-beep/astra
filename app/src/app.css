@@ -241,22 +241,23 @@ section.sheet h2 {
   }
 }
 
-/* «Экономия аккумулятора» (settings.batterySaver → data-saver='on' на <html>).
+/* «Экономия аккумулятора» (data-saver='on', либо 'max' при критическом заряде —
+   графику режем одинаково, у 'max' лишь JS-троттлинг сверху: реже тик/полл).
    Рубим самое дорогое для мобильного GPU/CPU: аврора-дрейф, backdrop-blur
    шапки/шторок, глоу-фильтры, все бесконечные пульсации. Блёстки (canvas
    Starfield) гасятся в самом компоненте — он читает тот же data-saver.
    Анимации НЕ ставим play-state:paused (заморозило бы выезд шторки за экраном) —
    как в reduced-motion, делаем их мгновенными: одноразовыми и в конечном кадре. */
-:root[data-saver='on'] *,
-:root[data-saver='on'] *::before,
-:root[data-saver='on'] *::after {
+:root:is([data-saver='on'],[data-saver='max']) *,
+:root:is([data-saver='on'],[data-saver='max']) *::before,
+:root:is([data-saver='on'],[data-saver='max']) *::after {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
 }
-:root[data-saver='on'][data-theme='aurora'] body::after { animation: none !important; }
-:root[data-saver='on'] .frost,
-:root[data-saver='on'] section.sheet {
+:root:is([data-saver='on'],[data-saver='max'])[data-theme='aurora'] body::after { animation: none !important; }
+:root:is([data-saver='on'],[data-saver='max']) .frost,
+:root:is([data-saver='on'],[data-saver='max']) section.sheet {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   /* Без блюра полупрозрачное стекло (--glass alpha 0.48–0.76) пропускало нижний
@@ -266,12 +267,12 @@ section.sheet h2 {
      остаётся «стеклянным» для каждой темы, но панель больше не просвечивает. */
   background: linear-gradient(var(--glass), var(--glass)), var(--bg-1) !important;
 }
-:root[data-saver='on'] .glow-overlay rect,
-:root[data-saver='on'] .ring.zodiac,
-:root[data-saver='on'] .selline,
-:root[data-saver='on'] .signicon,
-:root[data-saver='on'] .signicon.sel,
-:root[data-saver='on'] .planet.sel { filter: none !important; }
+:root:is([data-saver='on'],[data-saver='max']) .glow-overlay rect,
+:root:is([data-saver='on'],[data-saver='max']) .ring.zodiac,
+:root:is([data-saver='on'],[data-saver='max']) .selline,
+:root:is([data-saver='on'],[data-saver='max']) .signicon,
+:root:is([data-saver='on'],[data-saver='max']) .signicon.sel,
+:root:is([data-saver='on'],[data-saver='max']) .planet.sel { filter: none !important; }
 
 /* ЕДИНАЯ высота всех шторок (унификация — просьба владелицы: аспекты/настройки
    были ниже Сообщества). Селектор .sheet.glass специфичнее per-component

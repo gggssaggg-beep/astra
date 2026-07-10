@@ -82,11 +82,15 @@
           const twinkle = s * s * s * s;               // острый всплеск вместо плавной волны
           const alpha = p.a * (0.38 + 0.72 * twinkle);
           const tint = SPARKLE[(p.c * SPARKLE.length) | 0];
-          // тёплое гало
-          ctx!.beginPath();
-          ctx!.arc(p.x, p.y, p.r * 3.8, 0, Math.PI * 2);
-          ctx!.fillStyle = `rgba(${tint}, ${(alpha * 0.24).toFixed(3)})`;
-          ctx!.fill();
+          // тёплое гало — только у ЗАМЕТНЫХ блёсток (r>1.1): у мелкой пыли ореол
+          // глаз всё равно не видит, а это лишний draw-вызов на частицу/кадр
+          // (Б-6 энерго-аудита). Ядро и лучики остаются у всех.
+          if (p.r > 1.1) {
+            ctx!.beginPath();
+            ctx!.arc(p.x, p.y, p.r * 3.8, 0, Math.PI * 2);
+            ctx!.fillStyle = `rgba(${tint}, ${(alpha * 0.24).toFixed(3)})`;
+            ctx!.fill();
+          }
           // ядро
           ctx!.beginPath();
           ctx!.arc(p.x, p.y, p.r * 1.05, 0, Math.PI * 2);

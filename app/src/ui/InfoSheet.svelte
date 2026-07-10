@@ -10,8 +10,11 @@
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
 
-  let { info, onclose, ondiscuss }:
-    { info: WheelInfo; onclose: () => void; ondiscuss?: (seed: string) => void } = $props();
+  let { info, onclose, ondiscuss, onopenfull }:
+    { info: WheelInfo; onclose: () => void; ondiscuss?: (seed: string) => void;
+      // передан только для аспекта, который есть в списке дня → мостик к полной
+      // карточке аспекта (времена вход/точно/выход, заметка, «когда ещё»)
+      onopenfull?: () => void } = $props();
 
   const NAT = { harm: 'гармоничный', tense: 'напряжённый', neutral: 'нейтральный' };
 
@@ -105,6 +108,10 @@
     {/if}
   {/if}
 
+  {#if info.kind === 'aspect' && onopenfull}
+    <button class="openfull" onclick={onopenfull}>Открыть карточку аспекта →</button>
+  {/if}
+
   <button class="discuss" onclick={discuss}>
     <span class="dg glyph">💬</span> Обсудить с Claude
   </button>
@@ -137,5 +144,8 @@
   .discuss { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: var(--accent); border: none; color: var(--on-accent); font-weight: 600; border-radius: 14px; padding: 12px; }
   .discuss.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); margin-top: 8px; }
+  /* мостик к полной карточке аспекта — тихая строка-ссылка над кнопками */
+  .openfull { display: block; width: 100%; margin-bottom: 12px; padding: 6px 2px;
+    background: transparent; border: none; color: var(--accent); font-size: 0.9rem; text-align: left; cursor: pointer; }
   .dg { font-size: 1.1rem; }
 </style>

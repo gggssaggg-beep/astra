@@ -105,12 +105,14 @@
     {/if}
   {/if}
 
-  <button class="discuss" onclick={discuss}>
-    <span class="dg glyph">💬</span> Обсудить с Claude
-  </button>
-  <button class="discuss ghost" onclick={() => (showPrompt = true)}>
-    <span class="dg glyph">📋</span> Промпт для любой ИИ
-  </button>
+  <div class="actrow">
+    <button class="discuss" onclick={discuss}>
+      <span class="dg glyph">💬</span> Обсудить с Claude
+    </button>
+    <button class="discuss ghost" title="готовый текст для ChatGPT, Gemini и др." onclick={() => (showPrompt = true)}>
+      <span class="dg glyph">📋</span> Промпт для ИИ
+    </button>
+  </div>
 </section>
 
 {#if showPrompt}
@@ -136,6 +138,9 @@
   .part .g { color: var(--silver); width: 1.3rem; text-align: center; }
   .discuss { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
     background: var(--accent); border: none; color: var(--on-accent); font-weight: 600; border-radius: 14px; padding: 12px; }
-  .discuss.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); margin-top: 8px; }
+  .discuss.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); }
+  /* два действия в один ряд (единообразно со шторками трактовки) */
+  .actrow { display: flex; gap: 8px; margin-top: 12px; }
+  .actrow .discuss { flex: 1; min-width: 0; padding: 11px 10px; font-size: 0.9rem; }
   .dg { font-size: 1.1rem; }
 </style>

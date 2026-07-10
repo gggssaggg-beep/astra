@@ -15,12 +15,15 @@
 <div class="backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Библиотека" use:bottomSheet={{ onclose }}>
   <header><h2>Библиотека</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Журнал, значения аспектов и домов, архетипы и отслеживаемые аспекты — в одном месте.</div>
+  <div class="hint">Всё, что можно открыть и прочитать — в одном месте.</div>
 
   <!-- тап: обводка обегает контур → открытие (единый паттерн GlowCard).
-       Журнал переехал сюда из нижнего меню (просьба 2026-07-06) — там
-       освободилось место, меню стало из 4 пунктов. Синастрия убрана
+       Список плоский (1 тап до всего), заголовки-капсы .grp только группируют —
+       это НЕ аккордеон. Журнал переехал сюда из нижнего меню (просьба 2026-07-06),
+       чат — тоже; Сообщество живёт ТОЛЬКО в нижнем меню; Синастрия убрана
        (дублировала «Карты»). -->
+
+  <div class="grp">Мой дневник</div>
   <GlowCard radius={14} onactivate={onJournal}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">📓</span>
@@ -28,17 +31,19 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  <GlowCard radius={14} onactivate={onTracked}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">★</span>
+      <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+
+  <div class="grp">Трактовки</div>
   <GlowCard radius={14} onactivate={onInterpretations}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">📖</span>
       <div class="txt"><b>Значения аспектов</b><small>тексты по парам планет в аспекте + свои</small></div>
-      <span class="arr">→</span>
-    </button>
-  </GlowCard>
-  <GlowCard radius={14} onactivate={onHouses}>
-    <button class="row reveal" use:reveal>
-      <span class="ic glyph">🏠</span>
-      <div class="txt"><b>Значения домов</b><small>знак на куспиде каждого дома</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
@@ -56,6 +61,13 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  <GlowCard radius={14} onactivate={onHouses}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🏠</span>
+      <div class="txt"><b>Значения домов</b><small>знак на куспиде каждого дома</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
   <GlowCard radius={14} onactivate={onDispositors}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">👑</span>
@@ -70,24 +82,12 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+
+  <div class="grp">Небо сейчас</div>
   <GlowCard radius={14} onactivate={onFigures}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">◆</span>
       <div class="txt"><b>Фигуры дня</b><small>конфигурации аспектов: тригон, тау, парус…</small></div>
-      <span class="arr">→</span>
-    </button>
-  </GlowCard>
-  <GlowCard radius={14} onactivate={onArchetypes}>
-    <button class="row reveal" use:reveal>
-      <span class="ic glyph">🏛</span>
-      <div class="txt"><b>Архетипы планет</b><small>миф и архетип на каждую планету</small></div>
-      <span class="arr">→</span>
-    </button>
-  </GlowCard>
-  <GlowCard radius={14} onactivate={onSignMyths}>
-    <button class="row reveal" use:reveal>
-      <span class="ic glyph">📜</span>
-      <div class="txt"><b>Мифы знаков</b><small>бог на каждый знак зодиака и его грани</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
@@ -105,15 +105,23 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
-  <GlowCard radius={14} onactivate={onTracked}>
+
+  <div class="grp">Мифы</div>
+  <GlowCard radius={14} onactivate={onArchetypes}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">★</span>
-      <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
+      <span class="ic glyph">🏛</span>
+      <div class="txt"><b>Архетипы планет</b><small>миф и архетип на каждую планету</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
-  <!-- чат переехал сюда из нижнего меню; Сообщество живёт ТОЛЬКО в нижнем
-       меню (дубль из библиотеки убран — просьба 2026-07-02) -->
+  <GlowCard radius={14} onactivate={onSignMyths}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">📜</span>
+      <div class="txt"><b>Мифы знаков</b><small>бог на каждый знак зодиака и его грани</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
+
   <GlowCard radius={14} onactivate={onChat}>
     <button class="row reveal" use:reveal>
       <span class="ic glyph">💬</span>
@@ -132,6 +140,8 @@
   h2 { margin: 0; font-size: 1.1rem; }
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .hint { color: var(--ink-faint); font-size: 0.84rem; margin: 4px 0 12px; }
+  .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
+    font-weight: 600; margin: 12px 2px 6px; }
   .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 14px; padding: 14px; margin-bottom: 10px; }

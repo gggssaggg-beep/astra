@@ -776,7 +776,7 @@
     {#if cuspAsp.length}
       <details class="fold">
         <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length}</summary>
-        <div class="hint small">Планета аспектирует куспид дома — влияет своим архетипом на дела дома. Орбис куспида 1°.</div>
+        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.</div>
         {#each cuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
           {@const lore = PLANET_CUSP_LORE[`${c.planet}|${c.cusp}`]}
@@ -797,7 +797,7 @@
     {#if transitCuspAsp.length}
       <details class="fold">
         <summary class="grp">🚶 Транзиты к куспидам · {transitCuspAsp.length}</summary>
-        <div class="hint small">Проходящая планета задевает куспид натального дома — временно включает его тему. Снимок на текущий момент.</div>
+        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Транзитная планета у этой двери активирует сферу прямо сейчас, временно включает её тему. Снимок на текущий момент.</div>
         {#each transitCuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
           <GlowCard radius={12} selected={openTCusp === key}

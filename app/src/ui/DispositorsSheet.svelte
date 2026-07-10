@@ -36,8 +36,9 @@
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Управители домов" use:bottomSheet={{ onclose }}>
   <header><h2>Управители домов</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Выбери дом, знак на куспиде и дом положения управителя —
-    увидишь трактовку архетипа.</div>
+  <div class="hint">У знака на «двери» дома (куспиде) есть планета-хозяин — управитель; дом, где она
+    стоит, показывает, через что человек живёт эту сферу. Выбери дом, знак на куспиде и дом
+    положения управителя — увидишь трактовку архетипа.</div>
 
   <!-- Ряд 1: чей управитель ищем (Дом N) -->
   <div class="row-label">Дом</div>

@@ -21,8 +21,8 @@
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Планеты в домах" use:bottomSheet={{ onclose }}>
   <header><h2>Планеты в домах</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Архетип планеты в «чертогах» бога каждого дома — проявления в жизни.
-    Тап по планете раскрывает 12 домов.</div>
+  <div class="hint">Дом — сфера жизни (деньги, семья, карьера…). Планета, стоящая в доме, живёт в этой
+    сфере и проявляет там свой архетип. Тап по планете раскрывает 12 домов.</div>
 
   {#each LORE_PLANETS as planet (planet)}
     {@const opened = open === planet}

@@ -80,6 +80,19 @@
   );
   const day = $derived(aspectsOnCached(engine, dayStart, orbOf, objects));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
+  // КОЛЕСО ЧЕСТНОЕ К МОМЕНТУ (жалоба: «треугольник ходит за Луной без правила
+  // 120°»): линия аспекта живёт только внутри своего окна вход→точно→выход.
+  // Прокрутка уводит момент из окна → линия гаснет; список дня ниже не трогаем.
+  // Выбранный аспект показываем всегда (пользователь его явно держит).
+  const wheelAspects = $derived.by(() => {
+    const t = snapshot.getTime();
+    return allAspects.filter((a) => {
+      if (selectedSignature && aspectSignature(a.p1, a.p2, a.aspect) === selectedSignature) return true;
+      const b = a.beginTime?.getTime() ?? -Infinity;
+      const e = a.endTime?.getTime() ?? Infinity;
+      return t >= b && t <= e;
+    });
+  });
 
   // метка «в сообществе есть обсуждение» — тихий сетевой запрос по сигнатурам дня
   // (оффлайн-ядро не ждёт: пусто без входа/сети). Обновляется при смене дня.
@@ -113,7 +126,7 @@
 <div class="day">
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass">
-    <Wheel {positions} aspects={allAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
+    <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
       {oninfo} onscrub={scrubWheel} />
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
          выглядит как загадочные «мои 4 утра» (вопрос владелицы). Прокрутка колеса

@@ -20,7 +20,7 @@
    */
   import { untrack } from 'svelte';
   import { bottomSheet } from '../lib/sheet.ts';
-  import { db, uid } from '../lib/db.ts';
+  import { db } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
   import { synastryAspects, staticAspects, staticKey, sunRank, ASPECTS, SLOW } from '../engine/index.ts';
@@ -30,10 +30,7 @@
   import { analyzeHouses, houseOfLon, type HouseInfo } from '../lib/houses.ts';
   import { HOUSE_SYSTEMS } from '../lib/models.ts';
   import { buildAstroPrompt, type PromptPerson } from '../lib/aiPrompt.ts';
-  import { fmtPos, fmtPosRx, zonedTimeUTC } from '../lib/format.ts';
-  import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../lib/inputmask.ts';
-  import { parseDateInput } from '../lib/dateparse.ts';
-  import { searchCities, type City } from '../lib/cities.ts';
+  import { fmtPos, fmtPosRx } from '../lib/format.ts';
   import { forecastTransits, transitWindow, type TransitHit, type TransitWindow } from '../lib/forecast.ts';
   import type { BodyPosition } from '../engine/index.ts';
   import Wheel from './Wheel.svelte';
@@ -49,6 +46,7 @@
   import GlowCard from './GlowCard.svelte';
   import Hint from './Hint.svelte';
   import PersonForm from './charts/PersonForm.svelte';
+  import TransitControls from './charts/TransitControls.svelte';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
         nodalAxisFigures = false,
@@ -169,35 +167,23 @@
   // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск)
   let transitAt = $state(new Date());
   const transitPos = $derived(engine.positions(transitAt, objects ?? undefined));
-  // кэш Intl-форматтеров: создание Intl.DateTimeFormat дорогое, а скраб дёргает
-  // подписи десятки раз в секунду — пересоздаём только при смене пояса
-  let fmtCache: { tz: string; label: Intl.DateTimeFormat; d: Intl.DateTimeFormat; t: Intl.DateTimeFormat } | null = null;
+  // кэш Intl-форматтера ПОДПИСИ транзита (label): пересоздаём при смене пояса.
+  // Форматтеры полей даты/времени и вся панель управления — в дочернем
+  // charts/TransitControls.svelte.
+  let fmtCache: { tz: string; label: Intl.DateTimeFormat } | null = null;
   function fmts(tzv: string) {
     if (!fmtCache || fmtCache.tz !== tzv) fmtCache = {
       tz: tzv,
       label: new Intl.DateTimeFormat('ru-RU', { timeZone: tzv, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      d: new Intl.DateTimeFormat('ru-RU', { timeZone: tzv, day: '2-digit', month: '2-digit', year: 'numeric' }),
-      t: new Intl.DateTimeFormat('en-GB', { timeZone: tzv, hour: '2-digit', minute: '2-digit', hour12: false }),
     };
     return fmtCache;
   }
   const transitLabel = $derived(fmts(tz).label.format(transitAt));
-  function refreshTransit(): void { transitAt = new Date(); }
-  function stepTransit(ms: number): void { transitAt = new Date(transitAt.getTime() + ms); }
-  // масштаб прокрутки (просьба владелицы 2026-07-08): оборот диска и шаг ‹›
-  // = день, месяц или год — динамика транзитов на длинной дистанции
+  // масштаб прокрутки (просьба владелицы 2026-07-08): оборот диска = день/месяц/
+  // год. Панель управления (поля/шаги ‹›/масштаб) вынесена в TransitControls
+  // (bind:scrubScale); сам скраб-жест колеса остаётся здесь (wired в Wheel.onscrub).
   let scrubScale = $state<'day' | 'month' | 'year'>('day');
   const SCRUB_MULT = { day: 1, month: 30, year: 365 } as const;
-  const SCRUB_CAP = { day: 'сутки за оборот', month: 'месяц за оборот', year: 'год за оборот' } as const;
-  const UNIT_NAME = { day: 'день', month: 'месяц', year: 'год' } as const;
-  // шаг кнопками ‹ › — календарный (месяц/год честные, не 30/365 суток)
-  function stepUnit(dir: 1 | -1): void {
-    if (scrubScale === 'day') { stepTransit(dir * 86_400_000); return; }
-    const d = new Date(transitAt);
-    if (scrubScale === 'month') d.setUTCMonth(d.getUTCMonth() + dir);
-    else d.setUTCFullYear(d.getUTCFullYear() + dir);
-    transitAt = d;
-  }
   // прокрутка прямо в основном колесе: оборот = сутки×масштаб (см. Wheel.onscrub).
   // rAF-дебаунс: pointermove приходит чаще кадров, а каждый тик тянет WASM
   // positions()+аспекты — копим дельту и применяем раз в кадр.
@@ -210,23 +196,6 @@
       transitAt = new Date(transitAt.getTime() + scrubPending);
       scrubPending = 0; scrubRaf = 0;
     });
-  }
-
-  // поля даты/времени транзита в поясе вывода — зеркалят transitAt (шаги/диск их
-  // обновляют), правка поля применяется в transitAt
-  let tDate = $state('');
-  let tTime = $state('');
-  $effect(() => {
-    tDate = fmts(tz).d.format(transitAt);
-    tTime = fmts(tz).t.format(transitAt);
-  });
-  function applyTransitFields(): void {
-    // терпимый разбор: «1.6.1990», «01.06.1990», ISO — всё принимаем
-    const d = parseDateInput(tDate);
-    const tm = normTime(tTime) ?? (tTime.trim() ? null : '12:00:00');
-    if (!d || !tm) return;
-    const iso = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-    transitAt = zonedTimeUTC(iso, tm, tz);
   }
 
   // --- прогноз: ближайшие точные транзиты к наталу(ам) ---
@@ -537,30 +506,7 @@
     </header>
 
     {#snippet transitCtl()}
-      <!-- один ровный ряд: ‹ [дата] [время] ОК › — без переносов и «кривизны» -->
-      <div class="tctl">
-        <button class="mini navd" onclick={() => stepUnit(-1)}
-          aria-label="Шаг назад: {UNIT_NAME[scrubScale]}" title="Назад: {UNIT_NAME[scrubScale]}">‹</button>
-        <input class="tin" inputmode="numeric" maxlength="10" value={tDate} placeholder="ДД.ММ.ГГГГ" aria-label="Дата транзита"
-          oninput={(e) => (tDate = maskDate((e.target as HTMLInputElement).value, tDate))}
-          onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
-        <input class="tin tt" inputmode="numeric" maxlength="5" value={tTime} aria-label="Время транзита"
-          oninput={(e) => (tTime = maskTime((e.target as HTMLInputElement).value, tTime))}
-          onchange={applyTransitFields} onkeydown={(e) => e.key === 'Enter' && applyTransitFields()} />
-        <button class="mini ok" onclick={applyTransitFields} aria-label="Применить дату и время">ОК</button>
-        <button class="mini navd" onclick={() => stepUnit(1)}
-          aria-label="Шаг вперёд: {UNIT_NAME[scrubScale]}" title="Вперёд: {UNIT_NAME[scrubScale]}">›</button>
-      </div>
-      <div class="tctl2">
-        <button class="mini now" onclick={refreshTransit}>⌂ сейчас</button>
-        <!-- масштаб: и оборот диска, и шаг кнопок ‹ › -->
-        <div class="scale" role="group" aria-label="Масштаб прокрутки">
-          <button class="mini sc" class:on={scrubScale === 'day'} onclick={() => (scrubScale = 'day')}>день</button>
-          <button class="mini sc" class:on={scrubScale === 'month'} onclick={() => (scrubScale = 'month')}>месяц</button>
-          <button class="mini sc" class:on={scrubScale === 'year'} onclick={() => (scrubScale = 'year')}>год</button>
-        </div>
-      </div>
-      <div class="tctl3"><span class="cap">крути колесо пальцем — {SCRUB_CAP[scrubScale]}</span></div>
+      <TransitControls bind:transitAt bind:scrubScale {tz} />
     {/snippet}
 
     {#if mode === 'natal'}
@@ -934,24 +880,8 @@
     font-variant-numeric: tabular-nums; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
     border-radius: 999px; padding: 7px 12px; font-size: 0.78rem; }
-  .mini.now { color: var(--accent); }
-  /* панель прокрутки транзита: ровный ряд без переносов + строка «сейчас» */
-  .tctl { display: flex; align-items: stretch; justify-content: center; gap: 6px;
-    flex-wrap: nowrap; margin: 4px 0 0; }
-  .mini.navd { width: 38px; padding: 0; display: grid; place-items: center;
-    font-size: 1.15rem; border-radius: 12px; flex: none; }
-  .mini.ok { border-radius: 12px; font-weight: 600; }
-  .tin { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
-    border-radius: 12px; padding: 8px 6px; font: inherit; font-family: var(--font-mono);
-    font-variant-numeric: tabular-nums; text-align: center; width: 6.6rem; min-width: 0; }
-  .tin.tt { width: 3.9rem; }
-  .tctl2 { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0 0; }
-  .tctl3 { text-align: center; margin: 4px 0 8px; }
-  .scale { display: flex; gap: 4px; }
-  .mini.sc { padding: 6px 10px; font-size: 0.74rem; }
-  .mini.sc.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-brd));
-    background: color-mix(in srgb, var(--accent) 14%, transparent); }
-  .cap { color: var(--ink-faint); font-size: 0.72rem; }
+  /* панель прокрутки транзита (.tctl/.tin/.scale/.mini.navd/ok/now/sc/.cap) —
+     в charts/TransitControls.svelte */
   /* прогноз транзитов */
   .fc { margin-top: 14px; }
   .fchead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }

@@ -9,7 +9,7 @@ import '@fontsource/jetbrains-mono/700.css';
 import '@fontsource/unbounded/500.css';
 import '@fontsource/unbounded/600.css';
 import '@fontsource/unbounded/700.css';
-import './lib/fonts.ts';   // выбор шрифта интерфейса (регистрирует @font-face 10 семейств)
+import './lib/fonts.ts';   // единый шрифт тела (Golos для кириллицы; выбор убран 2026-07-11)
 import './app.css';
 import { mount } from 'svelte';
 import App from './App.svelte';

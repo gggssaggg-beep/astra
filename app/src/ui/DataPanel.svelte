@@ -3,7 +3,6 @@
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
   import { SIGN_STYLES, DEFAULT_ORBS, HOUSE_SYSTEMS, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
-  import { FONTS } from '../lib/fonts.ts';
   import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
@@ -181,19 +180,6 @@
         </button>
       {/each}
     </div>
-
-    <details class="fold" style="margin-top:14px">
-      <summary class="lbl fold-sum">Шрифт интерфейса · <span class="cur">{FONTS.find((f) => f.id === (cfg.font ?? 'default'))?.label ?? 'Системный'}</span></summary>
-      <div class="fonts">
-        {#each FONTS as f}
-          <button class="fontrow" class:on={(cfg.font ?? 'default') === f.id}
-            style="font-family: {f.stack}" onclick={() => save({ font: f.id })}>
-            <span class="fsample">Аа Астра · 0°29′ Водолея</span>
-            <span class="fname">{f.label}</span>
-          </button>
-        {/each}
-      </div>
-    </details>
 
     <label class="toggle" style="margin-top:14px">
       <input type="checkbox" checked={cfg.largeFont}
@@ -493,14 +479,6 @@
   .st-shimmer .sw { background: linear-gradient(90deg, #f3c969, #cdd6ff, #9b8cff); }
   .st-rainbow .sw { background: linear-gradient(90deg, #ff6b6b, #f3c969, #7fd99a, #7fd0ff, #b39bff); }
   .select { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 12px; padding: 9px 12px; font: inherit; }
-  /* выбор шрифта: каждая строка — живой образец В СВОЁМ шрифте */
-  .fonts { display: flex; flex-direction: column; gap: 6px; }
-  .fontrow { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
-    background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
-    border-radius: 12px; padding: 9px 12px; text-align: left; }
-  .fontrow.on { border-color: var(--accent); background: #ffffff1e; }
-  .fsample { font-size: 1.05rem; }
-  .fname { font-size: 0.72rem; color: var(--ink-faint); font-family: var(--font-mono); }
   .small { font-size: 0.78rem; color: var(--ink-faint); }
   .group { margin: 16px 2px 2px; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--accent); font-weight: 600; }
   /* сворачиваемые разделы (accordion): заголовок = <summary>, блоки — внутри <details> */
@@ -511,14 +489,6 @@
   summary.group::-webkit-details-marker { display: none; }
   summary.group::after { content: '▾'; color: var(--ink-faint); font-size: 0.9rem; transition: transform 0.2s ease; }
   details.sec[open] > summary.group::after { transform: rotate(180deg); }
-  /* мелкое сворачивание внутри раздела (выбор шрифта): заголовок-.lbl + маркер */
-  details.fold > summary.fold-sum { list-style: none; cursor: pointer; user-select: none;
-    display: flex; align-items: center; }
-  details.fold > summary.fold-sum::-webkit-details-marker { display: none; }
-  details.fold > summary.fold-sum::after { content: '▾'; margin-left: auto;
-    color: var(--ink-faint); font-size: 0.85rem; transition: transform 0.2s ease; }
-  details.fold[open] > summary.fold-sum::after { transform: rotate(180deg); }
-  .fold-sum .cur { color: var(--accent); }
   /* тумблеры объектов */
   .objgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
   .objchip { display: flex; align-items: center; gap: 6px; background: #ffffff0c;

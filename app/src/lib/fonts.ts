@@ -1,47 +1,18 @@
 /**
- * Шрифты интерфейса (настройка «Шрифт»). Все — с ПОЛНОЙ кириллицей (русский UI),
- * подобраны как «топ-10» разборчивых/красивых. CSS импортируется статически: на
- * устройстве ассеты раздаёт Capacitor локально (офлайн-первый), а переключение
- * мгновенное. Субсеты в variable-CSS помечены unicode-range — браузер тянет
- * только нужные (кириллица/латиница), не всё сразу.
- *
- * Меняем ТОЛЬКО --font-body (основной текст). Дисплейный Unbounded у заголовков
- * и моно JetBrains у цифр/позиций остаются — часть темы.
+ * Шрифт интерфейса — ОДИН, без выбора (решение владелицы 2026-07-11: убрать
+ * «разнообразие»). Космо-гротеск: латиница/цифры — Space Grotesk (эстетика темы,
+ * импортируется в main.ts), кириллица — Golos Text (у Space Grotesk кириллицы нет,
+ * иначе русский падал на системный Roboto — мешанина двух гарнитур в строке).
+ * Заголовки — Unbounded, моно-цифры — JetBrains Mono (оба в main.ts) — часть темы.
  */
 import '@fontsource-variable/golos-text/wght.css';
-import '@fontsource-variable/inter/wght.css';
-import '@fontsource-variable/manrope/wght.css';
-import '@fontsource-variable/nunito/wght.css';
-import '@fontsource-variable/montserrat/wght.css';
-import '@fontsource-variable/rubik/wght.css';
-import '@fontsource-variable/onest/wght.css';
-import '@fontsource/pt-sans/cyrillic-400.css';
-import '@fontsource/pt-sans/cyrillic-700.css';
-import '@fontsource/pt-sans/latin-400.css';
-import '@fontsource/pt-sans/latin-700.css';
 
 const FALLBACK = '"Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif';
 
-export interface FontOption { id: string; label: string; stack: string; }
+/** Единственный стек шрифта тела интерфейса. */
+export const FONT_BODY = `'Space Grotesk', 'Golos Text Variable', ${FALLBACK}`;
 
-export const FONTS: FontOption[] = [
-  // у Space Grotesk НЕТ кириллицы: без явной пары русский текст падал на системный
-  // Roboto (мешанина двух гарнитур в одной строке). Пара: латиница/цифры — Space
-  // Grotesk (космо-эстетика темы), кириллица — Golos (метрики близки, кириллица паратайпа)
-  { id: 'default',    label: 'Космо-гротеск · как сейчас', stack: `'Space Grotesk', 'Golos Text Variable', ${FALLBACK}` },
-  { id: 'golos',      label: 'Golos · чистый гротеск',      stack: `'Golos Text Variable', ${FALLBACK}` },
-  { id: 'inter',      label: 'Inter · нейтральный',         stack: `'Inter Variable', ${FALLBACK}` },
-  { id: 'manrope',    label: 'Manrope · мягкая геометрия',  stack: `'Manrope Variable', ${FALLBACK}` },
-  { id: 'nunito',     label: 'Nunito · округлый, тёплый',   stack: `'Nunito Variable', ${FALLBACK}` },
-  { id: 'montserrat', label: 'Montserrat · строгий модерн', stack: `'Montserrat Variable', ${FALLBACK}` },
-  { id: 'rubik',      label: 'Rubik · дружелюбный',         stack: `'Rubik Variable', ${FALLBACK}` },
-  // Comfortaa убран (2026-07-06): слишком широкий, ломал разметку карточек.
-  // У кого был выбран — fontStack() тихо откатит на дефолт.
-  { id: 'onest',      label: 'Onest · современный',         stack: `'Onest Variable', ${FALLBACK}` },
-  { id: 'ptsans',     label: 'PT Sans · классика',          stack: `'PT Sans', ${FALLBACK}` },
-];
-
-/** Стек шрифта по id (неизвестный id → первый = дефолт). */
-export function fontStack(id: string): string {
-  return (FONTS.find((f) => f.id === id) ?? FONTS[0]).stack;
+/** Совместимость: раньше шрифт выбирался по id — теперь всегда один стек. */
+export function fontStack(_id?: string): string {
+  return FONT_BODY;
 }

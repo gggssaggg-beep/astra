@@ -252,7 +252,16 @@
   async function refreshClientCharts(): Promise<void> {
     try { clientChartsWaiting = await clientChartsUnread(); } catch { /* оффлайн/без входа */ }
   }
-  onMount(() => { const t = setInterval(() => void refreshClientCharts(), 120000); return () => clearInterval(t); });
+  onMount(() => {
+    // бейдж карт клиентов: реже (5 мин) и НЕ будим радио в «Экономии». Свежесть
+    // при открытии не страдает — есть обновление на возврат в приложение (ниже,
+    // appStateChange) и на старте. (Б-4 энерго-аудита.)
+    const t = setInterval(() => {
+      if (document.documentElement.dataset.saver === 'on') return;
+      void refreshClientCharts();
+    }, 300000);
+    return () => clearInterval(t);
+  });
 
   onMount(async () => {
     if (location.hash === '#tour') openTour();   // deep-link для теста тура (веб)

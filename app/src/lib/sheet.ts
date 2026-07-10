@@ -78,32 +78,49 @@ function attachThread(node: HTMLElement): void {
   const fill = el.querySelector('.fill') as HTMLElement;
   const carrier = el.querySelector('.carrier') as HTMLElement;
 
-  const measure = () => {
+  // progress() — только заполнение/каретка (transform, БЕЗ getBoundingClientRect):
+  // горячий путь прокрутки. Геометрию коробки нить берёт из place() (редкий путь).
+  const progress = () => {
+    if (el.style.display === 'none') return;
+    const max = node.scrollHeight - node.clientHeight;
+    if (max <= 4) return;
+    const p = Math.min(1, Math.max(0, node.scrollTop / max));
+    fill.style.transform = `scaleY(${p})`;
+    carrier.style.transform = `translateY(${p * 100}%)`;
+  };
+  // place() — редкий путь (attach/resize/transitionend/RO/смена верхней шторки):
+  // решает видимость нити и подгоняет её под коробку шторки (единственный
+  // getBoundingClientRect — ВНЕ прокрутки), затем разово красит прогресс.
+  const place = () => {
     const max = node.scrollHeight - node.clientHeight;
     const isTop = openStack[openStack.length - 1] === node;
     if (max <= 4 || !isTop) { el.style.display = 'none'; return; }   // «при надобности»
     el.style.display = '';
-    const p = Math.min(1, Math.max(0, node.scrollTop / max));
-    fill.style.transform = `scaleY(${p})`;
-    carrier.style.transform = `translateY(${p * 100}%)`;
     const r = node.getBoundingClientRect();   // подгон под реальную коробку шторки
     el.style.top = `${r.top + 10}px`;
     el.style.height = `${Math.max(0, r.height - 20)}px`;
+    progress();
   };
 
-  const onScroll = () => measure();
+  // scroll → прогресс, тротленный через rAF (не чаще кадра, без forced reflow)
+  let ticking = false;
+  const onScroll = () => {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(() => { ticking = false; progress(); });
+  };
   node.addEventListener('scroll', onScroll, { passive: true });
-  window.addEventListener('resize', onScroll);
-  node.addEventListener('transitionend', onScroll);   // шторка доехала снизу — домер
+  window.addEventListener('resize', place);
+  node.addEventListener('transitionend', place);   // шторка доехала снизу — домер
   let ro: ResizeObserver | null = null;
-  if ('ResizeObserver' in window) { ro = new ResizeObserver(onScroll); ro.observe(node); }
-  const raf = requestAnimationFrame(measure);
+  if ('ResizeObserver' in window) { ro = new ResizeObserver(place); ro.observe(node); }
+  const raf = requestAnimationFrame(place);
 
-  threadMeasure.set(node, measure);
+  threadMeasure.set(node, place);
   threadCleanup.set(node, () => {
     node.removeEventListener('scroll', onScroll);
-    window.removeEventListener('resize', onScroll);
-    node.removeEventListener('transitionend', onScroll);
+    window.removeEventListener('resize', place);
+    node.removeEventListener('transitionend', place);
     ro?.disconnect();
     cancelAnimationFrame(raf);
     el.remove();

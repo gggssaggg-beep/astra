@@ -41,6 +41,23 @@
 4. Вернуться в Supabase **Authentication → Sign In / Up → Google**: включить
    тумблер, вставить Client ID и Client secret, Save.
 
+## 2b. URL приложения в Supabase (ОБЯЗАТЕЛЬНО для веб-входа)
+
+Без этого веб-вход через Google кидает на `http://localhost:3000/?error=…
+flow_state_already_used` — это дефолтный **Site URL** Supabase срабатывает как
+фолбэк, потому что реальный адрес приложения не в списке разрешённых.
+
+**Supabase → Authentication → URL Configuration:**
+- **Site URL** → заменить дефолт `http://localhost:3000` на
+  `https://gggssaggg-beep.github.io/astra/` (приложение на GitHub Pages живёт в
+  подпапке `/astra/`, НЕ в корне домена).
+- **Redirect URLs** → добавить (Add URL) три строки:
+  - `https://gggssaggg-beep.github.io/astra/`
+  - `https://gggssaggg-beep.github.io/astra/**`
+  - `astra://auth` (deep link приложения-APK)
+- Save. Код входа возвращает на `origin + pathname` (`webRedirect()` в
+  `lib/community.ts`), поэтому адрес совпадёт с этим списком.
+
 ## 3. Прислать мне
 
 - Project URL + anon key (из шага 1.3);

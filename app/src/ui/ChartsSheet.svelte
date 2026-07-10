@@ -556,7 +556,7 @@
   let showPrompt = $state(false);   // окно «Промпт для любой ИИ»
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
+<div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Совмещённые карты" use:bottomSheet={{ onclose }}>
   {#if view === 'list'}
     <header><h2>Карты и люди</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
@@ -998,7 +998,9 @@
 {/if}
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 20; }
+  /* backdrop — глобальный .sheet-backdrop (app.css); .sheet локальный: почти
+     во весь экран (100dvh) — своя высота, не под .sheet-base */
+  .backdrop { z-index: 20; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
     /* почти во весь экран: фоновая дата шапки не попадает в скриншот карты
        (ИИ-разбор скриншота принимал её за момент карты — жалоба) */

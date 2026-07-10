@@ -252,7 +252,7 @@
   }
 </script>
 
-<div class="backdrop" onclick={handleClose} role="presentation"></div>
+<div class="backdrop sheet-backdrop" onclick={handleClose} role="presentation"></div>
 <section class="sheet glass" aria-label="Сообщество" use:bottomSheet={{ onclose: handleClose }}>
   <header>
     {#if open}
@@ -451,7 +451,9 @@
 {/if}
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
+  /* backdrop — глобальный .sheet-backdrop (app.css); .sheet оставлен локальным:
+     две шторки (лента + .upage профиль) с своей высотой 92vh/min 45vh */
+  .backdrop { z-index: 26; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
     max-height: 92vh; min-height: 45vh; overflow-y: auto; z-index: 27;
     padding: 16px 16px calc(18px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }

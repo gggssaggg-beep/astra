@@ -3,9 +3,9 @@
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
+  let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
         onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures }:
-    { onclose: () => void; onInterpretations: () => void; onArchetypes: () => void;
+    { onclose: () => void; onCourse: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onChat: () => void; onPlanetSigns: () => void; onPlanetHouses: () => void;
       onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void;
@@ -22,6 +22,15 @@
        это НЕ аккордеон. Журнал переехал сюда из нижнего меню (просьба 2026-07-06),
        чат — тоже; Сообщество живёт ТОЛЬКО в нижнем меню; Синастрия убрана
        (дублировала «Карты»). -->
+
+  <div class="grp">Учусь</div>
+  <GlowCard radius={14} onactivate={onCourse}>
+    <button class="row reveal" use:reveal>
+      <span class="ic glyph">🎓</span>
+      <div class="txt"><b>Астрология с нуля</b><small>8 коротких уроков от колеса до своей карты</small></div>
+      <span class="arr">→</span>
+    </button>
+  </GlowCard>
 
   <div class="grp">Мой дневник</div>
   <GlowCard radius={14} onactivate={onJournal}>

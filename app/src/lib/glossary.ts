@@ -14,7 +14,7 @@ import { ASPECT_LORE, PLANET_LORE, WELCOME } from './lore.ts';
 export type GlossSheet =
   | 'library' | 'interpretations' | 'houses' | 'archetypes' | 'signMyths'
   | 'retro' | 'figures' | 'dispositors' | 'planetCusps' | 'degree'
-  | 'charts' | 'chartsSynastry' | 'settings';
+  | 'charts' | 'chartsSynastry' | 'settings' | 'course';
 
 export type GlossMore =
   | { kind: 'sheet'; target: GlossSheet; label: string }

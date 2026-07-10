@@ -9,9 +9,12 @@
 export type ThemeMode = 'auto' | 'dawn' | 'aurora';
 export type EclipseKind = 'solar' | 'lunar';
 
-/** Стиль символов знаков (выбирается в настройках). */
-export type SignStyle = 'silver' | 'gold' | 'element' | 'shimmer' | 'rainbow';
+/** Стиль символов знаков/планет/аспектов (выбирается в настройках).
+ * 'auto' — по теме: тёмная → серебро, светлая → радуга (App резолвит в конкретный
+ * стиль; компоненты 'auto' не видят). Красит и знаки, и глифы планет/аспектов. */
+export type SignStyle = 'auto' | 'silver' | 'gold' | 'element' | 'shimmer' | 'rainbow';
 export const SIGN_STYLES: { id: SignStyle; label: string }[] = [
+  { id: 'auto', label: 'Авто · по теме' },
   { id: 'silver', label: 'Серебро' },
   { id: 'gold', label: 'Золото · свечение' },
   { id: 'element', label: 'По стихиям' },
@@ -146,7 +149,7 @@ export const DEFAULT_SETTINGS: Settings = {
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'],
   extraEnabled: [],
   theme: 'auto',
-  signStyle: 'gold',
+  signStyle: 'auto',
   notifyDaily: false,
   dailyNotifyTime: '09:00',
   dailyDigestMode: 'once',

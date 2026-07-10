@@ -486,6 +486,7 @@
   .style { display: inline-flex; align-items: center; gap: 8px; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink-dim); border-radius: 12px; padding: 8px 12px; font-size: 0.85rem; }
   .style.on { border-color: var(--accent); color: var(--ink); background: #ffffff1e; }
   .sw { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+  .st-auto .sw { background: linear-gradient(120deg, #cdd6ff 0 42%, #f3c969 54%, #7fd99a 68%, #7fd0ff 82%, #b39bff); }
   .st-silver .sw { background: var(--silver); }
   .st-gold .sw { background: var(--gold); box-shadow: 0 0 6px var(--gold); }
   .st-element .sw { background: conic-gradient(#ff8a5b, #7fd99a, #7fd0ff, #b39bff, #ff8a5b); }

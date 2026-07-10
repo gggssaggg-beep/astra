@@ -42,6 +42,7 @@
     courseState, openCourse, closeCourse, closeLesson } from './lib/studyStore.svelte.ts';
   import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
+  import GlyphDefs from './ui/GlyphDefs.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
   import { rescheduleAll, onNotificationTap, notifyNewVersion } from './lib/reminders.ts';
@@ -351,28 +352,29 @@
     reschedule();
   }
 
-  // тема: ставим data-theme на корень; «авто» — по системной, со слежением.
-  // Статус-бар Android: иконки часов должны читаться на НАШЕМ фоне (тема
-  // приложения может не совпадать с системной) — стиль шлём через встроенный
-  // SystemBars ('DARK' = светлые иконки). Старый APK без SystemBars — тихий no-op.
+  // светлая ли СИСТЕМНАЯ тема (реактивно) — нужна для «авто» темы и авто-стиля глифов
+  let systemLight = $state(window.matchMedia('(prefers-color-scheme: light)').matches);
   $effect(() => {
-    const apply = () => {
-      const systemLight = window.matchMedia('(prefers-color-scheme: light)').matches;
-      // «Космос» удалён: тёмная тема = ТОЛЬКО «Аврора». Светлая = «Рассвет»
-      // (или авто при светлой системной теме). data-theme = 'aurora' | 'light'.
-      const light = settings.theme === 'dawn' || (settings.theme === 'auto' && systemLight);
-      document.documentElement.dataset.theme = light ? 'light' : 'aurora';
-      if (Capacitor.isNativePlatform()) {
-        registerPlugin<{ setStyle(o: { style: string }): Promise<void> }>('SystemBars')
-          .setStyle({ style: light ? 'LIGHT' : 'DARK' })
-          .catch(() => { /* старый APK */ });
-      }
-    };
-    apply();
-    if (settings.theme === 'auto') {
-      const mq = window.matchMedia('(prefers-color-scheme: light)');
-      mq.addEventListener('change', apply);
-      return () => mq.removeEventListener('change', apply);
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const on = () => (systemLight = mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  });
+  // эффективная тема светлая? «Рассвет» вручную ИЛИ авто при светлой системной.
+  // «Космос» удалён: тёмная = ТОЛЬКО «Аврора». data-theme = 'aurora' | 'light'.
+  const themeLight = $derived(settings.theme === 'dawn' || (settings.theme === 'auto' && systemLight));
+
+  // тема: ставим data-theme на корень. Статус-бар Android: иконки часов должны
+  // читаться на НАШЕМ фоне (тема приложения может не совпадать с системной) —
+  // стиль шлём через встроенный SystemBars ('DARK' = светлые иконки). Старый APK
+  // без SystemBars — тихий no-op.
+  $effect(() => {
+    const light = themeLight;
+    document.documentElement.dataset.theme = light ? 'light' : 'aurora';
+    if (Capacitor.isNativePlatform()) {
+      registerPlugin<{ setStyle(o: { style: string }): Promise<void> }>('SystemBars')
+        .setStyle({ style: light ? 'LIGHT' : 'DARK' })
+        .catch(() => { /* старый APK */ });
     }
   });
 
@@ -405,9 +407,15 @@
   // SMIL-переливы знаков (shimmer/rainbow) CSS-правилом animation-duration не
   // останавливаются → при экономии подменяем стиль колеса на статичный «золото»
   // (Б-1 энерго-аудита). Без экономии — стиль пользователя как есть.
+  // 'auto' → по теме: тёмная = серебро, светлая = радуга; иначе выбранный стиль.
+  // Резолвим ЗДЕСЬ — компоненты (колесо, Glyph) 'auto' не видят.
+  const baseSignStyle = $derived(
+    (settings.signStyle ?? 'auto') === 'auto'
+      ? (themeLight ? 'rainbow' : 'silver')
+      : settings.signStyle);
   const effSignStyle = $derived(
-    saverOn && (settings.signStyle === 'shimmer' || settings.signStyle === 'rainbow')
-      ? 'gold' : settings.signStyle);
+    saverOn && (baseSignStyle === 'shimmer' || baseSignStyle === 'rainbow')
+      ? 'gold' : baseSignStyle);
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.
   let x0 = 0, y0 = 0;
@@ -427,6 +435,7 @@
 <svelte:window onkeydown={onKey} />
 
 <Starfield />
+<GlyphDefs style={effSignStyle} />
 {#if engine && !error && !sheetsOpen}<ScrollThread />{/if}
 
 <main ontouchstart={onStart} ontouchend={onEnd}>

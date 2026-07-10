@@ -10,6 +10,7 @@
   import type { Engine, RetroPhase } from '../engine/index.ts';
   import { retroPhase, PLANET_GLYPH } from '../engine/index.ts';
   import { PHASE_LABEL, PHASE_MEANING, PHASE_PRACTICE, RETRO_FLAVOR, NODES_RETRO } from '../lib/retroLore.ts';
+  import Hint from './Hint.svelte';
 
   let { engine, onclose }: { engine: Engine; onclose: () => void } = $props();
 
@@ -29,7 +30,7 @@
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Ретроградность" use:bottomSheet={{ onclose }}>
-  <header><h2>Ретроградность</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
+  <header><h2>Ретроградность <Hint k="retro-phases" /></h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Где планеты сейчас в своём цикле: тень → станция → ретроград → станция → тень.</div>
 
   {#each PLANETS as p}

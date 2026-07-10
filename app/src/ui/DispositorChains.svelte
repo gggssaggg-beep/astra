@@ -8,6 +8,7 @@
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { chartDispositors, dispositorPrompt } from '../lib/dispositors.ts';
   import { sunRank } from '../engine/index.ts';
+  import Hint from './Hint.svelte';
 
   let { positions, onexplain }:
     { positions: BodyPosition[]; onexplain?: (seed: string) => void } = $props();
@@ -18,6 +19,7 @@
 </script>
 
 <div class="disp">
+  <div class="dtitle">Цепочки диспозиторов <Hint k="dispositor-chain" /></div>
   {#if res.kings.length}
     <div class="crown">👑 Царь карты: {#each res.kings as k, i}<span class="king glyph">{g(k)} {k}</span>{#if i < res.kings.length - 1}, {/if}{/each}
       <span class="note">— к нему стекается вся карта</span></div>
@@ -43,6 +45,7 @@
 
 <style>
   .disp { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
+  .dtitle { font-size: 0.86rem; color: var(--ink-dim); font-weight: 600; }
   .crown, .recep { font-size: 0.86rem; color: var(--ink-dim); }
   .crown .king { color: var(--gold); font-weight: 600; }
   .note { color: var(--ink-faint); font-size: 0.78rem; }

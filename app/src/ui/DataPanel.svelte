@@ -181,16 +181,18 @@
       {/each}
     </div>
 
-    <div class="lbl" style="margin-top:14px">Шрифт интерфейса</div>
-    <div class="fonts">
-      {#each FONTS as f}
-        <button class="fontrow" class:on={(cfg.font ?? 'default') === f.id}
-          style="font-family: {f.stack}" onclick={() => save({ font: f.id })}>
-          <span class="fsample">Аа Астра · 0°29′ Водолея</span>
-          <span class="fname">{f.label}</span>
-        </button>
-      {/each}
-    </div>
+    <details class="fold" style="margin-top:14px">
+      <summary class="lbl fold-sum">Шрифт интерфейса · <span class="cur">{FONTS.find((f) => f.id === (cfg.font ?? 'default'))?.label ?? 'Системный'}</span></summary>
+      <div class="fonts">
+        {#each FONTS as f}
+          <button class="fontrow" class:on={(cfg.font ?? 'default') === f.id}
+            style="font-family: {f.stack}" onclick={() => save({ font: f.id })}>
+            <span class="fsample">Аа Астра · 0°29′ Водолея</span>
+            <span class="fname">{f.label}</span>
+          </button>
+        {/each}
+      </div>
+    </details>
 
     <label class="toggle" style="margin-top:14px">
       <input type="checkbox" checked={cfg.largeFont}
@@ -368,11 +370,11 @@
     </div>
     {#if testMsg}<div class="msg" style="white-space:pre-line">{testMsg}</div>{/if}
     <details style="margin-top:10px">
-      <summary class="small" style="cursor:pointer">Журнал шагов</summary>
+      <summary class="small" style="cursor:pointer">Журнал шагов и советы</summary>
+      <div class="hint small" style="margin-top:6px">На Xiaomi/MIUI ещё нужно: Автозапуск ВКЛ и Батарея →
+        «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
       <div class="msg small" style="margin-top:6px;font-family:var(--font-mono);white-space:pre-wrap;font-size:0.72rem">{reminderLog().join('\n') || '(пусто)'}</div>
     </details>
-    <div class="hint small" style="margin-top:10px">На Xiaomi/MIUI ещё нужно: Автозапуск ВКЛ и Батарея →
-      «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
   </div>
 
   </details>
@@ -510,6 +512,14 @@
   summary.group::-webkit-details-marker { display: none; }
   summary.group::after { content: '▾'; color: var(--ink-faint); font-size: 0.9rem; transition: transform 0.2s ease; }
   details.sec[open] > summary.group::after { transform: rotate(180deg); }
+  /* мелкое сворачивание внутри раздела (выбор шрифта): заголовок-.lbl + маркер */
+  details.fold > summary.fold-sum { list-style: none; cursor: pointer; user-select: none;
+    display: flex; align-items: center; }
+  details.fold > summary.fold-sum::-webkit-details-marker { display: none; }
+  details.fold > summary.fold-sum::after { content: '▾'; margin-left: auto;
+    color: var(--ink-faint); font-size: 0.85rem; transition: transform 0.2s ease; }
+  details.fold[open] > summary.fold-sum::after { transform: rotate(180deg); }
+  .fold-sum .cur { color: var(--accent); }
   /* тумблеры объектов */
   .objgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
   .objchip { display: flex; align-items: center; gap: 6px; background: #ffffff0c;

@@ -124,8 +124,10 @@
   <div class="block">
     <div class="lbl">Взаимодействие</div>
     {#if unique}
-      {#if lore}<div class="lshort">{lore.symbol} {lore.short}</div>{/if}
+      <!-- уникальный текст ИМЕННО этого сочетания — первым (типовая строка
+           аспекта читалась как «трин, трин, трин» — жалоба владелицы) -->
       <div class="ptext">{unique}</div>
+      {#if lore}<div class="ltext">{lore.symbol} {a.aspect} · {lore.short}</div>{/if}
       {#if pair}<div class="ltext">{a.p1} — {a.p2}: {pair}</div>{/if}
     {:else}
       {#if pair}<div class="ptext">{pair}</div>{/if}

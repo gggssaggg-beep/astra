@@ -19,6 +19,7 @@
   import AspectNoteBlock from './aspect/AspectNoteBlock.svelte';
   import SimilarNotes from './aspect/SimilarNotes.svelte';
   import OccurrenceSearch from './aspect/OccurrenceSearch.svelte';
+  import SignContext from './aspect/SignContext.svelte';
 
   let { rec, engine, date, tz, orbOf, onclose, ondiscuss, ongoto, oncommunity }:
     { rec: AspectRecord; engine: Engine; date: Date; tz: string;
@@ -90,9 +91,10 @@
   <div class="block">
     <div class="lbl">Трактовка</div>
     {#if unique}
-      <!-- уникальный текст именно этого сочетания пары и аспекта -->
-      {#if lore}<div class="lshort">{lore.symbol} {lore.short}</div>{/if}
+      <!-- уникальный текст ИМЕННО этого сочетания — первым (жалоба: типовая
+           строка аспекта жирным заголовком читалась как «трин, трин, трин») -->
       <div class="ptext">{unique}</div>
+      {#if lore}<div class="ltext">{lore.symbol} {rec.aspect} · {lore.short}</div>{/if}
       {#if pair}<div class="ltext">{rec.p1} — {rec.p2}: {pair}</div>{/if}
     {:else}
       {#if pair}<div class="ptext">{rec.p1} — {rec.p2}: {pair}</div>{/if}
@@ -107,6 +109,9 @@
       onchange={saveInterp}></textarea>
     {#if interpSaved}<div class="hint oksave">✓ Сохранено в библиотеку трактовок</div>{/if}
   </div>
+
+  <!-- ЭТОТ конкретный аспект: участники в своих знаках на момент точного -->
+  <SignContext p1={rec.p1} p2={rec.p2} lon1={rec.pos1} lon2={rec.pos2} />
 
   <AspectActions {sig} title={`${rec.p1} ${rec.aspect} ${rec.p2}`} label="Обсудить аспект с Claude"
     ondiscuss={() => ondiscuss?.(rec)} onprompt={() => (showPrompt = true)} {oncommunity} />

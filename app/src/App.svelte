@@ -50,24 +50,20 @@
   let error = $state<string | null>(null);
   let showData = $state(false);
   let showCal = $state(false);
-  let showJournal = $state(false);
-  let showArch = $state(false);
-  let showHouses = $state(false);
-  let showPlanetSigns = $state(false);
-  let showPlanetHouses = $state(false);
-  let showDispositors = $state(false);
-  let showPlanetCusps = $state(false);
-  let showDegree = $state(false);
-  let showRetro = $state(false);
-  let showFigures = $state(false);
-  let showTracked = $state(false);
-  let showSignMyths = $state(false);
+  // Библиотечные шторки (дети «Библиотеки») — ОДИН переключатель вместо 13
+  // отдельных флагов. Открытие закрывает меню; закрытие/«Назад» возвращает В
+  // БИБЛИОТЕКУ (пункт выше). Открыта может быть только одна — как и раньше.
+  type LibKey = 'journal' | 'arch' | 'houses' | 'planetSigns' | 'planetHouses'
+    | 'dispositors' | 'planetCusps' | 'degree' | 'retro' | 'figures'
+    | 'tracked' | 'signMyths' | 'interp';
+  let libSheet = $state<LibKey | null>(null);
+  const openLib = (k: LibKey) => { showLibrary = false; libSheet = k; };
+  const closeLib = () => { libSheet = null; showLibrary = true; };
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
   let clientChartsWaiting = $state(0);   // бейдж «Карты»: новые карты от клиентов (только у астролога)
   let showChat = $state(false);
   let showAstrologer = $state(false);
   let showLibrary = $state(false);
-  let showInterp = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
   // ссылки на шторки — Android «Назад» шагает по их внутренней навигации
   let communityRef = $state<{ stepBack: () => boolean } | undefined>(undefined);
@@ -86,8 +82,8 @@
   }
   function closeAspect() {
     selRec = null;   // selSig НЕ трогаем — выделение остаётся
-    if (selFrom === 'interp') showInterp = true;
-    else if (selFrom === 'tracked') showTracked = true;
+    if (selFrom === 'interp') libSheet = 'interp';
+    else if (selFrom === 'tracked') libSheet = 'tracked';
     selFrom = 'day';
   }
   let needReconnect = $state(false);
@@ -171,25 +167,13 @@
       if (!communityRef?.stepBack()) showCommunity = false;
       return;
     }
-    if (showInterp) { showInterp = false; showLibrary = true; return; }
-    if (showArch) { showArch = false; showLibrary = true; return; }
-    if (showHouses) { showHouses = false; showLibrary = true; return; }
-    if (showPlanetSigns) { showPlanetSigns = false; showLibrary = true; return; }
-    if (showPlanetHouses) { showPlanetHouses = false; showLibrary = true; return; }
-    if (showDispositors) { showDispositors = false; showLibrary = true; return; }
-    if (showPlanetCusps) { showPlanetCusps = false; showLibrary = true; return; }
-    if (showDegree) { showDegree = false; showLibrary = true; return; }
-    if (showRetro) { showRetro = false; showLibrary = true; return; }
-    if (showFigures) { showFigures = false; showLibrary = true; return; }
-    if (showSignMyths) { showSignMyths = false; showLibrary = true; return; }
-    if (showTracked) { showTracked = false; showLibrary = true; return; }
+    if (libSheet) { closeLib(); return; }
     if (showCharts) {
       // из открытой карты/формы «Назад» = стрелочка ← (на список), не закрытие
       if (!chartsRef?.stepBack()) showCharts = false;
       return;
     }
     if (showCal) { showCal = false; return; }
-    if (showJournal) { showJournal = false; showLibrary = true; return; }
     if (showLibrary) { showLibrary = false; return; }
     if (showData) { showData = false; return; }
     if (showWelcome) {
@@ -202,8 +186,8 @@
 
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
-    showData = showJournal = showLibrary = showInterp = showArch = showHouses = showTracked = showChat = false;
-    showPlanetSigns = showPlanetHouses = showDispositors = showPlanetCusps = showDegree = showRetro = showFigures = false;
+    showData = showLibrary = showChat = false;
+    libSheet = null;
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
@@ -405,7 +389,7 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button class:on={showLibrary || showJournal || showInterp || showArch || showHouses || showTracked || showPlanetSigns || showPlanetHouses || showDispositors || showPlanetCusps || showDegree || showRetro || showFigures || showSignMyths}
+  <button class:on={showLibrary || !!libSheet}
     onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
@@ -425,73 +409,73 @@
 
 {#if showLibrary}
   <LibrarySheet onclose={() => (showLibrary = false)}
-    onInterpretations={() => { showLibrary = false; showInterp = true; }}
-    onArchetypes={() => { showLibrary = false; showArch = true; }}
-    onHouses={() => { showLibrary = false; showHouses = true; }}
-    onTracked={() => { showLibrary = false; showTracked = true; }}
-    onJournal={() => { showLibrary = false; showJournal = true; }}
-    onSignMyths={() => { showLibrary = false; showSignMyths = true; }}
+    onInterpretations={() => openLib('interp')}
+    onArchetypes={() => openLib('arch')}
+    onHouses={() => openLib('houses')}
+    onTracked={() => openLib('tracked')}
+    onJournal={() => openLib('journal')}
+    onSignMyths={() => openLib('signMyths')}
     onChat={() => { showLibrary = false; showChat = true; }}
-    onPlanetSigns={() => { showLibrary = false; showPlanetSigns = true; }}
-    onPlanetHouses={() => { showLibrary = false; showPlanetHouses = true; }}
-    onDispositors={() => { showLibrary = false; showDispositors = true; }}
-    onPlanetCusps={() => { showLibrary = false; showPlanetCusps = true; }}
-    onDegree={() => { showLibrary = false; showDegree = true; }}
-    onRetro={() => { showLibrary = false; showRetro = true; }}
-    onFigures={() => { showLibrary = false; showFigures = true; }} />
+    onPlanetSigns={() => openLib('planetSigns')}
+    onPlanetHouses={() => openLib('planetHouses')}
+    onDispositors={() => openLib('dispositors')}
+    onPlanetCusps={() => openLib('planetCusps')}
+    onDegree={() => openLib('degree')}
+    onRetro={() => openLib('retro')}
+    onFigures={() => openLib('figures')} />
 {/if}
 
-{#if showSignMyths}
-  <SignMythsSheet onclose={() => { showSignMyths = false; showLibrary = true; }} />
+{#if libSheet === 'signMyths'}
+  <SignMythsSheet onclose={closeLib} />
 {/if}
 
 <!-- закрытие разделов библиотеки возвращает В БИБЛИОТЕКУ (пункт выше), не на главный -->
-{#if showInterp}
-  <InterpretationsSheet onclose={() => { showInterp = false; showLibrary = true; }}
-    onopen={(r) => { showInterp = false; pickAspect(r, 'interp'); }} />
+{#if libSheet === 'interp'}
+  <InterpretationsSheet onclose={closeLib}
+    onopen={(r) => { libSheet = null; pickAspect(r, 'interp'); }} />
 {/if}
 
-{#if showHouses}
-  <HousesSheet onclose={() => { showHouses = false; showLibrary = true; }} />
+{#if libSheet === 'houses'}
+  <HousesSheet onclose={closeLib} />
 {/if}
 
-{#if showPlanetSigns}
-  <PlanetSignsSheet onclose={() => { showPlanetSigns = false; showLibrary = true; }} />
+{#if libSheet === 'planetSigns'}
+  <PlanetSignsSheet onclose={closeLib} />
 {/if}
 
-{#if showPlanetHouses}
-  <PlanetHousesSheet onclose={() => { showPlanetHouses = false; showLibrary = true; }} />
+{#if libSheet === 'planetHouses'}
+  <PlanetHousesSheet onclose={closeLib} />
 {/if}
 
-{#if showDispositors}
-  <DispositorsSheet onclose={() => { showDispositors = false; showLibrary = true; }} />
+{#if libSheet === 'dispositors'}
+  <DispositorsSheet onclose={closeLib} />
 {/if}
 
-{#if showPlanetCusps}
-  <PlanetCuspsSheet onclose={() => { showPlanetCusps = false; showLibrary = true; }} />
+{#if libSheet === 'planetCusps'}
+  <PlanetCuspsSheet onclose={closeLib} />
 {/if}
 
-{#if showDegree && engine}
+{#if libSheet === 'degree' && engine}
   <DegreeSearchSheet {engine} tz={settings.tz}
-    onclose={() => { showDegree = false; showLibrary = true; }}
-    ongoto={(d) => { showDegree = false; slideDir = Math.sign(d.getTime() - date.getTime()); date = d; }} />
+    onclose={closeLib}
+    ongoto={(d) => { libSheet = null; slideDir = Math.sign(d.getTime() - date.getTime()); date = d; }} />
 {/if}
 
-{#if showRetro && engine}
-  <RetroSheet {engine} onclose={() => { showRetro = false; showLibrary = true; }} />
+{#if libSheet === 'retro' && engine}
+  <RetroSheet {engine} onclose={closeLib} />
 {/if}
 
-{#if showFigures}
-  <FiguresSheet onclose={() => { showFigures = false; showLibrary = true; }} />
+{#if libSheet === 'figures'}
+  <FiguresSheet onclose={closeLib} />
 {/if}
 
-{#if showArch}
-  <ArchetypesSheet onclose={() => { showArch = false; showLibrary = true; }} />
+{#if libSheet === 'arch'}
+  <ArchetypesSheet onclose={closeLib} />
 {/if}
 
-{#if showTracked}
-  <TrackedSheet onclose={() => { showTracked = false; showLibrary = true; }}
-    onopen={(r) => { showTracked = false; pickAspect(r, 'tracked'); }} />
+{#if libSheet === 'tracked'}
+  <TrackedSheet onclose={closeLib}
+    onopen={(r) => { libSheet = null; pickAspect(r, 'tracked'); }} />
 {/if}
 
 {#if showCharts && engine}
@@ -519,8 +503,8 @@
 {/if}
 
 <!-- Журнал открывается из Библиотеки; закрытие возвращает в неё (пункт выше) -->
-{#if showJournal}
-  <Journal {date} tz={settings.tz} onclose={() => { showJournal = false; showLibrary = true; }} />
+{#if libSheet === 'journal'}
+  <Journal {date} tz={settings.tz} onclose={closeLib} />
 {/if}
 
 {#if selRec && engine}

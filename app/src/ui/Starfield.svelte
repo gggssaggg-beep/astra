@@ -6,9 +6,13 @@
    */
   import { onMount } from 'svelte';
 
-  const COUNT = 81;
+  // слабое железо (≤4 логич. ядра): чуть меньше пылинок и кадров — глазом почти
+  // неотличимо, но заметно легче для батареи (Б-3 энерго-аудита). Сильные телефоны
+  // и десктоп (>4 ядер) — прежняя плотность/частота, красоту не режем.
+  const weak = (navigator.hardwareConcurrency ?? 8) <= 4;
+  const COUNT = weak ? 54 : 81;
   const BIG_R = 1.7;      // радиус, начиная с которого рисуем гало
-  const MIN_FRAME_MS = 31; // ~30 fps достаточно для дрейфа пыли, вдвое дешевле 60
+  const MIN_FRAME_MS = weak ? 42 : 31; // ~24 fps на слабом, ~30 fps иначе (вдвое дешевле 60)
 
   interface Dust { x: number; y: number; vx: number; vy: number; r: number; a: number; k: number; ph: number; c: number; }
 

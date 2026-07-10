@@ -381,11 +381,18 @@
   // не крутит цикл. 'auto' = включать при низком заряде (Battery API).
   let lowBattery = $state(false);
   $effect(() => watchLowBattery((low) => (lowBattery = low)));   // отписка = возврат watch
+  const saverActive = $derived(
+    (settings.batterySaver ?? 'auto') === 'on'
+    || ((settings.batterySaver ?? 'auto') === 'auto' && lowBattery));
   $effect(() => {
-    const mode = settings.batterySaver ?? 'auto';
-    const on = mode === 'on' || (mode === 'auto' && lowBattery);
-    document.documentElement.dataset.saver = on ? 'on' : 'off';
+    document.documentElement.dataset.saver = saverActive ? 'on' : 'off';
   });
+  // SMIL-переливы знаков (shimmer/rainbow) CSS-правилом animation-duration не
+  // останавливаются → в «Экономии» подменяем стиль колеса на статичный «золото»
+  // (Б-1 энерго-аудита). Без saver — стиль пользователя как есть.
+  const effSignStyle = $derived(
+    saverActive && (settings.signStyle === 'shimmer' || settings.signStyle === 'rainbow')
+      ? 'gold' : settings.signStyle);
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.
   let x0 = 0, y0 = 0;
@@ -431,7 +438,7 @@
   {:else}
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
-        <DayScreen {engine} {date} {orbOf} tz={settings.tz} objects={settings.objects} signStyle={settings.signStyle}
+        <DayScreen {engine} {date} {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}
           onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
@@ -536,7 +543,7 @@
 {/if}
 
 {#if showCharts && engine}
-  <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={settings.signStyle} defaultTz={settings.tz}
+  <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={effSignStyle} defaultTz={settings.tz}
     tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
     nodalAxisFigures={settings.nodalAxisFigures ?? false}
     initialMode={showCharts.mode ?? 'transitNatal'}

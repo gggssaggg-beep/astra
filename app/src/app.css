@@ -267,6 +267,7 @@ section.sheet h2 {
   background: linear-gradient(var(--glass), var(--glass)), var(--bg-1) !important;
 }
 :root[data-saver='on'] .glow-overlay rect,
+:root[data-saver='on'] .ring.zodiac,
 :root[data-saver='on'] .selline,
 :root[data-saver='on'] .signicon,
 :root[data-saver='on'] .signicon.sel,

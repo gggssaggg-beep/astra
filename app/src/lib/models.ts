@@ -44,6 +44,7 @@ export interface Settings {
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
   seenTour?: boolean;         // тур по интерфейсу пройден/закрыт хотя бы раз
   tourOfferOff?: boolean;     // «не предлагать обучение» (✕ на плашке)
+  studyDone?: string[];       // id пройденных уроков курса «с нуля» (слой 2); нет = пусто
   houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
   houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
   themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)

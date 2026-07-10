@@ -129,7 +129,7 @@
 
 <div class="day">
   {#if greet}<div class="greet display">{greet}</div>{/if}
-  <div class="wheel-wrap glass">
+  <div class="wheel-wrap glass" data-tour="wheel">
     <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
       {oninfo} onscrub={scrubWheel} />
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
@@ -154,7 +154,7 @@
   {/if}
 
   {#if moon}
-    <div class="moon glass">
+    <div class="moon glass" data-tour="moon">
       <span class="g glyph">{moon.glyph}</span>
       <div>
         <div class="lbl">Луна <Hint k="position" /></div>
@@ -169,7 +169,7 @@
     </div>
   {/if}
 
-  <h3 class="sec">Планеты сейчас <Hint k="planet" /></h3>
+  <h3 class="sec" data-tour="positions">Планеты сейчас <Hint k="planet" /></h3>
   <div class="positions glass">
     {#each planets as p}
       <!-- каждая планета своей строкой С ИМЕНЕМ: «☉ Солнце — 2°09′ Рака»
@@ -183,7 +183,7 @@
   </div>
 
   {#if events.length}
-    <h3 class="sec">События дня <Hint k="day-events" /></h3>
+    <h3 class="sec" data-tour="events">События дня <Hint k="day-events" /></h3>
     <div class="events glass">
       {#each events as ev}
         <div class="ev k-{ev.kind}">
@@ -197,7 +197,7 @@
 
   {#if figures.length}
     <!-- «по желанию» (просьба владелицы): раздел свёрнут, как разделы карт -->
-    <details class="fold">
+    <details class="fold" data-tour="figures">
       <summary class="sec">Фигуры дня · {figures.length}<Hint k="figure" /><span class="arr">▸</span></summary>
       {#each figures as f (f.hit.key)}
         <FigureCard hit={f.hit} window={f.window} {tz}
@@ -209,7 +209,7 @@
 
   {#each [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}
     {#if s.list.length}
-      <h3 class="sec">{s.title}{#if s.title === firstAspectSec} <Hint k="aspect" />{/if}</h3>
+      <h3 class="sec" data-tour={s.title === firstAspectSec ? 'aspects' : undefined}>{s.title}{#if s.title === firstAspectSec} <Hint k="aspect" />{/if}</h3>
       {#each s.list as rec (rec.p1 + rec.p2 + rec.aspect)}
         {@const sig = aspectSignature(rec.p1, rec.p2, rec.aspect)}
         <!-- тап: обводка обегает карточку → ПОТОМ открывается трактовка; выбранный

@@ -3,7 +3,7 @@
    *  считаем. Показывается, пока settings.seenWelcome=false; повторно — из настроек. */
   import { WELCOME } from '../lib/lore.ts';
   import { pushScrollLock } from '../lib/sheet.ts';
-  let { onclose }: { onclose: () => void } = $props();
+  let { onclose, onstarttour }: { onclose: () => void; onstarttour?: () => void } = $props();
 
   // пока приветствие открыто — фоновая лента дней не должна проматываться под ним
   $effect(() => pushScrollLock());
@@ -21,7 +21,12 @@
       <ul>{#each WELCOME.rules as r}<li>{r}</li>{/each}</ul>
     </div>
 
-    <button class="go" onclick={onclose}>Понятно, начать</button>
+    {#if onstarttour}
+      <button class="go tour" onclick={onstarttour}>🎓 Пройти обучение</button>
+      <button class="go ghost" onclick={onclose}>Начать без обучения</button>
+    {:else}
+      <button class="go" onclick={onclose}>Понятно, начать</button>
+    {/if}
   </section>
 </div>
 
@@ -41,4 +46,5 @@
   li { color: var(--ink-dim); font-size: 0.9rem; margin-bottom: 8px; line-height: 1.4; }
   .go { display: block; width: 100%; background: var(--accent); border: none; color: var(--on-accent); font-weight: 600;
     font-size: 1rem; border-radius: 14px; padding: 13px; }
+  .go.ghost { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink); margin-top: 8px; }
 </style>

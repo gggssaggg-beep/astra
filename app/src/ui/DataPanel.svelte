@@ -15,8 +15,8 @@
   const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
 
-  let { onclose, onchanged, onhelp, onastrologer }:
-    { onclose: () => void; onchanged: () => void; onhelp?: () => void;
+  let { onclose, onchanged, onhelp, onastrologer, onstarttour }:
+    { onclose: () => void; onchanged: () => void; onhelp?: () => void; onstarttour?: () => void;
       onastrologer?: () => void } = $props();
 
   let cfg = $state<Settings>(db.settings.get());
@@ -461,6 +461,7 @@
   </div>
   <div class="block">
     <div class="lbl">Обучение</div>
+    {#if onstarttour}<button class="btn" onclick={() => onstarttour?.()} style="margin-bottom:8px">🎓 Тур по приложению</button>{/if}
     <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
     <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
       Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —

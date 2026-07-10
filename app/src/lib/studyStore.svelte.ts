@@ -6,3 +6,8 @@
 export const glossState = $state<{ key: string | null }>({ key: null });
 export const openGloss = (key: string): void => { glossState.key = key; };
 export const closeGloss = (): void => { glossState.key = null; };
+
+// Тур по интерфейсу (слой 1). open — идёт ли тур; step — текущий шаг.
+export const tourState = $state<{ open: boolean; step: number }>({ open: false, step: 0 });
+export const openTour = (): void => { tourState.step = 0; tourState.open = true; };
+export const closeTour = (): void => { tourState.open = false; };

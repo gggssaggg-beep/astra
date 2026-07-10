@@ -42,6 +42,8 @@ export interface Settings {
   font?: string;              // id шрифта интерфейса (lib/fonts.ts; нет = дефолт)
   seenWelcome: boolean;       // приветствие первого запуска уже показано
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
+  seenTour?: boolean;         // тур по интерфейсу пройден/закрыт хотя бы раз
+  tourOfferOff?: boolean;     // «не предлагать обучение» (✕ на плашке)
   houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
   houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
   themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)

@@ -35,7 +35,8 @@
   import Welcome from './ui/Welcome.svelte';
   import InfoSheet from './ui/InfoSheet.svelte';
   import GlossarySheet from './ui/GlossarySheet.svelte';
-  import { glossState, closeGloss } from './lib/studyStore.svelte.ts';
+  import Tour from './ui/Tour.svelte';
+  import { glossState, closeGloss, tourState, openTour, closeTour } from './lib/studyStore.svelte.ts';
   import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
@@ -117,6 +118,14 @@
     db.settings.set({ ...db.settings.get(), seenWelcome: true });
     settings = db.settings.get();
   }
+  // запустить тур (из Welcome, плашки или Настроек) — помечаем seenTour, чтобы
+  // плашка «пройди обучение» больше не всплывала
+  function startTour() {
+    showWelcome = false;
+    db.settings.set({ ...db.settings.get(), seenWelcome: true, seenTour: true });
+    settings = db.settings.get();
+    openTour();
+  }
   // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
   function openChat(seed: string, source: typeof chatSource = null) {
     chatSeed = seed;
@@ -193,7 +202,8 @@
   // Аппаратная кнопка/жест «Назад» на Android: закрываем ВЕРХНЮЮ открытую шторку,
   // а не выходим из приложения. Если ничего не открыто — сворачиваем (не убиваем).
   function onBack() {
-    if (glossState.key) { closeGloss(); return; }   // «?» — самый верхний слой
+    if (tourState.open) { closeTour(); return; }     // тур — самый верхний слой
+    if (glossState.key) { closeGloss(); return; }   // «?» — следующий
     if (selRec) { closeAspect(); return; }
     if (wheelInfo) { wheelInfo = null; return; }
     if (showAstrologer) { showAstrologer = false; return; }
@@ -239,6 +249,7 @@
   onMount(() => { const t = setInterval(() => void refreshClientCharts(), 120000); return () => clearInterval(t); });
 
   onMount(async () => {
+    if (location.hash === '#tour') openTour();   // deep-link для теста тура (веб)
     if (Capacitor.isNativePlatform()) {
       void CapApp.addListener('backButton', onBack);
       // вернулись на экран → докачать OTA + освежить бейдж карт клиентов
@@ -391,7 +402,7 @@
 {#if engine && !error && !sheetsOpen}<ScrollThread />{/if}
 
 <main ontouchstart={onStart} ontouchend={onEnd}>
-  <header class="glass frost">
+  <header class="glass frost" data-tour="header">
     <button class="nav" onclick={() => shift(-1)} aria-label="Предыдущий день">‹</button>
     <div class="title">
       <button class="date" onclick={() => (showCal = true)} title="Выбрать дату">
@@ -427,15 +438,16 @@
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
   <button class:on={showLibrary || !!libSheet}
-    onclick={() => (showLibrary = true)} aria-label="Библиотека"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
-  <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
-  <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
+    onclick={() => (showLibrary = true)} aria-label="Библиотека" data-tour="tab-library"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
+  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди" data-tour="tab-charts"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
+  <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество" data-tour="tab-community"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
+  <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки" data-tour="tab-settings"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
 </nav>
 
 {#if showData}
   <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged}
     onhelp={() => { showData = false; showWelcome = true; }}
+    onstarttour={() => { showData = false; startTour(); }}
     onastrologer={() => (showAstrologer = true)} />
 {/if}
 
@@ -561,7 +573,11 @@
 {/if}
 
 {#if showWelcome}
-  <Welcome onclose={dismissWelcome} />
+  <Welcome onclose={dismissWelcome} onstarttour={startTour} />
+{/if}
+
+{#if tourState.open}
+  <Tour />
 {/if}
 
 <!-- контекстная «?» — поверх всех шторок (z-index 32/33), один монтаж на всё приложение -->

@@ -84,7 +84,11 @@ jobs:
       - name: OTA-бандл веб-части + манифест (для живых обновлений)
         run: |
           mkdir -p apk
-          # bundle.zip = содержимое dist (index.html в корне zip — так ждёт Capgo)
+          # bundle.zip = содержимое dist (index.html в корне zip — так ждёт Capgo).
+          # Старый зип УДАЛЯЕМ: он закоммичен в репо, а `zip -r` в существующий
+          # архив только дописывает — старые хэшированные index-*.js копились
+          # вечно (доросло до 891 файла / 83.7 МБ, SYSTEM_REVIEW SR-1).
+          rm -f apk/bundle.zip
           (cd app/dist && zip -r -q ../../apk/bundle.zip .)
           # version.ts уже проштампован полной версией на шаге выше
           VER=$(grep -oP "APP_VERSION = '\K[0-9.]+" app/src/lib/version.ts)

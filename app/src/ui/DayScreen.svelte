@@ -3,6 +3,7 @@
   // пересозданиями компонента на листание и делится с чатом).
   import { aspectsOnCached, eventsOnCached, figuresOnCached } from '../lib/dayCache.ts';
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
+  import { staticAspects } from '../engine/index.ts';
   import { fmtPos, fmtPosRx, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
   import FigureCard from './FigureCard.svelte';
@@ -81,18 +82,29 @@
   );
   const day = $derived(aspectsOnCached(engine, dayStart, orbOf, objects));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
-  // КОЛЕСО ЧЕСТНОЕ К МОМЕНТУ (жалоба: «треугольник ходит за Луной без правила
-  // 120°»): линия аспекта живёт только внутри своего окна вход→точно→выход.
-  // Прокрутка уводит момент из окна → линия гаснет; список дня ниже не трогаем.
-  // Выбранный аспект показываем всегда (пользователь его явно держит).
-  const wheelAspects = $derived.by(() => {
-    const t = snapshot.getTime();
-    return allAspects.filter((a) => {
-      if (selectedSignature && aspectSignature(a.p1, a.p2, a.aspect) === selectedSignature) return true;
-      const b = a.beginTime?.getTime() ?? -Infinity;
-      const e = a.endTime?.getTime() ?? Infinity;
-      return t >= b && t <= e;
+  // КОЛЕСО ЧЕСТНОЕ К МОМЕНТУ: линии = РЕАЛЬНЫЕ углы между показанными планетами
+  // на прокрученный момент (staticAspects — град-в-град между positions, как в
+  // проф. астропроцессорах). Прошлый фикс фильтровал дневные аспекты по
+  // ПРИБЛИЗИТЕЛЬНОМУ окну — у быстрой Луны окна короткие, линии выпадали, а при
+  // прокрутке гасли (жалоба владелицы: колесо скудное, прокрутка «не работает»).
+  // Теперь крутишь — планеты движутся, линии честно собираются и распадаются.
+  // applying/времена берём из дневного аспекта по сигнатуре (для dim/тона).
+  const wheelAspects = $derived.by<AspectRecord[]>(() => {
+    const byDay = new Map(allAspects.map((a) => [aspectSignature(a.p1, a.p2, a.aspect), a]));
+    const recs: AspectRecord[] = staticAspects(positions, orbOf).map((s) => {
+      const day = byDay.get(aspectSignature(s.p1, s.p2, s.aspect));
+      if (day) return day;
+      // аспект в орбисе на момент, но не в дневном списке (Луна в редком часе) —
+      // минимальный record: Wheel рисует линию по p1/p2/aspect/symbol/applying
+      return { p1: s.p1, p2: s.p2, aspect: s.aspect, symbol: s.symbol, exactOrb: s.orb,
+        exactTime: null, beginTime: null, endTime: null, applying: true, pos1: 0, pos2: 0, bucket: 'fast' };
     });
+    // выбранный аспект держим всегда, даже если сейчас уже вне орбиса
+    if (selectedSignature && !recs.some((r) => aspectSignature(r.p1, r.p2, r.aspect) === selectedSignature)) {
+      const sel = allAspects.find((a) => aspectSignature(a.p1, a.p2, a.aspect) === selectedSignature);
+      if (sel) recs.push(sel);
+    }
+    return recs;
   });
 
   // метка «в сообществе есть обсуждение» — тихий сетевой запрос по сигнатурам дня

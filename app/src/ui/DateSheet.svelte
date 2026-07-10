@@ -85,7 +85,6 @@
 
   <div class="footer">
     <button class="btn ghost" onclick={() => onpick(new Date(todayMs))}>Сегодня</button>
-    <button class="btn ghost" onclick={onclose}>Закрыть</button>
   </div>
 </section>
 
@@ -117,5 +116,6 @@
   .day.dim { color: var(--ink-faint); opacity: 0.6; }
   .day.today { border-color: var(--glass-brd); }
   .day.sel { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-  .footer { display: flex; justify-content: space-between; margin-top: 12px; }
+  .footer { display: flex; margin-top: 12px; }
+  .footer .btn { flex: 1; }
 </style>

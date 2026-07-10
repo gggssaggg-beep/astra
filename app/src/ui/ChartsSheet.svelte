@@ -660,7 +660,6 @@
 
     {#if fErr}<div class="err">⚠ {fErr}</div>{/if}
     <div class="formbtns">
-      <button class="btn" onclick={toList}>← Назад</button>
       {#if editId}<button class="btn danger" onclick={del}>{confirmDel ? 'Точно удалить?' : 'Удалить'}</button>{/if}
       <button class="btn primary" onclick={save}>Сохранить</button>
     </div>

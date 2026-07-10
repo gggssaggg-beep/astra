@@ -6,9 +6,10 @@
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { hydrateKey } from './lib/secret.ts';
-  import { todayCivil } from './lib/format.ts';
+  import { todayCivil, zonedDayStartUTC } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
+  import { aspectsOnCached } from './lib/dayCache.ts';
   import DayScreen from './ui/DayScreen.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
@@ -96,6 +97,17 @@
   // scroll-нить, чтобы она не просвечивала поверх затемнения под шторкой
   let sheetsOpen = $state(false);
   let wheelInfo = $state<WheelInfo | null>(null);
+  // Мостик колесо → карточка: если тапнутая линия аспекта есть в списке дня,
+  // даём в InfoSheet кнопку «Открыть карточку аспекта →» (полная шторка с
+  // временами). Ищем в том же кэше дня, что считает DayScreen — бесплатно.
+  const wheelAspectRec = $derived.by<AspectRecord | null>(() => {
+    if (!engine || wheelInfo?.kind !== 'aspect') return null;
+    const dayStart = zonedDayStartUTC(date, settings.tz);
+    const day = aspectsOnCached(engine, dayStart, orbOf, settings.objects);
+    const sig = aspectSignature(wheelInfo.p1, wheelInfo.p2, wheelInfo.aspect);
+    return [...day.moon, ...day.fast, ...day.slow]
+      .find((r) => aspectSignature(r.p1, r.p2, r.aspect) === sig) ?? null;
+  });
   let chatSeed = $state<string | null>(null);
   // контекст, к которому привязан чат (аспект/объекты) — чтобы сохранить переписку
   // в журнал «в соответствующее место»: с тегами объектов и сигнатурой аспекта.
@@ -533,7 +545,10 @@
 {/if}
 
 {#if wheelInfo}
-  <InfoSheet info={wheelInfo} onclose={() => (wheelInfo = null)} ondiscuss={openChat} />
+  <InfoSheet info={wheelInfo} onclose={() => (wheelInfo = null)} ondiscuss={openChat}
+    onopenfull={wheelAspectRec
+      ? () => { const r = wheelAspectRec; wheelInfo = null; if (r) { pickAspect(r); buzzTick(); } }
+      : undefined} />
 {/if}
 
 {#if showWelcome}

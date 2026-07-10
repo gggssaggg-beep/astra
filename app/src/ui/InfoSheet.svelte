@@ -10,8 +10,11 @@
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
 
-  let { info, onclose, ondiscuss }:
-    { info: WheelInfo; onclose: () => void; ondiscuss?: (seed: string) => void } = $props();
+  let { info, onclose, ondiscuss, onopenfull }:
+    { info: WheelInfo; onclose: () => void; ondiscuss?: (seed: string) => void;
+      // передан только для аспекта, который есть в списке дня → мостик к полной
+      // карточке аспекта (времена вход/точно/выход, заметка, «когда ещё»)
+      onopenfull?: () => void } = $props();
 
   const NAT = { harm: 'гармоничный', tense: 'напряжённый', neutral: 'нейтральный' };
 
@@ -105,6 +108,10 @@
     {/if}
   {/if}
 
+  {#if info.kind === 'aspect' && onopenfull}
+    <button class="openfull" onclick={onopenfull}>Открыть карточку аспекта →</button>
+  {/if}
+
   <div class="actrow">
     <button class="discuss" onclick={discuss}>
       <span class="dg glyph">💬</span> Обсудить с Claude
@@ -142,5 +149,8 @@
   /* два действия в один ряд (единообразно со шторками трактовки) */
   .actrow { display: flex; gap: 8px; margin-top: 12px; }
   .actrow .discuss { flex: 1; min-width: 0; padding: 11px 10px; font-size: 0.9rem; }
+  /* мостик к полной карточке аспекта — тихая строка-ссылка над кнопками */
+  .openfull { display: block; width: 100%; margin-bottom: 12px; padding: 6px 2px;
+    background: transparent; border: none; color: var(--accent); font-size: 0.9rem; text-align: left; cursor: pointer; }
   .dg { font-size: 1.1rem; }
 </style>

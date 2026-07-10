@@ -11,3 +11,12 @@ export const closeGloss = (): void => { glossState.key = null; };
 export const tourState = $state<{ open: boolean; step: number }>({ open: false, step: 0 });
 export const openTour = (): void => { tourState.step = 0; tourState.open = true; };
 export const closeTour = (): void => { tourState.open = false; };
+
+// Курс «астрология с нуля» (слой 2). open — открыт список уроков (шторка
+// CourseSheet, живёт как библиотечная); lesson — id открытого урока поверх
+// списка (шторка LessonSheet) либо null.
+export const courseState = $state<{ open: boolean; lesson: string | null }>({ open: false, lesson: null });
+export const openCourse = (): void => { courseState.open = true; };
+export const closeCourse = (): void => { courseState.open = false; courseState.lesson = null; };
+export const openLesson = (id: string): void => { courseState.lesson = id; };
+export const closeLesson = (): void => { courseState.lesson = null; };

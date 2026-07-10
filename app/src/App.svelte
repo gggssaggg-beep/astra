@@ -36,7 +36,10 @@
   import InfoSheet from './ui/InfoSheet.svelte';
   import GlossarySheet from './ui/GlossarySheet.svelte';
   import Tour from './ui/Tour.svelte';
-  import { glossState, closeGloss, tourState, openTour, closeTour } from './lib/studyStore.svelte.ts';
+  import CourseSheet from './ui/CourseSheet.svelte';
+  import LessonSheet from './ui/LessonSheet.svelte';
+  import { glossState, closeGloss, tourState, openTour, closeTour,
+    courseState, openCourse, closeCourse, closeLesson } from './lib/studyStore.svelte.ts';
   import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
   import ScrollThread from './ui/ScrollThread.svelte';
@@ -152,6 +155,7 @@
       case 'charts': showCharts = {}; break;
       case 'chartsSynastry': showCharts = { mode: 'synastry' }; break;
       case 'settings': showData = true; break;
+      case 'course': openCourse(); break;
     }
   }
 
@@ -204,6 +208,8 @@
   function onBack() {
     if (tourState.open) { closeTour(); return; }     // тур — самый верхний слой
     if (glossState.key) { closeGloss(); return; }   // «?» — следующий
+    if (courseState.lesson) { closeLesson(); return; }              // урок → в курс
+    if (courseState.open) { closeCourse(); showLibrary = true; return; } // курс → в Библиотеку
     if (selRec) { closeAspect(); return; }
     if (wheelInfo) { wheelInfo = null; return; }
     if (showAstrologer) { showAstrologer = false; return; }
@@ -234,7 +240,7 @@
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
     showData = showLibrary = showChat = false;
-    libSheet = null;
+    libSheet = null; closeCourse();
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
@@ -437,7 +443,7 @@
 <!-- Меню из 4 пунктов (2026-07-06): Журнал переехал в Библиотеку, Синастрия
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
-  <button class:on={showLibrary || !!libSheet}
+  <button class:on={showLibrary || !!libSheet || courseState.open}
     onclick={() => (showLibrary = true)} aria-label="Библиотека" data-tour="tab-library"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
   <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди" data-tour="tab-charts"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество" data-tour="tab-community"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
@@ -448,6 +454,7 @@
   <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged}
     onhelp={() => { showData = false; showWelcome = true; }}
     onstarttour={() => { showData = false; startTour(); }}
+    onCourse={() => { showData = false; openCourse(); }}
     onastrologer={() => (showAstrologer = true)} />
 {/if}
 
@@ -458,6 +465,7 @@
 
 {#if showLibrary}
   <LibrarySheet onclose={() => (showLibrary = false)}
+    onCourse={() => { showLibrary = false; openCourse(); }}
     onInterpretations={() => openLib('interp')}
     onArchetypes={() => openLib('arch')}
     onHouses={() => openLib('houses')}
@@ -578,6 +586,15 @@
 
 {#if tourState.open}
   <Tour />
+{/if}
+
+<!-- курс «с нуля»: список уроков (z 20/21) + сам урок поверх (z 22/23) -->
+{#if courseState.open}
+  <CourseSheet onclose={() => { closeCourse(); showLibrary = true; }} />
+{/if}
+{#if courseState.lesson && engine}
+  <LessonSheet lessonId={courseState.lesson} {engine} {date} tz={settings.tz}
+    objects={settings.objects} {orbOf} onnavigate={openGlossTarget} />
 {/if}
 
 <!-- контекстная «?» — поверх всех шторок (z-index 32/33), один монтаж на всё приложение -->

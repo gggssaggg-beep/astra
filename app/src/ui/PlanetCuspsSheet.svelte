@@ -22,8 +22,8 @@
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Аспекты планет к домам" use:bottomSheet={{ onclose }}>
   <header><h2>Аспекты планет к домам</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Планета, аспектирующая куспид дома, влияет своим архетипом на дела этого дома.
-    Тап по планете раскрывает 12 домов.</div>
+  <div class="hint">Куспид — «дверь» дома (сферы жизни). Планета, аспектирующая эту дверь, окрашивает
+    своим архетипом вход в сферу — дела этого дома. Тап по планете раскрывает 12 домов.</div>
 
   {#each LORE_PLANETS as planet (planet)}
     {@const opened = open === planet}

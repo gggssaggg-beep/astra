@@ -25,12 +25,15 @@
   import AspectNoteBlock from './aspect/AspectNoteBlock.svelte';
   import SimilarNotes from './aspect/SimilarNotes.svelte';
   import OccurrenceSearch from './aspect/OccurrenceSearch.svelte';
+  import SignContext from './aspect/SignContext.svelte';
 
   let { a, ownerA = null, ownerB = null, tz, win = null, engine = null, orbOf = null,
+        lon1 = null, lon2 = null,
         anchor = null, ongoto = null, onclose, onchat, oncommunity }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null; tz: string;
       win?: { begin: Date; exact: Date; end: Date } | null;
       engine?: Engine | null; orbOf?: ((name: string) => number) | null;
+      lon1?: number | null; lon2?: number | null;
       // «натив+транзит»: аспект строки — это транзитная планета (planet) к
       // НЕПОДВИЖНОМУ натальному градусу (lon) объекта a.p1. Поиск «когда ещё»
       // ищет именно это, а не два транзитных тела (жалоба владелицы 2026-07-09).
@@ -124,8 +127,10 @@
   <div class="block">
     <div class="lbl">Взаимодействие</div>
     {#if unique}
-      {#if lore}<div class="lshort">{lore.symbol} {lore.short}</div>{/if}
+      <!-- уникальный текст ИМЕННО этого сочетания — первым (типовая строка
+           аспекта читалась как «трин, трин, трин» — жалоба владелицы) -->
       <div class="ptext">{unique}</div>
+      {#if lore}<div class="ltext">{lore.symbol} {a.aspect} · {lore.short}</div>{/if}
       {#if pair}<div class="ltext">{a.p1} — {a.p2}: {pair}</div>{/if}
     {:else}
       {#if pair}<div class="ptext">{pair}</div>{/if}
@@ -144,6 +149,10 @@
       onchange={saveInterp}></textarea>
     {#if interpSaved}<div class="hint oksave">✓ Сохранено в библиотеку трактовок</div>{/if}
   </div>
+
+  {#if lon1 != null && lon2 != null}
+    <SignContext p1={a.p1} p2={a.p2} {lon1} {lon2} />
+  {/if}
 
   <AspectActions {sig} {title} ondiscuss={discuss} onprompt={() => (showPrompt = true)} {oncommunity} />
 

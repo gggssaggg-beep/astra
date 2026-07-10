@@ -22,8 +22,9 @@
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Значения домов" use:bottomSheet={{ onclose }}>
   <header><h2>Значения домов</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
-  <div class="hint">Знак на куспиде каждого дома — как тема дома окрашивается знаком.
-    Тап по дому раскрывает все 12 знаков.</div>
+  <div class="hint">Дом — одна из 12 сфер жизни (деньги, семья, карьера…). Куспид — «дверь» дома,
+    градус зодиака, где сфера начинается; знак на этой двери показывает, в каком стиле человек
+    её живёт. Тап по дому раскрывает все 12 знаков.</div>
 
   {#each HOUSES as h (h)}
     {@const opened = open === h}

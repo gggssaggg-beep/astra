@@ -68,6 +68,10 @@
   // движущаяся (транзитная/эфемеридная) планета a.p2. Работает во ВСЕХ режимах:
   // натал/синастрия — тоже «когда транзит a.p2 замкнёт натальный a.p1».
   let detailAnchor = $state<{ lon: number; planet: string } | null>(null);
+  // долготы участников для блока «Участники в знаках» (SignContext): p1 из своего
+  // кольца (натал A/B), p2 — из своего (натал B / транзит / тот же натал)
+  let detailLon1 = $state<number | null>(null);
+  let detailLon2 = $state<number | null>(null);
   // natalPos — набор натальных позиций (для транзит-режимов: p1 из натала, p2 —
   // транзитная планета) → считаем ОКНО аспекта (вход орбиса → точно → выход).
   function openDetail(a: StaticAspect, oa: string | null, ob: string | null,
@@ -77,6 +81,13 @@
     const lon1 = (natalPos ?? posA).find((p) => p.name === a.p1)?.lon
       ?? posA.find((p) => p.name === a.p1)?.lon ?? posB.find((p) => p.name === a.p1)?.lon;
     detailAnchor = lon1 != null ? { lon: lon1, planet: a.p2 } : null;
+    // долгота a.p2 для SignContext: транзит → из transitPos; синастрия → posB;
+    // натал → тот же posA. p1 берём из уже найденного lon1.
+    const lon2 = ob === 'транзит'
+      ? transitPos.find((p) => p.name === a.p2)?.lon
+      : posB.find((p) => p.name === a.p2)?.lon ?? posA.find((p) => p.name === a.p2)?.lon;
+    detailLon1 = lon1 ?? null;
+    detailLon2 = lon2 ?? null;
     if (ob === 'транзит' && natalPos) {
       const cached = winFor(a, ring);          // окно уже посчитано для строки?
       if (cached !== undefined) { detailWin = cached; return; }
@@ -743,11 +754,14 @@
     {/if}
 
     {#if chartFigs.length}
-      <div class="grp">◆ Фигуры{#if mode === 'transitNatal' || mode === 'triple'} — замыкает транзит{/if}</div>
-      {#each chartFigs as f (f.key)}
-        <ChartFigureCard fig={f} selected={selFigKey === f.key}
-          onactivate={() => (selFigKey = selFigKey === f.key ? null : f.key)} />
-      {/each}
+      <!-- «по желанию» (просьба владелицы): раздел свёрнут, как соседние fold-разделы -->
+      <details class="fold">
+        <summary class="grp">◆ Фигуры{#if mode === 'transitNatal' || mode === 'triple'} — замыкает транзит{/if} · {chartFigs.length}</summary>
+        {#each chartFigs as f (f.key)}
+          <ChartFigureCard fig={f} selected={selFigKey === f.key}
+            onactivate={() => (selFigKey = selFigKey === f.key ? null : f.key)} />
+        {/each}
+      </details>
     {/if}
 
     {#if mode === 'natal' && posA.length}
@@ -762,7 +776,7 @@
     {#if cuspAsp.length}
       <details class="fold">
         <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length}</summary>
-        <div class="hint small">Планета аспектирует куспид дома — влияет своим архетипом на дела дома. Орбис куспида 1°.</div>
+        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.</div>
         {#each cuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
           {@const lore = PLANET_CUSP_LORE[`${c.planet}|${c.cusp}`]}
@@ -783,7 +797,7 @@
     {#if transitCuspAsp.length}
       <details class="fold">
         <summary class="grp">🚶 Транзиты к куспидам · {transitCuspAsp.length}</summary>
-        <div class="hint small">Проходящая планета задевает куспид натального дома — временно включает его тему. Снимок на текущий момент.</div>
+        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Транзитная планета у этой двери активирует сферу прямо сейчас, временно включает её тему. Снимок на текущий момент.</div>
         {#each transitCuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
           <GlowCard radius={12} selected={openTCusp === key}
@@ -991,7 +1005,7 @@
 
 {#if detail}
   <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz} win={detailWin}
-    {engine} {orbOf} anchor={detailAnchor}
+    {engine} {orbOf} anchor={detailAnchor} lon1={detailLon1} lon2={detailLon2}
     ongoto={ongoto ? (d) => { detail = null; ongoto?.(d); } : null}
     onclose={() => (detail = null)}
     onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}

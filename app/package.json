@@ -16,6 +16,7 @@
     "test:degree": "node test/degree.mjs",
     "test:cuspaspects": "node test/cuspaspects.mjs",
     "test:retro": "node test/retro.mjs",
+    "test:events": "node test/events.mjs",
     "test:aspectpoint": "node test/aspectpoint.mjs",
     "test:quiet": "node test/quiet.mjs"
   },

@@ -78,7 +78,7 @@
   const quick = ['Сводка неба на сегодня', 'Что главное и на что обратить внимание?'];
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
+<div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass" aria-label="Чат трактовок" use:bottomSheet={{ onclose }}>
   <header>
     <h2>Чат трактовок · Claude</h2>
@@ -130,7 +130,9 @@
 </section>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 22; }
+  /* backdrop — глобальный .sheet-backdrop (app.css); .sheet локальный: flex-колонка
+     (поле ввода прижато вниз, лента чата скроллится внутри) — не под .sheet-base */
+  .backdrop { z-index: 22; }
   .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
     max-height: 90vh; display: flex; flex-direction: column; z-index: 23; padding: 16px 16px calc(16px + var(--safe-bottom)); border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
   @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }

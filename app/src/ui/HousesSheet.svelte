@@ -19,8 +19,8 @@
   const toggle = (h: number): void => { open = open === h ? null : h; };
 </script>
 
-<div class="backdrop" onclick={onclose} role="presentation"></div>
-<section class="sheet glass" aria-label="Значения домов" use:bottomSheet={{ onclose }}>
+<div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
+<section class="sheet glass sheet-base" aria-label="Значения домов" use:bottomSheet={{ onclose }}>
   <header><h2>Значения домов</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Знак на куспиде каждого дома — как тема дома окрашивается знаком.
     Тап по дому раскрывает все 12 знаков.</div>
@@ -53,11 +53,9 @@
 </section>
 
 <style>
-  .backdrop { position: fixed; inset: 0; background: #0009; z-index: 26; }
-  .sheet { position: fixed; left: 50%; bottom: 0; transform: translateX(-50%); width: min(560px, 100%);
-    max-height: 90vh; overflow-y: auto; z-index: 27; padding: 16px 16px calc(18px + var(--safe-bottom));
-    border-radius: 22px 22px 0 0; animation: up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1); }
-  @keyframes up { from { transform: translate(-50%, 100%); } to { transform: translate(-50%, 0); } }
+  /* геометрия/бэкдроп — глобальные .sheet-base/.sheet-backdrop (app.css); тут только z-index */
+  .backdrop { z-index: 26; }
+  .sheet { z-index: 27; }
   header { display: flex; align-items: center; justify-content: space-between; }
   h2 { margin: 0; font-size: 1.1rem; }
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }

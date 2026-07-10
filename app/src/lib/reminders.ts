@@ -19,19 +19,18 @@ import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
 import { aspectSignature } from './signature.ts';
 import { inQuietHours, hmToMinutes, localMinutes } from './quiet.ts';
+import { IDS, digestSlots, inSlot, digestTitle } from './digestSlots.ts';
 import { db } from './db.ts';
 import { natalPositions, birthInstantUTC } from './charts.ts';
 import { forecastTransits } from './forecast.ts';
 
 const NATIVE = Capacitor.isNativePlatform();
 const CH = 'care';
-const ID_DAILY_FROM = 1000;     // сводки-слоты (раз/дважды в сутки × дней) — до 1029
-const ID_DAILY_TO = 1029;
-const ID_ASPECT_FROM = 1030;    // моменты точных аспектов
-const ID_ASPECT_TO = 1129;
-const ID_TRANSIT_FROM = 1130;   // транзиты к натальной карте
-const ID_TRANSIT_TO = 1229;
-const ID_MANAGED_TO = 1229;     // наш управляемый диапазон 1000..1229
+// ID-диапазоны управляемых уведомлений вынесены в lib/digestSlots.ts (тестируемо)
+const ID_DAILY_FROM = IDS.dailyFrom, ID_DAILY_TO = IDS.dailyTo;      // сводки-слоты
+const ID_ASPECT_FROM = IDS.aspectFrom, ID_ASPECT_TO = IDS.aspectTo;  // точные аспекты
+const ID_TRANSIT_FROM = IDS.transitFrom, ID_TRANSIT_TO = IDS.transitTo; // транзиты к наталу
+const ID_MANAGED_TO = IDS.managedTo;     // наш управляемый диапазон 1000..1229
 const ID_TEST_NOW = 9001;
 const ID_TEST_DELAYED = 9002;
 const ID_VERSION = 1250;        // «доступна новая версия» — вне диапазона отмены 1000..1229
@@ -190,14 +189,12 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       const twice = settings.dailyDigestMode === 'twice';
       const mMin = hm(settings.dailyNotifyTime, '09:00');
       const eMin = hm(settings.dailyNotifyTime2, '21:00');
-      const slots: Date[] = [];
+      const dayStartsMs: number[] = [];
       for (let d = 0; d < DAILY_DAYS; d++) {
         const civil = todayCivil(tz); civil.setUTCDate(civil.getUTCDate() + d);
-        const ds = zonedDayStartUTC(civil, tz).getTime();
-        slots.push(new Date(ds + mMin * 60_000));
-        if (twice) slots.push(new Date(ds + eMin * 60_000));
+        dayStartsMs.push(zonedDayStartUTC(civil, tz).getTime());   // местная полночь, DST-безопасно
       }
-      slots.sort((a, b) => a.getTime() - b.getTime());
+      const slots = digestSlots(dayStartsMs, mMin, eMin, twice).map((ms) => new Date(ms));
       const sorted = allAspects.slice().sort((x, y) =>
         (x.rec.exactTime as Date).getTime() - (y.rec.exactTime as Date).getTime());
       // ретро-станции (разворот планеты R↔D) как события сводки — не только
@@ -216,13 +213,9 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       for (let i = 0; i < slots.length && did <= ID_DAILY_TO; i++) {
         const at = slots[i];
         if (at.getTime() <= now + 60_000) continue;
-        const end = (slots[i + 1] ?? new Date(at.getTime() + 86_400_000)).getTime();
-        const win = sorted.filter((x) => {
-          const t = (x.rec.exactTime as Date).getTime();
-          return t >= at.getTime() && t < end;
-        });
-        const stWin = stationEvents.filter((s) =>
-          s.at.getTime() >= at.getTime() && s.at.getTime() < end);
+        const nextAt = slots[i + 1]?.getTime();   // undefined у последнего → inSlot берёт +24ч
+        const win = inSlot(sorted, (x) => (x.rec.exactTime as Date).getTime(), at.getTime(), nextAt);
+        const stWin = inSlot(stationEvents, (s) => s.at.getTime(), at.getTime(), nextAt);
         const stItems = stWin.map((s) =>
           `${PLANET_GLYPH[s.planet] ?? s.planet} ${s.toRetro ? '℞ ретроград' : 'D директ'} ${fmtTime(s.at, tz)}`);
         // станции вперёд — они заметнее рядовых аспектов
@@ -230,7 +223,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
           `${PLANET_GLYPH[x.rec.p1] ?? x.rec.p1}${x.rec.symbol}${PLANET_GLYPH[x.rec.p2] ?? x.rec.p2} ${fmtTime(x.rec.exactTime as Date, tz)}`)];
         list.push({
           id: did++,
-          title: twice ? (localMinutes(at, tz) < 720 ? 'Сводка дня' : 'Сводка на вечер и ночь') : 'Сводка неба',
+          title: digestTitle(twice, localMinutes(at, tz)),
           body: items.length ? items.join(' · ') : 'Особых аспектов нет — спокойный отрезок.',
           channelId: CH,
           extra: { dayAnchor: civilOf(at, tz).toISOString(), signature: win.length

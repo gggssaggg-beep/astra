@@ -18,7 +18,8 @@
     "test:retro": "node test/retro.mjs",
     "test:events": "node test/events.mjs",
     "test:aspectpoint": "node test/aspectpoint.mjs",
-    "test:quiet": "node test/quiet.mjs"
+    "test:quiet": "node test/quiet.mjs",
+    "test:digest": "node test/digest.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

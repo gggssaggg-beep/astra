@@ -19,6 +19,12 @@ export const SUPABASE_URL = 'https://vbaysgzdvdyljlwlnivq.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_rYe1PJ0juzDec87oK7QC6Q_iSufPThD';
 // deep link возврата из Google-входа (intent-filter в AndroidManifest)
 const NATIVE_REDIRECT = 'astra://auth';
+// веб: возврат на ТЕКУЩУЮ страницу приложения (origin + путь), НЕ на голый домен.
+// На GitHub Pages приложение живёт в подпапке /astra/, а не в корне; голый
+// window.location.origin не совпадал с Redirect URLs в Supabase → тот падал на
+// дефолтный Site URL (localhost:3000) с flow_state_already_used. origin+pathname
+// = https://gggssaggg-beep.github.io/astra/ (локально — http://localhost:5173/).
+const webRedirect = (): string => window.location.origin + window.location.pathname;
 
 export const configured = (): boolean => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 const NATIVE = Capacitor.isNativePlatform();
@@ -91,7 +97,7 @@ export async function signInGoogle(): Promise<void> {
   } else {
     const { error } = await sb().auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo: webRedirect() },
     });
     if (error) throw error;
   }
@@ -104,7 +110,7 @@ export async function signInGoogle(): Promise<void> {
 export async function signInEmail(email: string): Promise<void> {
   const { error } = await sb().auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: NATIVE ? NATIVE_REDIRECT : window.location.origin },
+    options: { emailRedirectTo: NATIVE ? NATIVE_REDIRECT : webRedirect() },
   });
   if (error) throw error;
 }

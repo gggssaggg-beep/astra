@@ -136,6 +136,15 @@
     settings = db.settings.get();
     openTour();
   }
+  // открыть курс «с нуля» — тоже гасит бейдж-точку тура на «Настройках»
+  // (обучение открыто хотя бы раз: тур ИЛИ курс)
+  function startCourse() {
+    if (!db.settings.get().seenTour) {
+      db.settings.set({ ...db.settings.get(), seenTour: true });
+      settings = db.settings.get();
+    }
+    openCourse();
+  }
   // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
   function openChat(seed: string, source: typeof chatSource = null) {
     chatSeed = seed;
@@ -162,12 +171,17 @@
       case 'charts': showCharts = {}; break;
       case 'chartsSynastry': showCharts = { mode: 'synastry' }; break;
       case 'settings': showData = true; break;
-      case 'course': openCourse(); break;
+      case 'course': startCourse(); break;
     }
   }
 
   // резолвер орбиса (индивидуально по объекту, пара — больший из двух)
   const orbOf = $derived(orbResolver(settings));
+
+  // точка-бейдж на «Настройках»: тур ещё не пройден, но приветствие уже закрыто
+  // (иначе плашка приветствия и так зовёт в обучение). Гаснет навсегда, как только
+  // seenTour станет true — при запуске тура ИЛИ открытии курса (startCourse).
+  const tourBadge = $derived(settings.seenWelcome && !settings.seenTour);
 
   // «Сегодня» — гражданская дата в ВЫБРАННОМ поясе (а не в поясе устройства).
   // `date` — «якорь дня» от свайпа/календаря/уведомления; прокрутка колеса его
@@ -553,14 +567,14 @@
     onclick={() => (showLibrary = true)} aria-label="Библиотека" data-tour="tab-library"><span class="ti"><Icon name="book" /></span><span class="tl">Библиотека</span></button>
   <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди" data-tour="tab-charts"><span class="ti"><Icon name="users" /></span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
   <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество" data-tour="tab-community"><span class="ti"><Icon name="sparkle" /></span><span class="tl">Сообщество</span></button>
-  <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки" data-tour="tab-settings"><span class="ti"><Icon name="settings" /></span><span class="tl">Настройки</span></button>
+  <button class="mid-settings" class:on={showData} onclick={() => (showData = true)} aria-label="Настройки" data-tour="tab-settings"><span class="ti"><Icon name="settings" /></span><span class="tl">Настройки</span>{#if tourBadge}<span class="ndot" aria-label="Загляни в обучение"></span>{/if}</button>
 </nav>
 
 {#if showData}
   <DataPanel onclose={() => (showData = false)} onchanged={onPanelChanged}
     onhelp={() => { showData = false; showWelcome = true; }}
     onstarttour={() => { showData = false; startTour(); }}
-    onCourse={() => { showData = false; openCourse(); }}
+    onCourse={() => { showData = false; startCourse(); }}
     onastrologer={() => (showAstrologer = true)} />
 {/if}
 
@@ -571,7 +585,7 @@
 
 {#if showLibrary}
   <LibrarySheet onclose={() => (showLibrary = false)}
-    onCourse={() => { showLibrary = false; openCourse(); }}
+    onCourse={() => { showLibrary = false; startCourse(); }}
     onInterpretations={() => openLib('interp')}
     onArchetypes={() => openLib('arch')}
     onHouses={() => openLib('houses')}
@@ -758,6 +772,11 @@
     color: #fff; font-size: 0.64rem; font-weight: 700; line-height: 1;
     display: inline-flex; align-items: center; justify-content: center;
     box-shadow: 0 0 8px color-mix(in srgb, var(--rose) 70%, transparent); }
+  /* точка-бейдж «загляни в обучение» на «Настройках» — как .ncount, но без числа */
+  .tabbar .mid-settings { position: relative; }
+  .tabbar .mid-settings .ndot { position: absolute; top: 4px; right: calc(50% - 16px);
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 70%, transparent); }
   .tabbar .tl { font-size: 0.7rem; letter-spacing: 0.2px; font-family: var(--font-mono); }
   .reconnect { display: block; width: 100%; text-align: left; padding: 10px 14px; margin-bottom: 6px; color: var(--gold); border: none; font-size: 0.86rem; }
   .state { padding: 24px; text-align: center; color: var(--ink-dim); margin-top: 20px; }

@@ -279,6 +279,11 @@
     </div>
   </header>
   {#if signature && title && !open}<div class="subt">{title}</div>{/if}
+  <!-- пока не вошли — поясняем, что вход НЕобязателен (онбординг П.7) -->
+  {#if !session}
+    <p class="hint" style="margin:2px 0 0">Это необязательная соцсеть внутри
+      приложения — всё остальное работает без входа.</p>
+  {/if}
 
   {#if !configured()}
     <div class="stub">

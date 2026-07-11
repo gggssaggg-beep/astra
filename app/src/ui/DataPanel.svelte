@@ -74,7 +74,13 @@
     return () => clearTimeout(t);
   });
 
-  async function onNotifyToggle(field: 'notifyDaily' | 'notifyAspects' | 'notifyTransits', val: boolean) {
+  type NotifyField = 'notifyDaily' | 'notifyAspects' | 'notifyTransits';
+  // какой тумблер ждёт пояснения перед первым запросом разрешения (П.8 онбординга):
+  // при первом включении любого уведомления показываем свою карточку «зачем»,
+  // и только по «Дальше →» дёргаем системный диалог. Повторные включения — сразу.
+  let pendingNotify = $state<NotifyField | null>(null);
+
+  async function requestAndSave(field: NotifyField, val: boolean) {
     if (val) {
       const r = await requestPermission();
       if (r === 'denied')
@@ -83,6 +89,25 @@
         testMsg = 'Уведомления недоступны в этом окружении.';
     }
     save({ [field]: val });
+  }
+
+  async function onNotifyToggle(field: NotifyField, val: boolean) {
+    // первое включение любого уведомления → сперва карточка-пояснение
+    if (val && !cfg.seenNotifyWhy) { pendingNotify = field; return; }
+    await requestAndSave(field, val);
+  }
+  // «Дальше →» на карточке: ставим флаг, зовём requestPermission и продолжаем включение
+  async function confirmNotify() {
+    const field = pendingNotify;
+    pendingNotify = null;
+    if (!field) return;
+    save({ seenNotifyWhy: true });
+    await requestAndSave(field, true);
+  }
+  // «Отмена»: тумблер откатывается (флаг сохранения = текущее значение поля)
+  function cancelNotify() {
+    pendingNotify = null;
+    cfg = { ...db.settings.get() };   // перерисовать чекбоксы под сохранённое состояние
   }
 
   async function runTest() {
@@ -202,6 +227,18 @@
 
   </details>
   <details class="sec">
+    <summary class="group">Обучение</summary>
+  <div class="block">
+    {#if onstarttour}<button class="btn" onclick={() => onstarttour?.()} style="margin-bottom:8px">🎓 Тур по приложению</button>{/if}
+    {#if onCourse}<button class="btn" onclick={() => onCourse?.()} style="margin-bottom:8px">📖 Курс астрологии</button>{/if}
+    <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
+    <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
+      Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
+      и получить разбор.</div>
+  </div>
+
+  </details>
+  <details class="sec">
     <summary class="group">Расчёты</summary>
 
   <div class="block">
@@ -277,6 +314,18 @@
   <details class="sec">
     <summary class="group">Уведомления</summary>
   <div class="block">
+    {#if pendingNotify}
+      <!-- П.8 онбординга: контекст ПЕРЕД системным запросом разрешения -->
+      <div class="whycard">
+        <b>Включить напоминания?</b>
+        <p>Напоминания приходят в момент точного аспекта и сводкой по расписанию.
+          Android спросит разрешение — согласись, иначе ничего не придёт.</p>
+        <div class="row">
+          <button class="btn primary" onclick={confirmNotify}>Дальше →</button>
+          <button class="btn ghost" onclick={cancelNotify}>Отмена</button>
+        </div>
+      </div>
+    {/if}
     <label class="toggle">
       <input type="checkbox" checked={cfg.notifyDaily}
         onchange={(e) => onNotifyToggle('notifyDaily', (e.target as HTMLInputElement).checked)} />
@@ -445,15 +494,6 @@
       <button class="btn maillink" onclick={() => { onclose(); onastrologer?.(); }}>🔮 Написать астрологу</button>
     </div>
   </div>
-  <div class="block">
-    <div class="lbl">Обучение</div>
-    {#if onstarttour}<button class="btn" onclick={() => onstarttour?.()} style="margin-bottom:8px">🎓 Тур по приложению</button>{/if}
-    {#if onCourse}<button class="btn" onclick={() => onCourse?.()} style="margin-bottom:8px">📖 Курс астрологии</button>{/if}
-    <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
-    <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
-      Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
-      и получить разбор.</div>
-  </div>
   </details>
 
   <footer>Astra · версия {APP_VERSION}{#if ota.applied !== APP_VERSION} · бандл {ota.applied}{/if}</footer>
@@ -525,5 +565,10 @@
   /* тема-зависимо: на «Рассвете» светло-розовый текст сливался с белым (жалоба) */
   .msg.err { background: color-mix(in srgb, var(--rose) 14%, transparent); color: var(--rose); }
   .maillink { display: inline-block; text-decoration: none; text-align: center; }
+  /* карточка-пояснение перед системным запросом уведомлений (П.8 онбординга) */
+  .whycard { border: 1px solid var(--accent); border-radius: 14px; padding: 12px 14px;
+    margin-bottom: 12px; background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .whycard b { display: block; margin-bottom: 6px; }
+  .whycard p { margin: 0 0 10px; font-size: 0.86rem; color: var(--ink-dim); }
   footer { margin-top: 14px; text-align: center; color: var(--ink-faint); font-size: 0.74rem; }
 </style>

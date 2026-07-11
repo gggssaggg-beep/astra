@@ -49,6 +49,7 @@ export interface Settings {
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
   seenHintGlow?: boolean;     // разовая подсветка «?» на экране дня уже показана
   seenAspectCardHelp?: boolean; // обучалка-разбор первой карточки аспекта показана
+  seenNotifyWhy?: boolean;    // карточка-пояснение «зачем уведомления» показана перед первым запросом
   seenTour?: boolean;         // тур по интерфейсу пройден/закрыт хотя бы раз
   tourOfferOff?: boolean;     // «не предлагать обучение» (✕ на плашке)
   studyDone?: string[];       // id пройденных уроков курса «с нуля» (слой 2); нет = пусто

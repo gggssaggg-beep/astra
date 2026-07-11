@@ -687,7 +687,7 @@
 {/if}
 
 {#if showWelcome}
-  <Welcome onclose={dismissWelcome} onstarttour={startTour} />
+  <Welcome onclose={dismissWelcome} onstarttour={startTour} defaultTz={settings.tz} />
 {/if}
 
 {#if tourState.open}

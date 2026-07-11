@@ -10,10 +10,14 @@
   import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../../lib/inputmask.ts';
   import { searchCities, type City } from '../../lib/cities.ts';
 
-  let { person, defaultTz, onsaved, ondeleted, oncancel, onclose }:
+  let { person, defaultTz, onsaved, ondeleted, oncancel, onclose,
+        embedded = false, defaultName, saveLabel }:
     { person: Person | null; defaultTz: string;
-      onsaved: () => void; ondeleted: (id: string) => void;
-      oncancel: () => void; onclose: () => void } = $props();
+      onsaved: (id: string) => void; ondeleted: (id: string) => void;
+      oncancel: () => void; onclose: () => void;
+      // embedded — форма без своей шапки (её даёт хост, напр. приветствие);
+      // defaultName — предзаполнить имя («Я» в онбординге); saveLabel — текст кнопки.
+      embedded?: boolean; defaultName?: string; saveLabel?: string } = $props();
 
   // список поясов — форма всегда видна при маунте, считаем сразу
   function ZONES(): string[] {
@@ -29,7 +33,7 @@
   const p0 = untrack(() => person);
   const dtz = untrack(() => defaultTz);
   const editId = p0?.id ?? null;
-  let fName = $state(p0?.name ?? '');
+  let fName = $state(p0?.name ?? untrack(() => defaultName) ?? '');
   let fDate = $state(p0 ? maskedFromIso(p0.birthDate) : '');   // «ДД.ММ.ГГГГ»
   let fTime = $state(p0?.birthTime ?? '');                      // «ЧЧ:ММ:СС»
   let fUnknown = $state(p0?.unknownTime ?? false);
@@ -71,13 +75,14 @@
     const place = (fPlaceName.trim() || fLat != null || fLon != null)
       ? { name: fPlaceName.trim() || cityQuery.trim(), lat: fLat ?? 0, lon: fLon ?? 0 } : null;
     const prev = editId ? db.people.get(editId) : null;
+    const newId = editId ?? uid();
     db.people.put({
-      id: editId ?? uid(), name, birthDate: iso,
+      id: newId, name, birthDate: iso,
       birthTime: time, birthTz: tzv, place, unknownTime: time == null,
       slowOnly: time == null ? fSlowOnly : false,
       createdAt: prev?.createdAt ?? new Date().toISOString(),
     });
-    onsaved();
+    onsaved(newId);
   }
   // удаление — двухтапное подтверждение прямо на кнопке (без системного confirm)
   function del(): void {
@@ -93,11 +98,13 @@
   }
 </script>
 
-<header>
-  <button class="back" onclick={oncancel} aria-label="Назад">←</button>
-  <h2>{editId ? 'Править человека' : 'Новый человек'}</h2>
-  <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
-</header>
+{#if !embedded}
+  <header>
+    <button class="back" onclick={oncancel} aria-label="Назад">←</button>
+    <h2>{editId ? 'Править человека' : 'Новый человек'}</h2>
+    <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
+  </header>
+{/if}
 
 <label class="fld"><span>Имя</span>
   <input type="text" bind:value={fName} placeholder="Имя" /></label>
@@ -162,7 +169,7 @@
 {#if fErr}<div class="err">⚠ {fErr}</div>{/if}
 <div class="formbtns">
   {#if editId}<button class="btn danger" onclick={del}>{confirmDel ? 'Точно удалить?' : 'Удалить'}</button>{/if}
-  <button class="btn primary" onclick={save}>Сохранить</button>
+  <button class="btn primary" onclick={save}>{saveLabel ?? 'Сохранить'}</button>
 </div>
 
 <style>

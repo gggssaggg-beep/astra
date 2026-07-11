@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Astra icon v3: «Парус» — треугольник + оппозиция (пересекающая основание).
+       Одинарное кольцо, Солнце-вершина паруса со свечением, четырёхлучевая искра.
+       Adaptive-safe: всё в центральных ~66%. -->
+  <defs>
+    <radialGradient id="v3bg" cx="30%" cy="22%" r="98%">
+      <stop offset="0%" stop-color="#1a2150"/>
+      <stop offset="52%" stop-color="#0d1230"/>
+      <stop offset="100%" stop-color="#070a1c"/>
+    </radialGradient>
+    <radialGradient id="v3aur1" cx="74%" cy="34%" r="52%">
+      <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.58"/>
+      <stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="v3aur2" cx="26%" cy="80%" r="54%">
+      <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.48"/>
+      <stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="v3ring" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#9b8cff"/>
+      <stop offset="100%" stop-color="#cdd6ff"/>
+    </linearGradient>
+    <radialGradient id="v3sun" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="58%" stop-color="#f3c969"/>
+      <stop offset="100%" stop-color="#f3c969"/>
+    </radialGradient>
+    <radialGradient id="v3glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#f3c969" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#v3bg)"/>
+  <rect width="512" height="512" fill="url(#v3aur1)"/>
+  <rect width="512" height="512" fill="url(#v3aur2)"/>
+  <!-- звёзды -->
+  <g fill="#cdd6ff">
+    <circle cx="104" cy="110" r="4" opacity="0.72"/>
+    <circle cx="414" cy="102" r="3" opacity="0.55"/>
+    <circle cx="448" cy="316" r="3.6" opacity="0.6"/>
+    <circle cx="82" cy="404" r="2.8" opacity="0.5"/>
+    <circle cx="392" cy="430" r="2.6" opacity="0.5"/>
+  </g>
+  <!-- четырёхлучевая искра -->
+  <g fill="#fff4d6">
+    <path d="M118 350 l5 18 l5 -18 l18 -5 l-18 -5 l-5 -18 l-5 18 l-18 5 z" opacity="0.85"/>
+  </g>
+  <!-- одинарное кольцо + 12 делений -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#v3ring)" stroke-width="14"/>
+  <g stroke="#cdd6ff" stroke-width="4" stroke-linecap="round" opacity="0.5">
+    <line x1="256" y1="99" x2="256" y2="115"/>
+    <line x1="256" y1="397" x2="256" y2="413"/>
+    <line x1="99" y1="256" x2="115" y2="256"/>
+    <line x1="397" y1="256" x2="413" y2="256"/>
+    <line x1="145" y1="145" x2="156" y2="156"/>
+    <line x1="356" y1="356" x2="367" y2="367"/>
+    <line x1="367" y1="145" x2="356" y2="156"/>
+    <line x1="156" y1="356" x2="145" y2="367"/>
+  </g>
+  <!-- парус: золотой треугольник + розовая оппозиция (диаметр под основанием) -->
+  <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M256 116 L370 322 L142 322 Z" stroke="#f3c969" stroke-width="14"/>
+    <line x1="126" y1="292" x2="386" y2="292" stroke="#e8888f" stroke-width="12"/>
+  </g>
+  <!-- планеты -->
+  <circle cx="370" cy="322" r="16" fill="#7fd0ff"/>
+  <circle cx="142" cy="322" r="16" fill="#cdd6ff"/>
+  <circle cx="126" cy="292" r="12" fill="#e8888f"/>
+  <circle cx="386" cy="292" r="12" fill="#9b8cff"/>
+  <!-- Солнце — вершина паруса -->
+  <circle cx="256" cy="116" r="46" fill="url(#v3glow)"/>
+  <circle cx="256" cy="116" r="23" fill="url(#v3sun)"/>
+</svg>

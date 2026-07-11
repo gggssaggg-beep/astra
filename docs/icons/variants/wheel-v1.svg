@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Astra icon v1: «Тригон + оппозиция» — база уточнена. Одинарное кольцо, 12 делений,
+       Солнце-центр (золото со свечением), четырёхлучевые искорки. Adaptive-safe: центр ~66%. -->
+  <defs>
+    <radialGradient id="v1bg" cx="36%" cy="24%" r="95%">
+      <stop offset="0%" stop-color="#1a2150"/>
+      <stop offset="52%" stop-color="#0d1230"/>
+      <stop offset="100%" stop-color="#070a1c"/>
+    </radialGradient>
+    <radialGradient id="v1aur1" cx="72%" cy="30%" r="50%">
+      <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="v1aur2" cx="24%" cy="78%" r="52%">
+      <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.42"/>
+      <stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="v1ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cdd6ff"/>
+      <stop offset="100%" stop-color="#9b8cff"/>
+    </linearGradient>
+    <radialGradient id="v1sun" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="55%" stop-color="#f3c969"/>
+      <stop offset="100%" stop-color="#f3c969"/>
+    </radialGradient>
+    <radialGradient id="v1glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.9"/>
+      <stop offset="40%" stop-color="#f3c969" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#v1bg)"/>
+  <rect width="512" height="512" fill="url(#v1aur1)"/>
+  <rect width="512" height="512" fill="url(#v1aur2)"/>
+  <!-- звёзды-блёстки -->
+  <g fill="#cdd6ff">
+    <circle cx="98" cy="128" r="4" opacity="0.75"/>
+    <circle cx="420" cy="96" r="3" opacity="0.55"/>
+    <circle cx="452" cy="308" r="3.6" opacity="0.6"/>
+    <circle cx="78" cy="398" r="2.6" opacity="0.5"/>
+  </g>
+  <!-- четырёхлучевые искорки -->
+  <g fill="#fff4d6">
+    <path d="M410 400 l6 20 l6 -20 l20 -6 l-20 -6 l-6 -20 l-6 20 l-20 6 z" opacity="0.85"/>
+    <path d="M112 74 l4 14 l4 -14 l14 -4 l-14 -4 l-4 -14 l-4 14 l-14 4 z" opacity="0.7"/>
+  </g>
+  <!-- кольцо + 12 делений -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#v1ring)" stroke-width="14"/>
+  <g stroke="#cdd6ff" stroke-width="4" stroke-linecap="round" opacity="0.55">
+    <line x1="256" y1="99" x2="256" y2="115"/>
+    <line x1="256" y1="397" x2="256" y2="413"/>
+    <line x1="99" y1="256" x2="115" y2="256"/>
+    <line x1="397" y1="256" x2="413" y2="256"/>
+    <line x1="145" y1="145" x2="156" y2="156"/>
+    <line x1="356" y1="356" x2="367" y2="367"/>
+    <line x1="367" y1="145" x2="356" y2="156"/>
+    <line x1="156" y1="356" x2="145" y2="367"/>
+    <line x1="200" y1="107" x2="206" y2="122"/>
+    <line x1="306" y1="405" x2="312" y2="390"/>
+    <line x1="107" y1="312" x2="122" y2="306"/>
+    <line x1="405" y1="200" x2="390" y2="206"/>
+  </g>
+  <!-- аспекты: золотой тригон + розовая оппозиция -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 148 L353 306 L159 306 Z" fill="none" stroke="#f3c969" stroke-width="14"/>
+    <path d="M168 180 L344 332" stroke="#e8888f" stroke-width="12"/>
+  </g>
+  <!-- планеты -->
+  <circle cx="353" cy="306" r="16" fill="#7fd0ff"/>
+  <circle cx="159" cy="306" r="16" fill="#cdd6ff"/>
+  <circle cx="168" cy="180" r="13" fill="#e8888f"/>
+  <circle cx="344" cy="332" r="12" fill="#9b8cff"/>
+  <!-- Солнце (центр смысла): вершина тригона, крупнее, со свечением -->
+  <circle cx="256" cy="148" r="48" fill="url(#v1glow)"/>
+  <circle cx="256" cy="148" r="24" fill="url(#v1sun)"/>
+</svg>

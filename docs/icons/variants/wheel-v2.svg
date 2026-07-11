@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Astra icon v2: «Большой крест» — двойное кольцо, крест (2 оппозиции + 4 квадрата),
+       Солнце-центр вверху со свечением. Adaptive-safe: всё в центральных ~66%. -->
+  <defs>
+    <radialGradient id="v2bg" cx="32%" cy="28%" r="96%">
+      <stop offset="0%" stop-color="#1a2150"/>
+      <stop offset="50%" stop-color="#0c1130"/>
+      <stop offset="100%" stop-color="#070a1c"/>
+    </radialGradient>
+    <radialGradient id="v2aur1" cx="78%" cy="22%" r="55%">
+      <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="v2aur2" cx="18%" cy="82%" r="58%">
+      <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="v2ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cdd6ff"/>
+      <stop offset="100%" stop-color="#9b8cff"/>
+    </linearGradient>
+    <radialGradient id="v2sun" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="60%" stop-color="#f3c969"/>
+      <stop offset="100%" stop-color="#f3c969"/>
+    </radialGradient>
+    <radialGradient id="v2glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.92"/>
+      <stop offset="42%" stop-color="#f3c969" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#v2bg)"/>
+  <rect width="512" height="512" fill="url(#v2aur1)"/>
+  <rect width="512" height="512" fill="url(#v2aur2)"/>
+  <!-- звёзды -->
+  <g fill="#cdd6ff">
+    <circle cx="92" cy="118" r="4.4" opacity="0.75"/>
+    <circle cx="426" cy="132" r="3" opacity="0.55"/>
+    <circle cx="440" cy="360" r="3.4" opacity="0.6"/>
+    <circle cx="86" cy="356" r="2.8" opacity="0.5"/>
+    <circle cx="360" cy="70" r="2.6" opacity="0.5"/>
+    <circle cx="150" cy="452" r="3" opacity="0.55"/>
+  </g>
+  <!-- двойное кольцо -->
+  <circle cx="256" cy="256" r="152" fill="none" stroke="url(#v2ring)" stroke-width="14"/>
+  <circle cx="256" cy="256" r="122" fill="none" stroke="#9b8cff" stroke-width="6" opacity="0.5"/>
+  <!-- 12 делений на внешнем кольце -->
+  <g stroke="#cdd6ff" stroke-width="4" stroke-linecap="round" opacity="0.5">
+    <line x1="256" y1="97" x2="256" y2="113"/>
+    <line x1="256" y1="399" x2="256" y2="415"/>
+    <line x1="97" y1="256" x2="113" y2="256"/>
+    <line x1="399" y1="256" x2="415" y2="256"/>
+    <line x1="144" y1="144" x2="155" y2="155"/>
+    <line x1="357" y1="357" x2="368" y2="368"/>
+    <line x1="368" y1="144" x2="357" y2="155"/>
+    <line x1="155" y1="357" x2="144" y2="368"/>
+  </g>
+  <!-- большой крест: 2 оппозиции (диаметры) + рамка квадратов -->
+  <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <line x1="256" y1="122" x2="256" y2="390" stroke="#e8888f" stroke-width="12"/>
+    <line x1="122" y1="256" x2="390" y2="256" stroke="#e8888f" stroke-width="12"/>
+    <path d="M256 122 L390 256 L256 390 L122 256 Z" stroke="#f3c969" stroke-width="13"/>
+  </g>
+  <!-- планеты на концах креста -->
+  <circle cx="390" cy="256" r="16" fill="#7fd0ff"/>
+  <circle cx="256" cy="390" r="16" fill="#cdd6ff"/>
+  <circle cx="122" cy="256" r="15" fill="#e8888f"/>
+  <!-- Солнце — верхний узел креста -->
+  <circle cx="256" cy="122" r="46" fill="url(#v2glow)"/>
+  <circle cx="256" cy="122" r="23" fill="url(#v2sun)"/>
+</svg>

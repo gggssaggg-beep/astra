@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Astra icon v4: «Конверт» — гексагон (6 узлов на кольце), 2 оппозиции-диаметра
+       (розовые) + рамка тринов/секстилей (золото). Двойное кольцо, Солнце — верхний
+       узел со свечением. Отличается от «креста»: шесть точек, не четыре. Adaptive-safe. -->
+  <defs>
+    <radialGradient id="v4bg" cx="34%" cy="26%" r="96%">
+      <stop offset="0%" stop-color="#1a2150"/>
+      <stop offset="50%" stop-color="#0c1130"/>
+      <stop offset="100%" stop-color="#070a1c"/>
+    </radialGradient>
+    <radialGradient id="v4aur1" cx="76%" cy="28%" r="54%">
+      <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="v4aur2" cx="22%" cy="80%" r="56%">
+      <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="v4ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cdd6ff"/>
+      <stop offset="100%" stop-color="#9b8cff"/>
+    </linearGradient>
+    <radialGradient id="v4sun" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#fff4d6"/>
+      <stop offset="58%" stop-color="#f3c969"/>
+      <stop offset="100%" stop-color="#f3c969"/>
+    </radialGradient>
+    <radialGradient id="v4glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff4d6" stop-opacity="0.92"/>
+      <stop offset="42%" stop-color="#f3c969" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#v4bg)"/>
+  <rect width="512" height="512" fill="url(#v4aur1)"/>
+  <rect width="512" height="512" fill="url(#v4aur2)"/>
+  <!-- звёзды -->
+  <g fill="#cdd6ff">
+    <circle cx="96" cy="124" r="4.2" opacity="0.72"/>
+    <circle cx="422" cy="108" r="3" opacity="0.55"/>
+    <circle cx="446" cy="330" r="3.4" opacity="0.6"/>
+    <circle cx="80" cy="372" r="2.8" opacity="0.5"/>
+    <circle cx="336" cy="452" r="2.6" opacity="0.5"/>
+    <circle cx="170" cy="66" r="2.6" opacity="0.5"/>
+    <circle cx="452" cy="220" r="2.4" opacity="0.45"/>
+  </g>
+  <!-- двойное кольцо + 12 делений -->
+  <circle cx="256" cy="256" r="152" fill="none" stroke="url(#v4ring)" stroke-width="14"/>
+  <circle cx="256" cy="256" r="122" fill="none" stroke="#9b8cff" stroke-width="6" opacity="0.5"/>
+  <g stroke="#cdd6ff" stroke-width="4" stroke-linecap="round" opacity="0.5">
+    <line x1="256" y1="97" x2="256" y2="113"/>
+    <line x1="256" y1="399" x2="256" y2="415"/>
+    <line x1="97" y1="256" x2="113" y2="256"/>
+    <line x1="399" y1="256" x2="415" y2="256"/>
+    <line x1="144" y1="144" x2="155" y2="155"/>
+    <line x1="357" y1="357" x2="368" y2="368"/>
+    <line x1="368" y1="144" x2="357" y2="155"/>
+    <line x1="155" y1="357" x2="144" y2="368"/>
+  </g>
+  <!-- КОНВЕРТ: 6 узлов гексагона (☉ верх, ±60°, ±120°, низ).
+       Точки на r=140 от центра (256,256):
+       top(256,116) tr(377,186) br(377,326) bot(256,396) bl(135,326) tl(135,186) -->
+  <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- рамка секстилей/тринов (золото) — контур шестиугольника -->
+    <path d="M256 116 L377 186 L377 326 L256 396 L135 326 L135 186 Z" stroke="#f3c969" stroke-width="12"/>
+    <!-- две длинные диагонали-трины (золото) образуют «конверт» -->
+    <path d="M135 186 L377 326 M377 186 L135 326" stroke="#f3c969" stroke-width="11"/>
+    <!-- вертикальная оппозиция-диаметр (розовая) -->
+    <line x1="256" y1="116" x2="256" y2="396" stroke="#e8888f" stroke-width="11"/>
+  </g>
+  <!-- планеты на узлах -->
+  <circle cx="377" cy="186" r="13" fill="#7fd0ff"/>
+  <circle cx="377" cy="326" r="13" fill="#9b8cff"/>
+  <circle cx="256" cy="396" r="14" fill="#cdd6ff"/>
+  <circle cx="135" cy="326" r="13" fill="#e8888f"/>
+  <circle cx="135" cy="186" r="12" fill="#cdd6ff"/>
+  <!-- Солнце — верхний узел -->
+  <circle cx="256" cy="116" r="45" fill="url(#v4glow)"/>
+  <circle cx="256" cy="116" r="22" fill="url(#v4sun)"/>
+</svg>

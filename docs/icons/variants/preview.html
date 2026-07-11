@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Astra — иконка «Колесо неба»: 5 вариантов</title>
+<style>
+  :root { --gap: 28px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #f4f5f8;
+    color: #1a1a28;
+  }
+  header {
+    padding: 28px 32px 8px;
+  }
+  header h1 { margin: 0 0 4px; font-size: 22px; }
+  header p { margin: 0; color: #666; font-size: 14px; }
+  .section {
+    padding: 24px 32px 40px;
+  }
+  .section.dark {
+    background: #0a0e22;
+    color: #e6e9f5;
+  }
+  .section h2 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    opacity: .7;
+    margin: 8px 0 20px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: var(--gap);
+  }
+  .card {
+    background: rgba(255,255,255,.6);
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 16px;
+    padding: 18px;
+    text-align: center;
+  }
+  .dark .card {
+    background: rgba(255,255,255,.04);
+    border-color: rgba(255,255,255,.1);
+  }
+  .card .name { font-size: 13px; font-weight: 600; margin-bottom: 14px; opacity: .85; }
+  .row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 18px;
+    flex-wrap: wrap;
+  }
+  .cell { text-align: center; }
+  .cell figcaption { font-size: 11px; opacity: .55; margin-top: 6px; }
+  .square { display: block; }
+  .round { display: block; border-radius: 50%; }
+  img { image-rendering: auto; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Astra — иконка «Колесо неба»</h1>
+  <p>5 вариантов · размеры 144 / 72 / 48 px · квадрат и круглая маска (adaptive)</p>
+</header>
+
+<section class="section light">
+  <h2>На светлом фоне</h2>
+  <div class="grid" id="grid-light"></div>
+</section>
+
+<section class="section dark">
+  <h2>На тёмном фоне</h2>
+  <div class="grid" id="grid-dark"></div>
+</section>
+
+<script>
+  const variants = [
+    { file: "wheel-v1.svg", name: "v1 · Тригон + оппозиция (Солнце-вершина)" },
+    { file: "wheel-v2.svg", name: "v2 · Большой крест (двойное кольцо)" },
+    { file: "wheel-v3.svg", name: "v3 · Парус (треугольник + оппозиция)" },
+    { file: "wheel-v4.svg", name: "v4 · Конверт (2 оппозиции + трины)" },
+    { file: "wheel-v5.svg", name: "v5 · Сердце-Солнце (центр колеса)" },
+  ];
+  const sizes = [144, 72, 48];
+
+  function buildGrid(id) {
+    const grid = document.getElementById(id);
+    variants.forEach(v => {
+      const card = document.createElement("div");
+      card.className = "card";
+      const name = document.createElement("div");
+      name.className = "name";
+      name.textContent = v.name;
+      card.appendChild(name);
+
+      // квадратные превью
+      const rowSq = document.createElement("div");
+      rowSq.className = "row";
+      sizes.forEach(s => {
+        const fig = document.createElement("figure");
+        fig.className = "cell";
+        fig.style.margin = "0";
+        const img = document.createElement("img");
+        img.className = "square";
+        img.src = v.file;
+        img.width = s; img.height = s;
+        img.alt = v.name + " " + s + "px";
+        const cap = document.createElement("figcaption");
+        cap.textContent = s + "px";
+        fig.appendChild(img);
+        fig.appendChild(cap);
+        rowSq.appendChild(fig);
+      });
+      card.appendChild(rowSq);
+
+      // круглая маска
+      const rowRound = document.createElement("div");
+      rowRound.className = "row";
+      rowRound.style.marginTop = "16px";
+      sizes.forEach(s => {
+        const fig = document.createElement("figure");
+        fig.className = "cell";
+        fig.style.margin = "0";
+        const img = document.createElement("img");
+        img.className = "round";
+        img.src = v.file;
+        img.width = s; img.height = s;
+        img.alt = v.name + " круг " + s + "px";
+        const cap = document.createElement("figcaption");
+        cap.textContent = s + "px ○";
+        fig.appendChild(img);
+        fig.appendChild(cap);
+        rowRound.appendChild(fig);
+      });
+      card.appendChild(rowRound);
+
+      grid.appendChild(card);
+    });
+  }
+
+  buildGrid("grid-light");
+  buildGrid("grid-dark");
+</script>
+</body>
+</html>

@@ -495,15 +495,18 @@
     <div class="hint">{MODES.find((m) => m.id === mode)!.hint} — выбери
       {needCount === 1 ? 'человека' : 'двух людей'}.</div>
 
-    <PeopleList {people} {pair} {fmtBirth} ontoggle={toggleSel} onedit={openEdit} />
-
-    <button class="btn add" onclick={openNew}>+ Добавить человека</button>
+    <!-- «Открыть карту» НАД списком (просьба 2026-07-11): при длинном списке
+         людей кнопка внизу терялась за прокруткой -->
     {#if pair.length === needCount}
       <button class="btn primary open" onclick={openChart}>Открыть карту →</button>
     {:else if people.length}
       <button class="btn open" disabled>Открыть карту — выбери
         {needCount === 1 ? 'человека' : pair.length === 1 ? 'ещё одного' : 'двух людей'}</button>
     {/if}
+
+    <PeopleList {people} {pair} {fmtBirth} ontoggle={toggleSel} onedit={openEdit} />
+
+    <button class="btn add" onclick={openNew}>+ Добавить человека</button>
 
   {:else if view === 'form'}
     <PersonForm person={editPerson} {defaultTz}

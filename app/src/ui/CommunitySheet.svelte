@@ -13,6 +13,7 @@
   } from '../lib/community.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
+  import Icon from './Icon.svelte';
   import { tick as buzz, success } from '../lib/haptics.ts';
   import { PLANET_GLYPH, ASPECTS } from '../engine/index.ts';
   import { parseSignature } from '../lib/signature.ts';
@@ -266,11 +267,11 @@
       {#if open}
         <button class="link" class:on={subbed} onclick={toggleSub}
           title="Уведомлять о новых комментариях в этой ветке">
-          {subbed ? '🔔 Подписана' : '🔕 Подписаться'}</button>
+          {#if subbed}<Icon name="bell" /> Подписана{:else}<Icon name="bell-off" /> Подписаться{/if}</button>
       {/if}
       {#if session && !open && !notifView}
         <button class="bell" onclick={openNotifs} aria-label="Уведомления">
-          🔔{#if unread}<span class="badge">{unread > 99 ? '99+' : unread}</span>{/if}</button>
+          <Icon name="bell" />{#if unread}<span class="badge">{unread > 99 ? '99+' : unread}</span>{/if}</button>
         <button class="link" class:warn={confirmOut} onclick={logoutTap}>
           {confirmOut ? 'точно выйти?' : 'выйти'}</button>
       {/if}
@@ -378,7 +379,7 @@
       </div>
     {:else}
       <button class="btn primary newbtn" onclick={() => (creating = true)}>
-        ✎ Новое обсуждение{signature ? ' этого аспекта' : ''}</button>
+        <Icon name="pencil" /> Новое обсуждение{signature ? ' этого аспекта' : ''}</button>
     {/if}
 
     {#if loading}<div class="hint">✦ загружаю…</div>{/if}

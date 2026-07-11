@@ -42,6 +42,7 @@
     courseState, openCourse, closeCourse, closeLesson } from './lib/studyStore.svelte.ts';
   import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
+  import Icon from './ui/Icon.svelte';
   import { glyphStyle } from './lib/glyphStyle.svelte.ts';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
@@ -549,10 +550,10 @@
      из Библиотеки убрана (есть в «Картах»). Дата — тапом по шапке. -->
 <nav class="tabbar glass frost" aria-label="Меню">
   <button class:on={showLibrary || !!libSheet || courseState.open}
-    onclick={() => (showLibrary = true)} aria-label="Библиотека" data-tour="tab-library"><span class="ti glyph">📚</span><span class="tl">Библиотека</span></button>
-  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди" data-tour="tab-charts"><span class="ti glyph">👥</span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
-  <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество" data-tour="tab-community"><span class="ti glyph">✧</span><span class="tl">Сообщество</span></button>
-  <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки" data-tour="tab-settings"><span class="ti glyph">⚙</span><span class="tl">Настройки</span></button>
+    onclick={() => (showLibrary = true)} aria-label="Библиотека" data-tour="tab-library"><span class="ti"><Icon name="book" /></span><span class="tl">Библиотека</span></button>
+  <button class="mid" class:on={!!showCharts} onclick={() => (showCharts = {})} aria-label="Карты и люди" data-tour="tab-charts"><span class="ti"><Icon name="users" /></span><span class="tl">Карты</span>{#if clientChartsWaiting > 0}<span class="ncount" aria-label="Новые карты клиентов">{clientChartsWaiting}</span>{/if}</button>
+  <button class:on={!!showCommunity} onclick={() => (showCommunity = {})} aria-label="Сообщество" data-tour="tab-community"><span class="ti"><Icon name="sparkle" /></span><span class="tl">Сообщество</span></button>
+  <button class:on={showData} onclick={() => (showData = true)} aria-label="Настройки" data-tour="tab-settings"><span class="ti"><Icon name="settings" /></span><span class="tl">Настройки</span></button>
 </nav>
 
 {#if showData}

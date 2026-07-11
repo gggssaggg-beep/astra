@@ -2,6 +2,7 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import GlowCard from './GlowCard.svelte';
+  import Icon from './Icon.svelte';
 
   let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
         onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures }:
@@ -26,7 +27,7 @@
   <div class="grp">Учусь</div>
   <GlowCard radius={14} onactivate={onCourse}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">🎓</span>
+      <span class="ic"><Icon name="school" /></span>
       <div class="txt"><b>Астрология с нуля</b><small>8 коротких уроков от колеса до своей карты</small></div>
       <span class="arr">→</span>
     </button>
@@ -35,14 +36,14 @@
   <div class="grp">Мой дневник</div>
   <GlowCard radius={14} onactivate={onJournal}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">📓</span>
+      <span class="ic"><Icon name="notebook" /></span>
       <div class="txt"><b>Журнал</b><small>наблюдения по дням, сравнение заметок</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onTracked}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">★</span>
+      <span class="ic"><Icon name="star" /></span>
       <div class="txt"><b>Отслеживаю</b><small>закреплённые пары + аспекты</small></div>
       <span class="arr">→</span>
     </button>
@@ -51,42 +52,42 @@
   <div class="grp">Трактовки</div>
   <GlowCard radius={14} onactivate={onInterpretations}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">📖</span>
+      <span class="ic"><Icon name="book2" /></span>
       <div class="txt"><b>Значения аспектов</b><small>тексты по парам планет в аспекте + свои</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onPlanetSigns}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">🪐</span>
+      <span class="ic"><Icon name="planet" /></span>
       <div class="txt"><b>Планеты в знаках</b><small>архетип планеты в мифе знака</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onPlanetHouses}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">🔭</span>
+      <span class="ic"><Icon name="telescope" /></span>
       <div class="txt"><b>Планеты в домах</b><small>архетип планеты в чертогах дома</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onHouses}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">🏠</span>
+      <span class="ic"><Icon name="home" /></span>
       <div class="txt"><b>Значения домов</b><small>знак на куспиде каждого дома</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onDispositors}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">👑</span>
+      <span class="ic"><Icon name="crown" /></span>
       <div class="txt"><b>Управители домов</b><small>диспозитор куспида и дом его положения</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onPlanetCusps}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">📐</span>
+      <span class="ic"><Icon name="angle" /></span>
       <div class="txt"><b>Аспекты планет к домам</b><small>архетип планеты аспектирует куспид дома</small></div>
       <span class="arr">→</span>
     </button>
@@ -95,21 +96,21 @@
   <div class="grp">Небо сейчас</div>
   <GlowCard radius={14} onactivate={onFigures}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">◆</span>
+      <span class="ic"><Icon name="diamond" /></span>
       <div class="txt"><b>Фигуры дня</b><small>конфигурации аспектов: тригон, тау, парус…</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onRetro}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">℞</span>
+      <span class="ic"><Icon name="arrow-back" /></span>
       <div class="txt"><b>Ретроградность</b><small>фазы ретро сейчас: тень, станции, ход</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onDegree}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">🔎</span>
+      <span class="ic"><Icon name="search" /></span>
       <div class="txt"><b>Поиск градуса</b><small>когда планета проходила заданный градус</small></div>
       <span class="arr">→</span>
     </button>
@@ -118,14 +119,14 @@
   <div class="grp">Мифы</div>
   <GlowCard radius={14} onactivate={onArchetypes}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">🏛</span>
+      <span class="ic"><Icon name="columns" /></span>
       <div class="txt"><b>Архетипы планет</b><small>миф и архетип на каждую планету</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
   <GlowCard radius={14} onactivate={onSignMyths}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">📜</span>
+      <span class="ic"><Icon name="scroll" /></span>
       <div class="txt"><b>Мифы знаков</b><small>бог на каждый знак зодиака и его грани</small></div>
       <span class="arr">→</span>
     </button>
@@ -133,7 +134,7 @@
 
   <GlowCard radius={14} onactivate={onChat}>
     <button class="row reveal" use:reveal>
-      <span class="ic glyph">💬</span>
+      <span class="ic"><Icon name="message" /></span>
       <div class="txt"><b>Чат с Claude</b><small>трактовки по архетипам, на своём ключе</small></div>
       <span class="arr">→</span>
     </button>

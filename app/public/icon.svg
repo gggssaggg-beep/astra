@@ -1,17 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <radialGradient id="bg" cx="50%" cy="32%" r="75%">
-      <stop offset="0%" stop-color="#20184d"/>
-      <stop offset="55%" stop-color="#141a44"/>
-      <stop offset="100%" stop-color="#070a1c"/>
-    </radialGradient>
-  </defs>
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- полумесяц по центру -->
-  <path d="M300 120a150 150 0 1 0 0 272 124 124 0 1 1 0-272z" fill="#cdd6ff"/>
-  <!-- звёзды -->
-  <circle cx="356" cy="158" r="11" fill="#f3c969"/>
-  <circle cx="388" cy="226" r="6" fill="#cdd6ff"/>
-  <circle cx="162" cy="372" r="7.5" fill="#9b8cff"/>
-  <circle cx="338" cy="356" r="5" fill="#cdd6ff"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><defs>
+  <radialGradient id="bg" cx="38%" cy="26%" r="95%">
+    <stop offset="0%" stop-color="#1a2150"/><stop offset="52%" stop-color="#0d1230"/><stop offset="100%" stop-color="#070a1c"/>
+  </radialGradient>
+  <radialGradient id="av" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.36"/><stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="ac" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.24"/><stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#cdd6ff"/><stop offset="100%" stop-color="#9b8cff"/>
+  </linearGradient>
+  <radialGradient id="sun" cx="38%" cy="34%" r="80%">
+    <stop offset="0%" stop-color="#fff4d6"/><stop offset="55%" stop-color="#f3c969"/><stop offset="100%" stop-color="#e8a03e"/>
+  </radialGradient>
+  <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#f3c969" stop-opacity="0.5"/><stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+  </radialGradient></defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="148" cy="118" r="195" fill="url(#av)"/>
+  <circle cx="394" cy="410" r="215" fill="url(#ac)"/>
+  <g fill="#cdd6ff"><circle cx="92" cy="128" r="4" opacity="0.75"/><circle cx="430" cy="96" r="3" opacity="0.55"/>
+  <circle cx="452" cy="286" r="3.4" opacity="0.6"/><circle cx="70" cy="356" r="3" opacity="0.5"/><circle cx="368" cy="452" r="3.6" opacity="0.6"/></g>
+  <path d="M408 383 c1.3 7.539999999999999 5.46 11.700000000000001 13 13 c-7.539999999999999 1.3 -11.700000000000001 5.46 -13 13 c-1.3 -7.539999999999999 -5.46 -11.700000000000001 -13 -13 c7.539999999999999 -1.3 11.700000000000001 -5.46 13 -13 z" fill="#cdd6ff" opacity="0.95"/>
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#ring)" stroke-width="12"/>
+  <circle cx="256" cy="256" r="104" fill="none" stroke="#9b8cff" stroke-width="5" opacity="0.4"/>
+  <path d="M256 106 L256 406" fill="none" stroke="#9b8cff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/> <path d="M406 256 L106 256" fill="none" stroke="#7fd0ff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M256 106 L406 256 L256 406 L106 256 Z" fill="none" stroke="#f3c969" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="106" r="36" fill="url(#halo)"/>
+  <circle cx="256" cy="106" r="20" fill="url(#sun)"/>
+  <circle cx="406" cy="256" r="13" fill="#7fd0ff"/> <circle cx="256" cy="406" r="13" fill="#cdd6ff"/> <circle cx="106" cy="256" r="13" fill="#9b8cff"/></svg>

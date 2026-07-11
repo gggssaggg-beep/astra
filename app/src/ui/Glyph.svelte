@@ -8,13 +8,16 @@
    */
   import { PLANET_PATHS, ASPECT_PATHS, ASPECT_SYMBOL_PATHS, RETRO_PATH } from './glyphPaths.ts';
   import { SIGN_PATHS } from './signIcons.ts';
+  import { glyphStyle } from '../lib/glyphStyle.svelte.ts';
   import type { SignStyle } from '../lib/models.ts';
 
-  let { kind, name = '', index = 0, style = 'gold', sel = false }:
+  let { kind, name = '', index = 0, style, sel = false }:
     { kind: 'planet' | 'aspect' | 'sign' | 'retro'; name?: string; index?: number;
       style?: SignStyle; sel?: boolean } = $props();
 
   const ELEM = ['#ff8a5b', '#7fd99a', '#7fd0ff', '#b39bff'];
+  // стиль: явный проп → общий стор (App кладёт туда резолвнутый effSignStyle)
+  const eff = $derived(style ?? glyphStyle.v);
   const paths = $derived(
     kind === 'planet' ? (PLANET_PATHS[name] ?? [])
     : kind === 'aspect' ? (ASPECT_PATHS[name] ?? ASPECT_SYMBOL_PATHS[name] ?? [])
@@ -22,11 +25,10 @@
     : (SIGN_PATHS[index] ?? []));
   const paint = $derived(
     sel ? 'var(--neon-cyan)'
-    : style === 'silver' ? 'var(--silver)'
-    : style === 'gold' ? 'var(--gold)'
-    : style === 'element' ? ELEM[(((index % 4) + 4) % 4)]
-    : style === 'shimmer' ? 'url(#glyphShimmer)'
-    : style === 'rainbow' ? 'url(#glyphRainbow)'
+    : eff === 'silver' ? 'var(--silver)'
+    : eff === 'gold' ? 'var(--gold)'
+    : eff === 'element' ? ELEM[(((index % 4) + 4) % 4)]
+    : eff === 'rainbow' ? 'url(#glyphRainbow)'
     : 'currentColor');
 </script>
 

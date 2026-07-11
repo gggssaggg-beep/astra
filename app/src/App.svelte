@@ -43,6 +43,7 @@
   import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
   import GlyphDefs from './ui/GlyphDefs.svelte';
+  import { glyphStyle } from './lib/glyphStyle.svelte.ts';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
   import { rescheduleAll, onNotificationTap, notifyNewVersion } from './lib/reminders.ts';
@@ -408,14 +409,18 @@
   // останавливаются → при экономии подменяем стиль колеса на статичный «золото»
   // (Б-1 энерго-аудита). Без экономии — стиль пользователя как есть.
   // 'auto' → по теме: тёмная = серебро, светлая = радуга; иначе выбранный стиль.
-  // Резолвим ЗДЕСЬ — компоненты (колесо, Glyph) 'auto' не видят.
-  const baseSignStyle = $derived(
-    (settings.signStyle ?? 'auto') === 'auto'
-      ? (themeLight ? 'rainbow' : 'silver')
-      : settings.signStyle);
+  // Резолвим ЗДЕСЬ — компоненты (колесо, Glyph) 'auto' не видят. 'shimmer'
+  // (Переливание) убран из выбора 2026-07-11 — старое значение ведёт себя как 'auto'.
+  const baseSignStyle = $derived.by(() => {
+    const s = settings.signStyle ?? 'auto';
+    if (s === 'auto' || s === 'shimmer') return themeLight ? 'rainbow' : 'silver';
+    return s;
+  });
   const effSignStyle = $derived(
-    saverOn && (baseSignStyle === 'shimmer' || baseSignStyle === 'rainbow')
-      ? 'gold' : baseSignStyle);
+    saverOn && baseSignStyle === 'rainbow' ? 'gold' : baseSignStyle);
+  // стиль инлайновых глифов (Glyph.svelte в шторках/списках) — через модульный
+  // стор, чтобы не тащить проп через 20 компонентов
+  $effect(() => { glyphStyle.v = effSignStyle; });
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.
   let x0 = 0, y0 = 0;

@@ -13,12 +13,14 @@ export type EclipseKind = 'solar' | 'lunar';
  * 'auto' — по теме: тёмная → серебро, светлая → радуга (App резолвит в конкретный
  * стиль; компоненты 'auto' не видят). Красит и знаки, и глифы планет/аспектов. */
 export type SignStyle = 'auto' | 'silver' | 'gold' | 'element' | 'shimmer' | 'rainbow';
+// «Переливание» (shimmer) убрано из выбора 2026-07-11 (SMIL-градиент грузил
+// интерфейс — жалоба). Тип остаётся для совместимости: у кого было выбрано —
+// App резолвит как 'auto'.
 export const SIGN_STYLES: { id: SignStyle; label: string }[] = [
   { id: 'auto', label: 'Авто · по теме' },
   { id: 'silver', label: 'Серебро' },
   { id: 'gold', label: 'Золото · свечение' },
   { id: 'element', label: 'По стихиям' },
-  { id: 'shimmer', label: 'Переливание' },
   { id: 'rainbow', label: 'Радуга' },
 ];
 

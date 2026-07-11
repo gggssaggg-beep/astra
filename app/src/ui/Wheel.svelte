@@ -357,14 +357,14 @@
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />
     <!-- глиф планеты — свой SVG-контур (одинаков на всех Android), красится по
          стилю знаков (signStroke), как знаки зодиака; выбранная светится САМА
-         (циан). Ретроградность показывает золотой ℞ рядом (глиф не перекрашиваем —
-         иначе почти все планеты золотые: сейчас много ретро + узлы «вибрируют»).
+         (циан), ретроградная — ЗОЛОТАЯ (жёлтый цвет ретро вернуть — просьба
+         владелицы 2026-07-11) + золотой ℞ рядом.
          Астероиды/TNO вне базового набора — фолбэк на прежний символьный шрифт. -->
     {#if PLANET_PATHS[p.name]}
       <svg class="planeticon" class:sel={p.name === selPlanet}
         x={pos.x - PICON / 2} y={pos.y - PICON / 2} width={PICON} height={PICON}
         viewBox="0 0 24 24" fill="none"
-        style="stroke:{p.name === selPlanet ? 'var(--neon-cyan)' : signStroke(i)}"
+        style="stroke:{p.name === selPlanet ? 'var(--neon-cyan)' : p.retro ? 'var(--gold)' : signStroke(i)}"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         {#each PLANET_PATHS[p.name] as d}<path {d} />{/each}
       </svg>

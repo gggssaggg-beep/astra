@@ -13,7 +13,7 @@
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { discussionCounts } from '../lib/community.ts';
-  import { db } from '../lib/db.ts';
+  import { db, onChange } from '../lib/db.ts';
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
@@ -136,16 +136,27 @@
   // (класс на обёртке .day → CSS-анимация; экономия глушит её общим правилом
   // app.css :root[data-saver] — обычный CSS animation, не инлайн-стиль).
   // Гаснет по таймеру ИЛИ при первом тапе по любой «?» — тогда флаг seenHintGlow.
-  let glowHints = $state(!db.settings.get().seenHintGlow);
+  // ВАЖНО: DayScreen смонтирован ПОД оверлеем Welcome — стартуем подсветку
+  // только когда приветствие закрыто (seenWelcome), иначе 3 сек сгорали за
+  // оверлеем и пользователь пульсацию не видел.
+  let glowHints = $state(false);
   function dismissHintGlow() {
     if (db.settings.get().seenHintGlow) return;   // уже гасили — не трогаем стор
     db.settings.set({ ...db.settings.get(), seenHintGlow: true });
     glowHints = false;
   }
   $effect(() => {
-    if (!glowHints) return;
-    const t = setTimeout(dismissHintGlow, 3000);  // до 3 сек, потом сам гаснет
-    return () => clearTimeout(t);
+    if (db.settings.get().seenHintGlow) return;
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const tryStart = () => {
+      const s = db.settings.get();
+      if (glowHints || t || s.seenHintGlow || !s.seenWelcome) return;
+      glowHints = true;
+      t = setTimeout(dismissHintGlow, 3000);      // до 3 сек, потом сам гаснет
+    };
+    tryStart();                                    // уже не первый запуск → сразу
+    const off = onChange(tryStart);                // Welcome закрылся → старт
+    return () => { off(); if (t) clearTimeout(t); };
   });
 
   // ── Онбординг: разбор первой карточки аспекта (П.5) ────────────────────

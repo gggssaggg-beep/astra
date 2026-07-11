@@ -14,6 +14,9 @@
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
   import { tap, success } from '../lib/haptics.ts';
+  import Wheel from './Wheel.svelte';
+  import LessonVisual from './LessonVisual.svelte';
+  import { glyphStyle } from '../lib/glyphStyle.svelte.ts';
 
   let { lessonId, engine, date, tz, objects, orbOf, onnavigate }:
     { lessonId: string; engine: Engine; date: Date; tz: string;
@@ -34,13 +37,21 @@
   const quiz = $derived(lesson?.quiz ? lesson.quiz.build(ctx) : null);
 
   let picked = $state<number | null>(null);
+  // смена урока НЕ пересоздаёт компонент (меняется только lessonId) — без сброса
+  // ответ прошлого квиза оставался «нажатым» в следующем уроке (жалоба №6)
+  $effect(() => { void lessonId; picked = null; });
   function pick(i: number): void {
     if (picked !== null || !quiz) return;
     picked = i;
     if (i === quiz.correct) success(); else tap();
   }
 
-  const doneSet = new Set(db.settings.get().studyDone ?? []);
+  // пересчитывать на смену урока — иначе кнопка «Урок пройден» показывала
+  // состояние урока, с которого шторку открыли
+  const doneSet = $derived.by(() => {
+    void lessonId;
+    return new Set(db.settings.get().studyDone ?? []);
+  });
   function complete(): void {
     if (lesson && !doneSet.has(lesson.id)) {
       const next = [...(db.settings.get().studyDone ?? []), lesson.id];
@@ -66,6 +77,7 @@
     {#each lesson.blocks as b}
       <div class="block reveal" use:reveal>
         {#if b.text}<p class="btext">{b.text}</p>{/if}
+        {#if b.visual}<LessonVisual type={b.visual} />{/if}
         {#if b.glossKeys?.length}
           <div class="chips">
             {#each b.glossKeys as k}
@@ -90,6 +102,11 @@
       <div class="quiz block">
         <div class="qlbl">Мини-задание</div>
         <div class="q">{quiz.q}</div>
+        {#if quiz.wheel}
+          <!-- вопрос «про колесо» → живое колесо ПРЯМО в вопросе (№7: раньше
+               приходилось сворачивать три шторки, чтобы взглянуть на небо) -->
+          <div class="qwheel"><Wheel positions={ctx.positions} signStyle={glyphStyle.v} /></div>
+        {/if}
         <div class="opts">
           {#each quiz.options as opt, i}
             <button class="opt" class:right={picked !== null && i === quiz.correct}
@@ -137,6 +154,7 @@
   .go { display: inline-block; margin-top: 12px; background: var(--accent); border: none; color: var(--on-accent);
     font-weight: 600; border-radius: 12px; padding: 10px 16px; font-size: 0.9rem; }
   .qlbl { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); font-weight: 600; margin-bottom: 8px; }
+  .qwheel { margin: 2px 0 12px; }
   .quiz .q { font-size: 0.98rem; margin-bottom: 12px; }
   .opts { display: flex; flex-direction: column; gap: 8px; }
   .opt { text-align: left; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);

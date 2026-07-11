@@ -13,6 +13,7 @@
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { discussionCounts } from '../lib/community.ts';
+  import { db } from '../lib/db.ts';
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
@@ -129,9 +130,38 @@
   // «?» про аспекты — только на первой НЕпустой секции (не троить подсказку)
   const firstAspectSec = $derived(
     day.moon.length ? 'Луна' : day.fast.length ? 'Быстрые' : day.slow.length ? 'Медленные' : null);
+
+  // ── Онбординг: разовая подсветка «?» (П.2) ─────────────────────────────
+  // При ПЕРВОМ визите экрана дня кнопки-подсказки «?» мягко пульсируют 3 сек
+  // (класс на обёртке .day → CSS-анимация; экономия глушит её общим правилом
+  // app.css :root[data-saver] — обычный CSS animation, не инлайн-стиль).
+  // Гаснет по таймеру ИЛИ при первом тапе по любой «?» — тогда флаг seenHintGlow.
+  let glowHints = $state(!db.settings.get().seenHintGlow);
+  function dismissHintGlow() {
+    if (db.settings.get().seenHintGlow) return;   // уже гасили — не трогаем стор
+    db.settings.set({ ...db.settings.get(), seenHintGlow: true });
+    glowHints = false;
+  }
+  $effect(() => {
+    if (!glowHints) return;
+    const t = setTimeout(dismissHintGlow, 3000);  // до 3 сек, потом сам гаснет
+    return () => clearTimeout(t);
+  });
+
+  // ── Онбординг: разбор первой карточки аспекта (П.5) ────────────────────
+  // Одноразовая обучалка НАД первой карточкой — как обучалка журнала
+  // (seenJournalHelp): видна до «Понятно», флаг в настройках (пишем напрямую в db).
+  let seenCardHelp = $state(!!db.settings.get().seenAspectCardHelp);
+  function dismissCardHelp() {
+    db.settings.set({ ...db.settings.get(), seenAspectCardHelp: true });
+    seenCardHelp = true;
+  }
 </script>
 
-<div class="day">
+<!-- glow-hints: разовая пульсация «?» (П.2). Тап по любой «?» гасит подсветку —
+     ловим в фазе ЗАХВАТА, т.к. Hint делает stopPropagation (не всплывёт). -->
+<div class="day" class:glow-hints={glowHints}
+  onclickcapture={(e) => { if (glowHints && (e.target as HTMLElement)?.closest('.hint-q')) dismissHintGlow(); }}>
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass" data-tour="wheel">
     <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
@@ -222,6 +252,19 @@
   {#each [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}
     {#if s.list.length}
       <h3 class="sec" data-tour={s.title === firstAspectSec ? 'aspects' : undefined}>{s.title}{#if s.title === firstAspectSec} <Hint k="aspect" />{/if}</h3>
+      <!-- П.5: разовый разбор карточки аспекта «на пальцах» — над самой первой
+           карточкой (первой НЕпустой секции). Как обучалка журнала: до «Понятно». -->
+      {#if !seenCardHelp && s.title === firstAspectSec}
+        <div class="cardhelp glass">
+          <b>Как читать карточку ✧</b>
+          <ul>
+            <li><b>☽△♀</b> — кто с кем и какой аспект (например, Луна в трине к Венере).</li>
+            <li><b>0.42°→</b> — текущий орбис (насколько точно сходятся) и куда идёт: <b>→</b> сближается, <b>←</b> расходится.</li>
+            <li><b>времена внизу</b> — интервал аспекта: вход в орбис → точный момент → выход.</li>
+          </ul>
+          <button class="btn" onclick={dismissCardHelp}>Понятно ✓</button>
+        </div>
+      {/if}
       {#each s.list as rec (rec.p1 + rec.p2 + rec.aspect)}
         {@const sig = aspectSignature(rec.p1, rec.p2, rec.aspect)}
         <!-- тап: обводка обегает карточку → ПОТОМ открывается трактовка; выбранный
@@ -237,8 +280,8 @@
 
   {#if !day.moon.length && !day.fast.length && !day.slow.length}
     <div class="empty">☽ Небо сегодня тихое — ни одного мажорного аспекта в орбисе.<br />
-      <span class="empty2">Редкий день, чтобы просто выдохнуть.<br />
-        Хочется больше — полистай соседние дни ‹ › или расширь орбис в Настройках.</span></div>
+      <span class="empty2">Такое бывает часто — это не поломка, приложение считает верно.<br />
+        Полистай соседние дни ‹ › — там аспекты найдутся; или расширь орбис в Настройках.</span></div>
   {/if}
 </div>
 
@@ -336,4 +379,24 @@
   .k-lunation .evg { color: var(--silver); }
   .empty { text-align: center; color: var(--ink-dim); padding: 30px 0; line-height: 1.6; }
   .empty2 { color: var(--ink-faint); font-size: 0.86rem; }
+
+  /* ── П.5: обучалка-разбор первой карточки аспекта (как .help журнала) ── */
+  .cardhelp { padding: 12px 14px; margin: 4px 4px 10px; font-size: 0.88rem; color: var(--ink-dim); }
+  .cardhelp b { color: var(--ink); }
+  .cardhelp ul { margin: 8px 0 10px; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+  .cardhelp .btn { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 12px; padding: 7px 14px; font-size: 0.84rem; }
+
+  /* ── П.2: разовая мягкая пульсация «?» при первом визите экрана дня ──────
+     Обычный CSS animation → экономия глушит его общим правилом app.css
+     (:root[data-saver] animation-iteration-count:1 → одна вспышка, не бесконечно). */
+  .glow-hints :global(.hint-q) {
+    animation: hint-pulse 1.4s ease-in-out 2;
+    border-color: color-mix(in srgb, var(--accent) 60%, var(--glass-brd));
+    color: var(--accent);
+  }
+  @keyframes hint-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+    50% { box-shadow: 0 0 8px 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+  }
 </style>

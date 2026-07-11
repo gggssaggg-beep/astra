@@ -47,6 +47,8 @@ export interface Settings {
   font?: string;              // id шрифта интерфейса (lib/fonts.ts; нет = дефолт)
   seenWelcome: boolean;       // приветствие первого запуска уже показано
   seenJournalHelp?: boolean;  // обучалка журнала показана (закрыта кнопкой)
+  seenHintGlow?: boolean;     // разовая подсветка «?» на экране дня уже показана
+  seenAspectCardHelp?: boolean; // обучалка-разбор первой карточки аспекта показана
   seenTour?: boolean;         // тур по интерфейсу пройден/закрыт хотя бы раз
   tourOfferOff?: boolean;     // «не предлагать обучение» (✕ на плашке)
   studyDone?: string[];       // id пройденных уроков курса «с нуля» (слой 2); нет = пусто

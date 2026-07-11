@@ -16,56 +16,33 @@
 
   import type { SignStyle } from '../lib/models.ts';
   import type { WheelInfo } from '../lib/lore.ts';
-  let { engine, date, orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false, selectedSignature = null, selectedInfo = null, onAspect, oninfo }:
-    { engine: Engine; date: Date; orbOf: (name: string) => number; tz: string;
+  // Прокрутка живёт в App (переживает пересоздание страницы, не сбрасывается на
+  // границе суток). Сюда приходят готовый `snapshot` (прокрученный момент для
+  // колеса/планет/Луны) и `scrubbed`/`scrubScale`; жест колеса и «↺ сейчас»/
+  // смена масштаба — коллбэки наверх.
+  let { engine, date, snapshot, scrubbed = false, scrubScale = 'day',
+        orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
+        selectedSignature = null, selectedInfo = null,
+        onAspect, oninfo, onscrub, onresetnow, onscale }:
+    { engine: Engine; date: Date; snapshot: Date; scrubbed?: boolean;
+      scrubScale?: 'day' | 'month' | 'year';
+      orbOf: (name: string) => number; tz: string;
       objects?: string[] | null; signStyle?: SignStyle; nodalAxisFigures?: boolean;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
-      onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void } = $props();
+      onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void;
+      onscrub?: (deltaMs: number) => void; onresetnow?: () => void;
+      onscale?: (s: 'day' | 'month' | 'year') => void } = $props();
 
-  // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса. Снимок положений
-  // (колесо, Луна, чипы планет) — на НАСТОЯЩИЙ момент: для сегодня = «сейчас»,
-  // для другого дня = тот же час суток (требование астролога), а не 00:00.
+  // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса ЭФФЕКТИВНОЙ даты (при
+  // прокрутке за полночь `date` = гражданская дата прокрученного момента, контент
+  // следует за ней). Снимок положений (колесо, Луна, чипы) — переданный `snapshot`.
   const dayStart = $derived(zonedDayStartUTC(date, tz));
-  const isToday = $derived(date.getTime() === todayCivil(tz).getTime());
+  const isToday = $derived(!scrubbed && date.getTime() === todayCivil(tz).getTime());
 
-  let nowMs = $state(Date.now());
-  $effect(() => {
-    // живое «сейчас». При критическом заряде (data-saver='max') обновляем раз в
-    // 5 мин, а не раз в минуту — реже дёргаем WASM positions()+перерисовку колеса
-    // (Б-9 энерго-аудита). Таймер-тик дешёвый; дорога реактивная цепочка nowMs.
-    let last = Date.now();
-    const id = setInterval(() => {
-      if (document.documentElement.dataset.saver === 'max' && Date.now() - last < 300_000) return;
-      last = Date.now();
-      nowMs = Date.now();
-    }, 60_000);
-    return () => clearInterval(id);
-  });
-  // прокрутка колеса дня: тянешь по кругу — момент снимка едет (оборот = сутки),
-  // как в «Картах». Смена дня сбрасывает прокрутку. rAF-дебаунс: pointermove
-  // чаще кадров, а каждый тик тянет WASM positions() — копим дельту на кадр.
-  let scrubOffset = $state(0);
-  $effect(() => { void date; scrubOffset = 0; });
-  let scrubPending = 0, scrubRaf = 0;
-  function scrubWheel(deltaMs: number): void {
-    scrubPending += deltaMs;
-    if (scrubRaf) return;
-    scrubRaf = requestAnimationFrame(() => { scrubOffset += scrubPending; scrubPending = 0; scrubRaf = 0; });
-  }
-  const scrubbed = $derived(scrubOffset !== 0);
-  function resetScrub(): void { scrubOffset = 0; }
-  const snapshot = $derived.by(() => {
-    const todayStart = zonedDayStartUTC(todayCivil(tz), tz).getTime();
-    const tod = Math.min(Math.max(nowMs - todayStart, 0), 86_400_000 - 1); // мс от местной полуночи
-    return new Date(dayStart.getTime() + tod + scrubOffset);
-  });
-  // при прокрутке ЗА ПОЛНОЧЬ показываем и ДАТУ снимка, не только время — иначе
-  // «кручу-кручу, а дата та же» (жалоба владелицы). Ярлык дня — в поясе tz.
-  const dfKey = (d: Date) => new Intl.DateTimeFormat('en-CA',
-    { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  const SCRUB_CAP = { day: 'сутки за оборот', month: 'месяц за оборот', year: 'год за оборот' } as const;
+  // подпись прокрученного дня для строки под колесом (в поясе tz)
   const dfDay = (d: Date) => new Intl.DateTimeFormat('ru-RU',
     { timeZone: tz, day: 'numeric', month: 'short' }).format(d);
-  const scrubCrossesDay = $derived(scrubbed && dfKey(snapshot) !== dfKey(dayStart));
 
   const positions = $derived(engine.positions(snapshot, objects ?? undefined));
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
@@ -158,18 +135,26 @@
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass" data-tour="wheel">
     <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
-      {oninfo} onscrub={scrubWheel} />
+      {oninfo} {onscrub} />
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
          выглядит как загадочные «мои 4 утра» (вопрос владелицы). Прокрутка колеса
-         двигает момент — тогда показываем прокрученное время и кнопку «сейчас». -->
+         двигает момент — тогда показываем прокрученную дату/время и кнопку «сейчас». -->
     <div class="snaptime">
       {#if scrubbed}
-        <button class="resetnow" onclick={resetScrub}>↺ сейчас</button>
-        <span>прокрутка · {#if scrubCrossesDay}<b class="scrubday">{dfDay(snapshot)}</b>,&nbsp;{/if}{fmtTime(snapshot, tz)}</span>
+        <button class="resetnow" onclick={() => onresetnow?.()}>↺ сейчас</button>
+        <span>прокрутка · <b class="scrubday">{dfDay(snapshot)}</b>,&nbsp;{fmtTime(snapshot, tz)}</span>
       {:else}
         {isToday ? `сейчас · ${fmtTime(snapshot, tz)}` : `на ${fmtTime(snapshot, tz)} — тот же час, что сейчас`}
       {/if}
     </div>
+    <!-- масштаб прокрутки как в «Картах»: оборот диска = сутки/30 суток/365 суток.
+         Дата при прокрутке уезжает в ШАПКУ (её меняет App), контент следует. -->
+    <div class="scale" role="group" aria-label="Масштаб прокрутки">
+      <button class="sc" class:on={scrubScale === 'day'} onclick={() => onscale?.('day')}>день</button>
+      <button class="sc" class:on={scrubScale === 'month'} onclick={() => onscale?.('month')}>месяц</button>
+      <button class="sc" class:on={scrubScale === 'year'} onclick={() => onscale?.('year')}>год</button>
+    </div>
+    <div class="scalecap">крути колесо пальцем — {SCRUB_CAP[scrubScale]}</div>
     <!-- легенда цветов линий/кромок — «невзначай», одной тихой строкой -->
     <div class="legend">
       <span class="lg harm">гармония</span><span class="lg tense">напряжение</span><span class="lg neutral">нейтрально</span>
@@ -272,6 +257,13 @@
   .resetnow { background: #ffffff12; border: 1px solid var(--glass-brd); color: var(--accent);
     border-radius: 999px; padding: 2px 10px; font-size: 0.72rem; font-family: var(--font-mono); }
   .scrubday { color: var(--accent); font-weight: 600; }
+  /* сегмент масштаба прокрутки — как в «Картах» (TransitControls .scale/.sc) */
+  .scale { display: flex; justify-content: center; gap: 4px; margin-top: 6px; }
+  .sc { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
+    border-radius: 999px; padding: 5px 12px; font-size: 0.74rem; }
+  .sc.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-brd));
+    background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  .scalecap { text-align: center; color: var(--ink-faint); font-size: 0.7rem; margin-top: 4px; }
   /* тихая легенда цветов: чёрточка цвета линии + слово, не отвлекает */
   .legend { display: flex; justify-content: center; gap: 14px; margin-top: 4px;
     color: var(--ink-faint); font-size: 0.68rem; }

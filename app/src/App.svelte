@@ -6,7 +6,7 @@
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { hydrateKey } from './lib/secret.ts';
-  import { todayCivil, zonedDayStartUTC } from './lib/format.ts';
+  import { todayCivil, zonedDayStartUTC, civilOf } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
   import { aspectsOnCached } from './lib/dayCache.ts';
@@ -112,7 +112,7 @@
   // временами). Ищем в том же кэше дня, что считает DayScreen — бесплатно.
   const wheelAspectRec = $derived.by<AspectRecord | null>(() => {
     if (!engine || wheelInfo?.kind !== 'aspect') return null;
-    const dayStart = zonedDayStartUTC(date, settings.tz);
+    const dayStart = zonedDayStartUTC(effectiveDate, settings.tz);
     const day = aspectsOnCached(engine, dayStart, orbOf, settings.objects);
     const sig = aspectSignature(wheelInfo.p1, wheelInfo.p2, wheelInfo.aspect);
     return [...day.moon, ...day.fast, ...day.slow]
@@ -170,18 +170,73 @@
   const orbOf = $derived(orbResolver(settings));
 
   // «Сегодня» — гражданская дата в ВЫБРАННОМ поясе (а не в поясе устройства).
+  // `date` — «якорь дня» от свайпа/календаря/уведомления; прокрутка колеса его
+  // НЕ трогает (иначе {#key date} пересоздавал бы DayScreen на каждой границе
+  // суток и рвал плавную прокрутку). Прокрутка живёт в scrubOffset (ниже), а
+  // «эффективная» дата (шапка + контент) = гражданская дата прокрученного момента.
   let date = $state(todayCivil(db.settings.get().tz));
-  const isToday = $derived(date.getTime() === todayCivil(settings.tz).getTime());
+
+  // ── Прокрутка главного колеса (как в «Картах»): масштаб день/месяц/год,
+  //    оборот диска = сутки×множитель. Состояние ЖИВЁТ ЗДЕСЬ (не в DayScreen) —
+  //    переживает пересоздание страницы на свайпе и не сбрасывается на границе
+  //    суток. Смена `date` (свайп/календарь/«сегодня») обнуляет прокрутку.
+  let scrubScale = $state<'day' | 'month' | 'year'>('day');
+  const SCRUB_MULT = { day: 1, month: 30, year: 365 } as const;
+  let scrubOffset = $state(0);      // мс смещения от «того же часа, что сейчас»
+  // rAF-дебаунс: pointermove чаще кадров, а каждый тик тянет WASM positions()+
+  // аспекты — копим дельту и применяем раз в кадр (как scrubTransit в «Картах»).
+  let scrubPending = 0, scrubRaf = 0;
+  function scrubWheel(deltaMs: number): void {
+    scrubPending += deltaMs * SCRUB_MULT[scrubScale];
+    if (scrubRaf) return;
+    scrubRaf = requestAnimationFrame(() => { scrubOffset += scrubPending; scrubPending = 0; scrubRaf = 0; });
+  }
+  const scrubbed = $derived(scrubOffset !== 0);
+  function resetScrub() {
+    scrubPending = 0;
+    if (scrubRaf) { cancelAnimationFrame(scrubRaf); scrubRaf = 0; }
+    scrubOffset = 0;
+  }
+
+  // живое «сейчас» для снимка колеса (тот же час суток, что сейчас). При
+  // критическом заряде (data-saver='max') тик раз в 5 мин, иначе раз в минуту
+  // (Б-9 энерго-аудита). Раньше жил в DayScreen; поднят сюда вместе с прокруткой.
+  let nowMs = $state(Date.now());
+  $effect(() => {
+    let last = Date.now();
+    const id = setInterval(() => {
+      if (document.documentElement.dataset.saver === 'max' && Date.now() - last < 300_000) return;
+      last = Date.now();
+      nowMs = Date.now();
+    }, 60_000);
+    return () => clearInterval(id);
+  });
+
+  // Прокрученный МОМЕНТ = день `date` в тот же час, что сейчас, + смещение
+  // прокрутки. От него — и снимок колеса (в DayScreen), и «эффективная» дата.
+  const scrubInstant = $derived.by(() => {
+    const dayStart = zonedDayStartUTC(date, settings.tz).getTime();
+    const todayStart = zonedDayStartUTC(todayCivil(settings.tz), settings.tz).getTime();
+    const tod = Math.min(Math.max(nowMs - todayStart, 0), 86_400_000 - 1);
+    return new Date(dayStart + tod + scrubOffset);
+  });
+  // «Эффективная» гражданская дата — за ней следуют ШАПКА и КОНТЕНТ дня (аспекты/
+  // фигуры/события/планеты). При прокрутке за полночь/месяц/год она уезжает, а
+  // `date` (ключ {#key}) остаётся — DayScreen НЕ пересоздаётся, прокрутка плавная.
+  const effectiveDate = $derived(scrubbed ? civilOf(scrubInstant, settings.tz) : date);
+
+  const isToday = $derived(effectiveDate.getTime() === todayCivil(settings.tz).getTime() && !scrubbed);
   // подпись даты в шапке: месяц полностью, год ТОЛЬКО если не текущий —
   // «строка с датой перегружена» (жалоба владелицы, разгрузка шапки)
   const dateLabel = $derived.by(() => {
-    const y = date.getUTCFullYear();
+    const d = effectiveDate;
+    const y = d.getUTCFullYear();
     const sameYear = y === todayCivil(settings.tz).getUTCFullYear();
     // с чужим годом месяц короткий + год ДВУМЯ цифрами («13 мар ’06, пт») —
     // полный «2006» не влезал в шапку (жалоба владелицы 2026-07-07)
     const dm = new Intl.DateTimeFormat('ru-RU',
-      { timeZone: 'UTC', day: 'numeric', month: sameYear ? 'long' : 'short' }).format(date);
-    const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(date);
+      { timeZone: 'UTC', day: 'numeric', month: sameYear ? 'long' : 'short' }).format(d);
+    const wd = new Intl.DateTimeFormat('ru-RU', { timeZone: 'UTC', weekday: 'short' }).format(d);
     const yy = String(y % 100).padStart(2, '0');
     return sameYear ? `${dm}, ${wd}` : `${dm} ’${yy}, ${wd}`;
   });
@@ -189,15 +244,19 @@
   // направление последнего листания — страница дня въезжает с нужной стороны
   let slideDir = $state(0);
   function shift(days: number) {
-    const d = new Date(date);
+    // свайп листает от ЭФФЕКТИВНОЙ (видимой) даты — если крутил колесо на неделю
+    // вперёд, «вперёд» листает от неё, а не от старого якоря
+    const d = new Date(effectiveDate);
     d.setUTCDate(d.getUTCDate() + days);
     slideDir = Math.sign(days);
+    resetScrub();                                  // новый день — прокрутка с нуля
     date = d;
     buzzTick();                                    // лёгкий «щелчок» перелистывания
     window.scrollTo({ top: 0, behavior: 'smooth' }); // новый день — с начала ленты
   }
   function goToday() {
-    slideDir = date.getTime() > todayCivil(settings.tz).getTime() ? -1 : 1;
+    slideDir = effectiveDate.getTime() > todayCivil(settings.tz).getTime() ? -1 : 1;
+    resetScrub();
     date = todayCivil(settings.tz);
     buzzTick();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -249,6 +308,7 @@
     showData = showLibrary = showChat = false;
     libSheet = null; closeCourse();
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
+    resetScrub();
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
@@ -354,7 +414,7 @@
     const wasToday = isToday;
     settings = { ...db.settings.get() };
     // сменили пояс, стоя на «сегодня» — «сегодня» пересчитываем в новом поясе
-    if (wasToday) date = todayCivil(settings.tz);
+    if (wasToday) { resetScrub(); date = todayCivil(settings.tz); }
     reschedule();
   }
 
@@ -470,11 +530,17 @@
   {:else if !engine}
     <div class="state glass">Загрузка эфемерид…</div>
   {:else}
+    <!-- {#key} НА ЯКОРНОЙ дате (свайп/календарь) — она пересоздаёт страницу с
+         анимацией листания. Прокрутка колеса меняет НЕ `date`, а `effectiveDate`/
+         `scrubInstant` (пропсы) — DayScreen НЕ пересоздаётся, прокрутка через
+         границу суток плавная, свайп-листание не сломано. -->
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
-        <DayScreen {engine} {date} {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
+        <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
+          {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}
+          onscrub={scrubWheel} onresetnow={resetScrub} onscale={(s) => { scrubScale = s; }}
           onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
       </div>
     {/key}
@@ -556,7 +622,7 @@
 {#if libSheet === 'degree' && engine}
   <DegreeSearchSheet {engine} tz={settings.tz}
     onclose={closeLib}
-    ongoto={(d) => { libSheet = null; slideDir = Math.sign(d.getTime() - date.getTime()); date = d; }} />
+    ongoto={(d) => { libSheet = null; slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); date = d; }} />
 {/if}
 
 {#if libSheet === 'retro' && engine}
@@ -583,7 +649,7 @@
     initialMode={showCharts.mode ?? 'transitNatal'}
     onchat={(seed, source) => openChat(seed, source)}
     oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}
-    ongoto={(d) => { showCharts = false; slideDir = Math.sign(d.getTime() - date.getTime()); date = d;
+    ongoto={(d) => { showCharts = false; slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); date = d;
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCharts = false)} />
 {/if}
@@ -594,21 +660,21 @@
 {/if}
 
 {#if showCal}
-  <DateSheet {date} today={todayCivil(settings.tz)}
-    onpick={(d) => { slideDir = Math.sign(d.getTime() - date.getTime()); date = d; showCal = false; buzzTick();
+  <DateSheet date={effectiveDate} today={todayCivil(settings.tz)}
+    onpick={(d) => { slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); date = d; showCal = false; buzzTick();
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCal = false)} />
 {/if}
 
 <!-- Журнал открывается из Библиотеки; закрытие возвращает в неё (пункт выше) -->
 {#if libSheet === 'journal'}
-  <Journal {date} tz={settings.tz} onclose={closeLib} />
+  <Journal date={effectiveDate} tz={settings.tz} onclose={closeLib} />
 {/if}
 
 {#if selRec && engine}
-  <InterpretationSheet rec={selRec} {engine} {date} tz={settings.tz} {orbOf} onclose={closeAspect}
+  <InterpretationSheet rec={selRec} {engine} date={effectiveDate} tz={settings.tz} {orbOf} onclose={closeAspect}
     oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; showCommunity = { signature: sig, title }; }}
-    ongoto={(d) => { date = d; selRec = null; selFrom = 'day'; }}
+    ongoto={(d) => { resetScrub(); date = d; selRec = null; selFrom = 'day'; }}
     ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
       + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,
       { objects: [r.p1, r.p2], aspectSignature: aspectSignature(r.p1, r.p2, r.aspect), title: `${r.p1} ${r.aspect} ${r.p2}` })} />
@@ -634,7 +700,7 @@
   <CourseSheet onclose={() => { closeCourse(); showLibrary = true; }} />
 {/if}
 {#if courseState.lesson && engine}
-  <LessonSheet lessonId={courseState.lesson} {engine} {date} tz={settings.tz}
+  <LessonSheet lessonId={courseState.lesson} {engine} date={effectiveDate} tz={settings.tz}
     objects={settings.objects} {orbOf} onnavigate={openGlossTarget} />
 {/if}
 
@@ -644,7 +710,7 @@
 {/if}
 
 {#if showChat && engine}
-  <ChatSheet {engine} {date} tz={settings.tz} {orbOf} seed={chatSeed} source={chatSource}
+  <ChatSheet {engine} date={effectiveDate} tz={settings.tz} {orbOf} seed={chatSeed} source={chatSource}
     onclose={() => { showChat = false; chatSeed = null; chatSource = null; }} />
 {/if}
 

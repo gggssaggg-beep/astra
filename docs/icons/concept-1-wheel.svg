@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Astra launcher concept 1: «Колесо неба» — мини-версия главного экрана.
+       Adaptive-safe: всё значимое в центральных ~66%. -->
+  <defs>
+    <radialGradient id="bg" cx="35%" cy="25%" r="90%">
+      <stop offset="0%" stop-color="#1a2150"/>
+      <stop offset="55%" stop-color="#0d1230"/>
+      <stop offset="100%" stop-color="#070a1c"/>
+    </radialGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#cdd6ff"/>
+      <stop offset="100%" stop-color="#9b8cff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- звёздная пыль -->
+  <g fill="#cdd6ff">
+    <circle cx="96" cy="120" r="4" opacity="0.7"/>
+    <circle cx="418" cy="88" r="3" opacity="0.5"/>
+    <circle cx="452" cy="300" r="4" opacity="0.6"/>
+    <circle cx="76" cy="392" r="3" opacity="0.5"/>
+    <circle cx="380" cy="440" r="3.4" opacity="0.6"/>
+  </g>
+  <!-- колесо -->
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#ring)" stroke-width="13"/>
+  <circle cx="256" cy="256" r="112" fill="none" stroke="#9b8cff" stroke-width="5" opacity="0.45"/>
+  <!-- линии аспектов: золотой тригон + розовая оппозиция -->
+  <g stroke-linecap="round">
+    <path d="M256 148 L353 306 L159 306 Z" fill="none" stroke="#f3c969" stroke-width="13"/>
+    <path d="M168 180 L344 332" stroke="#e8888f" stroke-width="11"/>
+  </g>
+  <!-- планеты-точки на кольце -->
+  <g>
+    <circle cx="256" cy="148" r="19" fill="#f3c969"/>
+    <circle cx="353" cy="306" r="16" fill="#7fd0ff"/>
+    <circle cx="159" cy="306" r="16" fill="#cdd6ff"/>
+    <circle cx="344" cy="332" r="0"/>
+    <circle cx="168" cy="180" r="13" fill="#e8888f"/>
+  </g>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+  <radialGradient id="r4bg" cx="38%" cy="26%" r="95%">
+    <stop offset="0%" stop-color="#1a2150"/><stop offset="52%" stop-color="#0d1230"/><stop offset="100%" stop-color="#070a1c"/>
+  </radialGradient>
+  <radialGradient id="r4av" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.34"/><stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="r4ac" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.22"/><stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="r4ring" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#cdd6ff"/><stop offset="100%" stop-color="#9b8cff"/>
+  </linearGradient>
+  <radialGradient id="r4sun" cx="38%" cy="34%" r="80%">
+    <stop offset="0%" stop-color="#fff4d6"/><stop offset="55%" stop-color="#f3c969"/><stop offset="100%" stop-color="#e8a03e"/>
+  </radialGradient>
+  <radialGradient id="r4halo" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#f3c969" stop-opacity="0.5"/><stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+  </radialGradient></defs>
+  <rect width="512" height="512" fill="url(#r4bg)"/>
+  <circle cx="150" cy="120" r="190" fill="url(#r4av)"/>
+  <circle cx="392" cy="408" r="210" fill="url(#r4ac)"/>
+  <g fill="#cdd6ff"><circle cx="92" cy="128" r="4" opacity="0.75"/><circle cx="430" cy="96" r="3" opacity="0.55"/>
+  <circle cx="452" cy="286" r="3.4" opacity="0.6"/><circle cx="70" cy="356" r="3" opacity="0.5"/><circle cx="368" cy="452" r="3.6" opacity="0.6"/></g>
+
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#r4ring)" stroke-width="12"/>
+  <path d="M385.9 181 L256 406 L126.1 181 Z" fill="none" stroke="#9b8cff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <path d="M256 106 L385.9 331 L126.1 331 Z" fill="none" stroke="#f3c969" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="106" r="35" fill="url(#r4halo)"/><circle cx="256" cy="106" r="19" fill="url(#r4sun)"/> <circle cx="385.9" cy="331" r="11" fill="#7fd0ff"/> <circle cx="126.1" cy="331" r="11" fill="#cdd6ff"/>
+  <circle cx="385.9" cy="181" r="10" fill="#9b8cff"/> <circle cx="256" cy="406" r="10" fill="#9b8cff"/> <circle cx="126.1" cy="181" r="10" fill="#9b8cff"/>
+  <path d="M96 108 c1.2000000000000002 6.959999999999999 5.04 10.8 12 12 c-6.959999999999999 1.2000000000000002 -10.8 5.04 -12 12 c-1.2000000000000002 -6.959999999999999 -5.04 -10.8 -12 -12 c6.959999999999999 -1.2000000000000002 10.8 -5.04 12 -12 z" fill="#cdd6ff" opacity="0.95"/>
+</svg>

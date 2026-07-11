@@ -42,7 +42,6 @@
     courseState, openCourse, closeCourse, closeLesson } from './lib/studyStore.svelte.ts';
   import type { GlossSheet } from './lib/glossary.ts';
   import Starfield from './ui/Starfield.svelte';
-  import GlyphDefs from './ui/GlyphDefs.svelte';
   import { glyphStyle } from './lib/glyphStyle.svelte.ts';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
@@ -483,8 +482,8 @@
   });
   const effSignStyle = $derived(
     saverOn && baseSignStyle === 'rainbow' ? 'gold' : baseSignStyle);
-  // стиль инлайновых глифов (Glyph.svelte в шторках/списках) — через модульный
-  // стор, чтобы не тащить проп через 20 компонентов
+  // резолвнутый стиль в модульный стор — читают шторки без проп-цепочки
+  // (сейчас: LessonSheet красит мини-колесо квиза)
   $effect(() => { glyphStyle.v = effSignStyle; });
 
   // свайп ТОЛЬКО влево/вправо = соседний день. Вертикальный свайп (прокрутка) — не листает.
@@ -505,7 +504,6 @@
 <svelte:window onkeydown={onKey} />
 
 <Starfield />
-<GlyphDefs style={effSignStyle} />
 {#if engine && !error && !sheetsOpen}<ScrollThread />{/if}
 
 <main ontouchstart={onStart} ontouchend={onEnd}>

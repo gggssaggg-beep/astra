@@ -21,7 +21,6 @@
   import { aspectTone } from '../lib/format.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { SIGN_PATHS } from './signIcons.ts';
-  import { PLANET_PATHS } from './glyphPaths.ts';
 
   // Транзитный режим (день) — как раньше: positions + aspects. Совмещённые карты:
   //   двойное кольцо  — positionsOuter (карта B / транзит) + staticAspects;
@@ -230,7 +229,6 @@
 
   // 12 секторов знаков (символ — SVG из Tabler, по центру сектора)
   const ICON = 19;
-  const PICON = 18; // размер SVG-глифа планеты (базовые планеты; астероиды/TNO — фолбэк-текст)
   const signs = Array.from({ length: 12 }, (_, i) => {
     const mid = pt(i * 30 + 15, (rZodiac + rOuter) / 2);
     const edge = pt(i * 30, rOuter);
@@ -351,27 +349,14 @@
     {/each}
   {/if}
 
-  {#each allPlaced as { p, r, k }, i (k)}
+  {#each allPlaced as { p, r, k } (k)}
     {@const pos = pt(p.lon, r)}
     {@const tick = pt(p.lon, rZodiac)}
     <line x1={tick.x} y1={tick.y} x2={pos.x} y2={pos.y} class="plink" />
-    <!-- глиф планеты — свой SVG-контур (одинаков на всех Android), красится по
-         стилю знаков (signStroke), как знаки зодиака; выбранная светится САМА
-         (циан), ретроградная — ЗОЛОТАЯ (жёлтый цвет ретро вернуть — просьба
-         владелицы 2026-07-11) + золотой ℞ рядом.
-         Астероиды/TNO вне базового набора — фолбэк на прежний символьный шрифт. -->
-    {#if PLANET_PATHS[p.name]}
-      <svg class="planeticon" class:sel={p.name === selPlanet}
-        x={pos.x - PICON / 2} y={pos.y - PICON / 2} width={PICON} height={PICON}
-        viewBox="0 0 24 24" fill="none"
-        style="stroke:{p.name === selPlanet ? 'var(--neon-cyan)' : p.retro ? 'var(--gold)' : signStroke(i)}"
-        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        {#each PLANET_PATHS[p.name] as d}<path {d} />{/each}
-      </svg>
-    {:else}
-      <text x={pos.x} y={pos.y} class="planet glyph" class:retro={p.retro}
-        class:sel={p.name === selPlanet}>{p.glyph}</text>
-    {/if}
+    <!-- глиф планеты — ПРЕЖНИЙ символьный шрифт (владелица 2026-07-11: SVG-обвод
+         «перерисовали плохо» — вернули как было); ретро — золотой + ℞ рядом -->
+    <text x={pos.x} y={pos.y} class="planet glyph" class:retro={p.retro}
+      class:sel={p.name === selPlanet}>{p.glyph}</text>
     {#if p.retro}<text x={pos.x + 9} y={pos.y - 8} class="rxmark">℞</text>{/if}
     {#if oninfo}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
@@ -408,9 +393,6 @@
   .planet.retro { fill: var(--gold); }
   /* тапнутая планета светится САМА (не рамка) */
   .planet.sel { fill: var(--neon-cyan); filter: drop-shadow(0 0 5px var(--neon-cyan)); }
-  /* SVG-глиф планеты (базовые планеты) */
-  .planeticon { overflow: visible; opacity: 0.95; }
-  .planeticon.sel { filter: drop-shadow(0 0 5px var(--neon-cyan)); }
   /* явный значок ретроградности у глифа — «℞ не видно» (жалоба 2026-07-02) */
   .rxmark { fill: var(--gold); font-size: 8px; text-anchor: middle; font-weight: 600; }
   /* прозрачные тыкаемые зоны (обучалка): широкий невидимый штрих/круг поверх.

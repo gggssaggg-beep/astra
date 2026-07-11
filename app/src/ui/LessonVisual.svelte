@@ -5,10 +5,8 @@
    * приложение (Glyph/пути глифов), никаких растров. Подключается из
    * LessonSheet по полю block.visual (id типа).
    */
-  import Glyph from './Glyph.svelte';
-  import { PLANET_PATHS } from './glyphPaths.ts';
   import { SIGN_PATHS } from './signIcons.ts';
-  import { ZODIAC } from '../engine/index.ts';
+  import { ZODIAC, PLANET_GLYPH, ASPECTS } from '../engine/index.ts';
 
   let { type }: { type: string } = $props();
 
@@ -54,7 +52,12 @@
   <!-- позиция в знаке+градусе, как пишет приложение -->
   <div class="signstrip">
     {#each ZODIAC as z, i}
-      <span class="ss" class:hl={i === 10} title={z}><Glyph kind="sign" index={i} /></span>
+      <span class="ss" class:hl={i === 10} title={z}>
+        <svg class="sg" viewBox="0 0 24 24" fill="none" style="stroke:var(--silver)"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          {#each SIGN_PATHS[i] as d}<path {d} />{/each}
+        </svg>
+      </span>
     {/each}
   </div>
   <div class="cap">Круг = 360° = 12 знаков по 30°. Пример: долгота 300°29′ —
@@ -96,7 +99,7 @@
 {:else if type === 'planets-row'}
   <div class="pgrid">
     {#each PLANETS as p}
-      <span class="pcell"><Glyph kind="planet" name={p} /><em>{p}</em></span>
+      <span class="pcell"><span class="glyph">{PLANET_GLYPH[p]}</span><em>{p}</em></span>
     {/each}
   </div>
 
@@ -104,7 +107,7 @@
   <div class="acards">
     {#each ASPECT_CARDS as a}
       <span class="acard t-{a.tone}">
-        <span class="ag"><Glyph kind="aspect" name={a.name} /></span>
+        <span class="ag glyph">{ASPECTS[a.name]?.symbol}</span>
         <b>{a.angle}</b><em>{a.name}</em>
       </span>
     {/each}
@@ -125,9 +128,7 @@
   </svg>
   <!-- окно аспекта как в карточке приложения: вход → точно → выход -->
   <div class="mock">
-    <span class="mpair">
-      <Glyph kind="planet" name="Луна" /><span class="masp"><Glyph kind="aspect" name="трин" /></span><Glyph kind="planet" name="Венера" />
-    </span>
+    <span class="mpair glyph">{PLANET_GLYPH['Луна']}<span class="masp">△</span>{PLANET_GLYPH['Венера']}</span>
     <span class="mtimes">14:02 <i>→</i> <b>19:36</b> <i>→</i> 01:12<sup>+1</sup></span>
   </div>
   <div class="cap">Так окно выглядит на карточке: аспект начался днём, точный
@@ -137,7 +138,7 @@
   <div class="phases">
     <span class="ph dim">тень до</span><i>→</i>
     <span class="ph st">станция R</span><i>→</i>
-    <span class="ph rx"><Glyph kind="retro" /> ретроград</span><i>→</i>
+    <span class="ph rx">℞ ретроград</span><i>→</i>
     <span class="ph st">станция D</span><i>→</i>
     <span class="ph dim">тень после</span>
   </div>
@@ -146,8 +147,8 @@
   <svg class="mini" viewBox="0 0 120 120" aria-hidden="true">
     <circle cx="60" cy="60" r="45" class="ring" />
     <line x1="60" y1="28" x2="60" y2="92" class="axis" />
-    <g transform="translate(48,3)" class="npath">{#each PLANET_PATHS['Раху'] as d}<path {d} />{/each}</g>
-    <g transform="translate(48,93)" class="npath">{#each PLANET_PATHS['Кету'] as d}<path {d} />{/each}</g>
+    <text x="60" y="15" class="ntx glyph">☊</text>
+    <text x="60" y="105" class="ntx glyph">☋</text>
     <text x="70" y="63" class="tx">180°</text>
   </svg>
   <div class="cap">Раху и Кету — всегда точно напротив: одна ось через весь круг.</div>
@@ -196,8 +197,12 @@
 
 {:else if type === 'read-steps'}
   <div class="steps">
-    <span class="step"><Glyph kind="planet" name="Марс" /><em>планета<br/>КТО действует</em></span><i>→</i>
-    <span class="step"><Glyph kind="sign" index={4} /><em>знак<br/>КАК себя ведёт</em></span><i>→</i>
+    <span class="step"><span class="glyph">{PLANET_GLYPH['Марс']}</span><em>планета<br/>КТО действует</em></span><i>→</i>
+    <span class="step">
+      <svg class="sg big" viewBox="0 0 24 24" fill="none" style="stroke:var(--silver)"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        {#each SIGN_PATHS[4] as d}<path {d} />{/each}
+      </svg><em>знак<br/>КАК себя ведёт</em></span><i>→</i>
     <span class="step">🏠<em>дом<br/>ГДЕ работает</em></span>
   </div>
 {/if}
@@ -264,7 +269,8 @@
   .ring { fill: none; stroke: var(--glass-brd); stroke-width: 1.5; }
   .ring.faint { opacity: 0.5; }
   .axis { stroke: var(--ink-faint); stroke-width: 1.2; stroke-dasharray: 4 3; }
-  .npath { stroke: var(--silver); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .ntx { fill: var(--silver); font-size: 15px; text-anchor: middle; dominant-baseline: central; }
+  .sg.big { width: 1.35em; height: 1.35em; }
   .figs { display: flex; gap: 8px; justify-content: space-between; }
   .fig { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; }
   .fig svg { width: 100%; max-width: 96px; }

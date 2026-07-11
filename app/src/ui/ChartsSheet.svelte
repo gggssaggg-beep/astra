@@ -73,6 +73,14 @@
   // кольца (натал A/B), p2 — из своего (натал B / транзит / тот же натал)
   let detailLon1 = $state<number | null>(null);
   let detailLon2 = $state<number | null>(null);
+  // Тап по карточке аспекта: тумблер. 1-й тап по НЕвыделенному — выделить И
+  // сразу открыть детали; повторный тап по УЖЕ выделенному — снять выделение,
+  // ничего не открывая (правка владелицы: «выделить+раскрыть / снять»).
+  function toggleDetail(a: StaticAspect, oa: string | null, ob: string | null,
+    natalPos: BodyPosition[] | null = null, ring: 'A' | 'B' = 'A'): void {
+    if (selKey === staticKey(a)) { selKey = null; return; }
+    openDetail(a, oa, ob, natalPos, ring);
+  }
   // natalPos — набор натальных позиций (для транзит-режимов: p1 из натала, p2 —
   // транзитная планета) → считаем ОКНО аспекта (вход орбиса → точно → выход).
   function openDetail(a: StaticAspect, oa: string | null, ob: string | null,
@@ -302,6 +310,19 @@
   const dhPlanets = $derived(new Set(doubleHits.map((h) => h.planet)));
   const singleTA = $derived(mode === 'triple' ? crossTA.filter((a) => !dhPlanets.has(a.p2)) : crossTA);
   const singleTB = $derived(mode === 'triple' ? crossTB.filter((a) => !dhPlanets.has(a.p2)) : crossTB);
+
+  // Ключи всех аспектов, реально показанных в текущем режиме. При прокрутке
+  // транзитного колеса набор пересчитывается — выделенный аспект может выпасть
+  // (вышел из орбиса). Тогда сбрасываем выделение, иначе остальные линии/карточки
+  // остаются пригашены «навсегда» (жалоба владелицы).
+  const activeKeys = $derived.by((): Set<string> => {
+    const src = mode === 'natal' ? natalAsp
+      : mode === 'synastry' ? crossSyn
+      : mode === 'triple' ? [...crossTA, ...crossTB]
+      : crossTA;
+    return new Set(src.map((a) => staticKey(a)));
+  });
+  $effect(() => { if (selKey && !activeKeys.has(selKey)) selKey = null; });
 
   // «Фигуры» карты (раунд 29): натал — классические; транзитные режимы —
   // фигуры, ЗАМКНУТЫЕ транзитом (натальная заготовка + транзитная планета).
@@ -610,7 +631,7 @@
            (Саша)» было избыточно — чей натал, видно в заголовке карты -->
       {#each natalAsp as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
-          onactivate={() => openDetail(a, null, null)}>
+          onactivate={() => toggleDetail(a, null, null)}>
           <StaticAspectRow {a} selected={staticKey(a) === selKey} />
         </GlowCard>
       {/each}
@@ -618,7 +639,7 @@
       {#if crossSyn.length === 0}<div class="empty">Нет мажорных аспектов в орбисе.</div>{/if}
       {#each crossSyn as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
-          onactivate={() => openDetail(a, personA?.name ?? null, personB?.name ?? null)}>
+          onactivate={() => toggleDetail(a, personA?.name ?? null, personB?.name ?? null)}>
           <StaticAspectRow {a} ownerA={personA?.name} ownerB={personB?.name} selected={staticKey(a) === selKey} />
         </GlowCard>
       {/each}
@@ -626,7 +647,7 @@
       {#if crossTA.length === 0}<div class="empty">Транзит сейчас не образует мажорных аспектов к карте в орбисе.</div>{/if}
       {#each crossTA as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
-          onactivate={() => openDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
+          onactivate={() => toggleDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
           <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'} {tz}
             win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
         </GlowCard>
@@ -644,14 +665,14 @@
             </div>
             {#each h.toA as a (staticKey(a))}
               <GlowCard radius={12} selected={staticKey(a) === selKey}
-                onactivate={() => openDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
+                onactivate={() => toggleDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
                 <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'} {tz}
                   win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
               </GlowCard>
             {/each}
             {#each h.toB as a (staticKey(a))}
               <GlowCard radius={12} selected={staticKey(a) === selKey}
-                onactivate={() => openDetail(a, personB?.name ?? null, 'транзит', posB, 'B')}>
+                onactivate={() => toggleDetail(a, personB?.name ?? null, 'транзит', posB, 'B')}>
                 <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'} {tz}
                   win={winFor(a, 'B')} selected={staticKey(a) === selKey} />
               </GlowCard>
@@ -663,7 +684,7 @@
       {#if singleTA.length === 0}<div class="empty">{doubleHits.length ? 'Остальных аспектов нет.' : 'Нет мажорных аспектов в орбисе.'}</div>{/if}
       {#each singleTA as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
-          onactivate={() => openDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
+          onactivate={() => toggleDetail(a, personA?.name ?? null, 'транзит', posA, 'A')}>
           <StaticAspectRow {a} ownerA={personA?.name} ownerB={'транзит'} {tz}
             win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
         </GlowCard>
@@ -672,7 +693,7 @@
       {#if singleTB.length === 0}<div class="empty">{doubleHits.length ? 'Остальных аспектов нет.' : 'Нет мажорных аспектов в орбисе.'}</div>{/if}
       {#each singleTB as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
-          onactivate={() => openDetail(a, personB?.name ?? null, 'транзит', posB, 'B')}>
+          onactivate={() => toggleDetail(a, personB?.name ?? null, 'транзит', posB, 'B')}>
           <StaticAspectRow {a} ownerA={personB?.name} ownerB={'транзит'} {tz}
             win={winFor(a, 'B')} selected={staticKey(a) === selKey} />
         </GlowCard>

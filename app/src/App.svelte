@@ -86,8 +86,13 @@
   // откуда открыт аспект: закрытие возвращает «на пункт выше», а не на главный
   let selFrom = $state<'day' | 'interp' | 'tracked'>('day');
   function pickAspect(r: AspectRecord, from: 'day' | 'interp' | 'tracked' = 'day') {
+    const sig = aspectSignature(r.p1, r.p2, r.aspect);
+    // Тумблер выделения на главном: повторный тап по УЖЕ выделенной карточке
+    // снимает выделение и НИЧЕГО не открывает (правка владелицы). Тап из
+    // библиотеки/журнала (interp/tracked) — всегда открывает, там своя навигация.
+    if (from === 'day' && selSig === sig && !selRec) { selSig = null; return; }
     selRec = r;
-    selSig = aspectSignature(r.p1, r.p2, r.aspect);
+    selSig = sig;
     selFrom = from;
   }
   function closeAspect() {

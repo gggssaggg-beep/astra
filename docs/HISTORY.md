@@ -469,3 +469,14 @@ when/where/how) → Сарос берём через `Module.ccall` (см. `spik
   превью ICON_VARIANTS3.png в корне) — ждёт выбора f1–f4 → экспорт мипмап.
 - Все 11 движковых тестов зелёные, svelte-check 0/0. Смоук puppeteer: скраб
   двигает шапку, тумблер выделения, первый запуск (glow/cardhelp/ndot).
+
+## Сделано 2026-07-12 (смена иконки приложения: «треугольник» f1)
+- Владелица сменила выбор лаунчера с «ромба» f2 на **«треугольник» f1**
+  (`docs/icons/variants3/wheel-f1.svg`): Солнце в вершине, золотой треугольник
+  0°/120°/240°, циановая хорда 240°→60°, кольцо с 12 рисками, космос-фон.
+- Перегенерирован ВЕСЬ комплект тем же пайплайном (headless Chrome, scratchpad
+  `gen_launcher_f1.mjs`): ic_launcher + ic_launcher_round (mdpi..xxxhdpi),
+  adaptive-слои foreground/bg/monochrome, `public/icon.svg` (favicon/PWA).
+  anydpi-v26 XML не менялись (имена слоёв те же).
+- На телефон приедет ТОЛЬКО с новым APK (натив, не OTA); сайт/PWA — со
+  следующим деплоем Pages.

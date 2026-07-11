@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<defs>
+  <radialGradient id="f4bg" cx="38%" cy="26%" r="95%">
+    <stop offset="0%" stop-color="#1a2150"/><stop offset="52%" stop-color="#0d1230"/><stop offset="100%" stop-color="#070a1c"/>
+  </radialGradient>
+  <radialGradient id="f4av" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#9b8cff" stop-opacity="0.36"/><stop offset="100%" stop-color="#9b8cff" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="f4ac" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#7fd0ff" stop-opacity="0.24"/><stop offset="100%" stop-color="#7fd0ff" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="f4ring" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#cdd6ff"/><stop offset="100%" stop-color="#9b8cff"/>
+  </linearGradient>
+  <radialGradient id="f4sun" cx="38%" cy="34%" r="80%">
+    <stop offset="0%" stop-color="#fff4d6"/><stop offset="55%" stop-color="#f3c969"/><stop offset="100%" stop-color="#e8a03e"/>
+  </radialGradient>
+  <radialGradient id="f4halo" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#f3c969" stop-opacity="0.5"/><stop offset="100%" stop-color="#f3c969" stop-opacity="0"/>
+  </radialGradient></defs>
+  <rect width="512" height="512" fill="url(#f4bg)"/>
+  <circle cx="148" cy="118" r="195" fill="url(#f4av)"/>
+  <circle cx="394" cy="410" r="215" fill="url(#f4ac)"/>
+  <g fill="#cdd6ff"><circle cx="92" cy="128" r="4" opacity="0.75"/><circle cx="430" cy="96" r="3" opacity="0.55"/>
+  <circle cx="452" cy="286" r="3.4" opacity="0.6"/><circle cx="70" cy="356" r="3" opacity="0.5"/><circle cx="368" cy="452" r="3.6" opacity="0.6"/></g>
+
+  <circle cx="256" cy="256" r="150" fill="none" stroke="url(#f4ring)" stroke-width="12"/> <g stroke="#cdd6ff" stroke-width="6" stroke-linecap="round" opacity="0.4"><line x1="256" y1="115" x2="256" y2="97"/><line x1="326.5" y1="133.9" x2="335.5" y2="118.3"/><line x1="378.1" y1="185.5" x2="393.7" y2="176.5"/><line x1="397" y1="256" x2="415" y2="256"/><line x1="378.1" y1="326.5" x2="393.7" y2="335.5"/><line x1="326.5" y1="378.1" x2="335.5" y2="393.7"/><line x1="256" y1="397" x2="256" y2="415"/><line x1="185.5" y1="378.1" x2="176.5" y2="393.7"/><line x1="133.9" y1="326.5" x2="118.3" y2="335.5"/><line x1="115" y1="256" x2="97" y2="256"/><line x1="133.9" y1="185.5" x2="118.3" y2="176.5"/><line x1="185.5" y1="133.9" x2="176.5" y2="118.3"/></g>
+  <path d="M378.9 170 L133.1 342" fill="none" stroke="#9b8cff" stroke-width="10" stroke-linecap="round"/> <path d="M378.9 342 L133.1 170" fill="none" stroke="#7fd0ff" stroke-width="10" stroke-linecap="round"/>
+  <path d="M378.9 170 L378.9 342 L133.1 342 L133.1 170 Z" fill="none" stroke="#f3c969" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="133.1" cy="170" r="35" fill="url(#f4halo)"/><circle cx="133.1" cy="170" r="19" fill="url(#f4sun)"/> <circle cx="378.9" cy="170" r="12" fill="#7fd0ff"/> <circle cx="378.9" cy="342" r="12" fill="#cdd6ff"/> <circle cx="133.1" cy="342" r="12" fill="#9b8cff"/>
+  <path d="M96 383 c1.3 7.539999999999999 5.46 11.700000000000001 13 13 c-7.539999999999999 1.3 -11.700000000000001 5.46 -13 13 c-1.3 -7.539999999999999 -5.46 -11.700000000000001 -13 -13 c7.539999999999999 -1.3 11.700000000000001 -5.46 13 -13 z" fill="#cdd6ff" opacity="0.95"/>
+</svg>

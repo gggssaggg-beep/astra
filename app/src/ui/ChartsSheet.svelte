@@ -214,6 +214,12 @@
   let scrubPending = 0;
   let scrubRaf = 0;
   function scrubTransit(deltaMs: number): void {
+    // Перемотка снимает выделение СРАЗУ, с первого движения пальца (правка
+    // владелицы 2026-07-25: «линии не становятся яркими, пока не отпущу палец»).
+    // Раньше выделение держалось, пока аспект не выпадал из орбиса (эффект
+    // activeKeys ниже) — всё это время остальные линии оставались пригашенными.
+    if (selKey) selKey = null;
+    if (selFigKey) selFigKey = null;
     scrubPending += deltaMs * SCRUB_MULT[scrubScale];
     if (scrubRaf) return;
     scrubRaf = requestAnimationFrame(() => {

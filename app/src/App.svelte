@@ -258,6 +258,7 @@
     d.setUTCDate(d.getUTCDate() + days);
     slideDir = Math.sign(days);
     resetScrub();                                  // новый день — прокрутка с нуля
+    selSig = null;                                 // выделение — только для СВОЕГО дня
     date = d;
     buzzTick();                                    // лёгкий «щелчок» перелистывания
     window.scrollTo({ top: 0, behavior: 'smooth' }); // новый день — с начала ленты
@@ -265,6 +266,7 @@
   function goToday() {
     slideDir = effectiveDate.getTime() > todayCivil(settings.tz).getTime() ? -1 : 1;
     resetScrub();
+    selSig = null;                                 // выделение — только для СВОЕГО дня
     date = todayCivil(settings.tz);
     buzzTick();
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -679,7 +681,7 @@
 
 {#if showCal}
   <DateSheet date={effectiveDate} today={todayCivil(settings.tz)}
-    onpick={(d) => { slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); date = d; showCal = false; buzzTick();
+    onpick={(d) => { slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); selSig = null; date = d; showCal = false; buzzTick();
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCal = false)} />
 {/if}

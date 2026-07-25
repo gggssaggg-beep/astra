@@ -171,8 +171,6 @@
   const toneColor = (asp: string) =>
     aspectTone(asp) === 'harm' ? 'var(--gold)' : aspectTone(asp) === 'tense' ? 'var(--rose)' : 'var(--silver)';
 
-  // подсветка активна, если выбран аспект ИЛИ подсвечен полигон фигуры
-  const anySel = $derived(!!effSig || figSet.size > 0);
   // линии аспектов между точками планет на внутреннем кольце
   const lines = $derived(
     aspects
@@ -188,10 +186,16 @@
       .filter((x): x is NonNullable<typeof x> => x !== null)
   );
 
+  // Подсветка активна, только если выделенное РЕАЛЬНО ЕСТЬ на колесе. Раньше
+  // считали по самому факту выделения (`!!effSig`) — и если сигнатура не
+  // совпадала ни с одной линией (пролистнули на другой день, тап по сводке-
+  // уведомлению с аспектом другого дня), колесо гасило ВСЕ линии, а подсвечивать
+  // было нечего: «все линии тусклые» (жалоба владелицы 2026-07-25).
+  const anySel = $derived(lines.some((l) => l.sel));
+
   // статичные линии: p1/p2 берём из указанных колец; без applying/времени —
   // только выделение по ключу. Набор 1 — внутреннее↔внешнее; набор 2 (тройная) —
   // среднее↔внешнее.
-  const anySelStatic = $derived(!!selectedStaticKey || figKeySet.size > 0);
   const buildStatic = (
     list: StaticAspect[] | null,
     m1: Map<string, number>, m2: Map<string, number>, ring: string,
@@ -209,6 +213,8 @@
     .filter((x): x is NonNullable<typeof x> => x !== null);
   const slines = $derived(buildStatic(staticAspects, lonByName, lonOut, '1'));
   const slines2 = $derived(triple ? buildStatic(staticAspects2, lonMid, lonOut, '2') : []);
+  // как и anySel: гасим остальные линии, только если выделенное есть на колесе
+  const anySelStatic = $derived(slines.some((l) => l.sel) || slines2.some((l) => l.sel));
 
   // дома: 12 куспидов-спиц + номера в середине сектора + метки Asc/MC
   const houseGeo = $derived.by(() => {

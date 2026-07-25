@@ -7,7 +7,7 @@
   import { untrack } from 'svelte';
   import { db, uid } from '../../lib/db.ts';
   import type { Person } from '../../lib/models.ts';
-  import { maskDate, maskTime, isoFromMasked, maskedFromIso, normTime } from '../../lib/inputmask.ts';
+  import { maskDate, maskTime, maskWithCaret, isoFromMasked, maskedFromIso, normTime } from '../../lib/inputmask.ts';
   import { searchCities, type City } from '../../lib/cities.ts';
 
   let { person, defaultTz, onsaved, ondeleted, oncancel, onclose,
@@ -53,8 +53,19 @@
   function pickCity(c: City): void {
     fPlaceName = c.ru; cityQuery = c.ru; fLat = c.lat; fLon = c.lon; fTz = c.tz; citySug = []; tzBad = false;
   }
-  const onDate = (v: string) => { fDate = maskDate(v, fDate); fErr = null; };
-  const onTime = (v: string) => { fTime = maskTime(v, fTime); fErr = null; };
+  // Маска + ВОЗВРАТ КУРСОРА на место (правка в середине поля больше не швыряет
+  // его в конец). Значение полю выставляем сами и сразу ставим курсор: Svelte
+  // перерисует то же самое значение, позиция не собьётся.
+  function masked(e: Event, mask: (raw: string, prev?: string) => string, prev: string): string {
+    const el = e.target as HTMLInputElement;
+    const { value, caret } = maskWithCaret(el, mask, prev);
+    el.value = value;
+    el.setSelectionRange(caret, caret);
+    fErr = null;
+    return value;
+  }
+  const onDate = (e: Event) => { fDate = masked(e, maskDate, fDate); };
+  const onTime = (e: Event) => { fTime = masked(e, maskTime, fTime); };
 
   function save(): void {
     fErr = null; tzBad = false;
@@ -111,11 +122,11 @@
 <div class="two">
   <label class="fld"><span>Дата рождения</span>
     <input type="text" inputmode="numeric" value={fDate} placeholder="ДД.ММ.ГГГГ"
-      maxlength="10" oninput={(e) => onDate((e.target as HTMLInputElement).value)} /></label>
+      maxlength="10" oninput={onDate} /></label>
   {#if !fUnknown}
     <label class="fld"><span>Время · чч:мм:сс</span>
       <input type="text" inputmode="numeric" value={fTime} placeholder="ЧЧ:ММ:СС"
-        maxlength="8" oninput={(e) => onTime((e.target as HTMLInputElement).value)} /></label>
+        maxlength="8" oninput={onTime} /></label>
   {/if}
 </div>
 <!-- время рождения: единый выбор (просьба владелицы — «красивое логичное меню») -->

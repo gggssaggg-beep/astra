@@ -37,10 +37,28 @@ function handleDelete(raw: string, prev: string, sep: string): string {
   return raw;
 }
 
+/** Разложить цифры по фиксированным группам, БЕЗ умного достраивания нулём.
+ *  Нужно при УДАЛЕНИИ: иначе стёртая в середине цифра «залечивалась» —
+ *  takePair подтягивал цифру из следующей группы, и поле не менялось вовсе
+ *  («стираю, а ничего не происходит» — жалоба владелицы 2026-07-25). */
+function positional(g: string, sizes: number[], sep: string): string {
+  const out: string[] = [];
+  let i = 0;
+  for (const n of sizes) {
+    if (i >= g.length) break;
+    out.push(g.slice(i, i + n));
+    i += n;
+  }
+  return out.join(sep);
+}
+
 /** Цифры → «ДД.ММ.ГГГГ» с умными парами. prev — прошлое значение поля (для
- *  корректного backspace); можно не передавать. */
+ *  корректного backspace); можно не передавать.
+ *  При удалении умные пары ОТКЛЮЧЕНЫ (см. positional). */
 export function maskDate(raw: string, prev = ''): string {
+  const deleting = !!prev && raw.length < prev.length;
   const g = handleDelete(raw, prev, '.').replace(/\D/g, '').slice(0, 8);
+  if (deleting) return positional(g, [2, 2, 4], '.');
   const [dd, i1] = takePair(g, 0, 3, 31);
   const [mm, i2] = takePair(g, i1, 1, 12);
   if (dd.length < 2) return dd;
@@ -48,15 +66,57 @@ export function maskDate(raw: string, prev = ''): string {
   return `${dd}.${mm}.${g.slice(i2, i2 + 4)}`;
 }
 
-/** Цифры → «ЧЧ:ММ:СС» с умными парами («25» → «02:5»). */
+/** Цифры → «ЧЧ:ММ:СС» с умными парами («25» → «02:5»).
+ *  При удалении умные пары ОТКЛЮЧЕНЫ (см. positional). */
 export function maskTime(raw: string, prev = ''): string {
+  const deleting = !!prev && raw.length < prev.length;
   const g = handleDelete(raw, prev, ':').replace(/\D/g, '').slice(0, 6);
+  if (deleting) return positional(g, [2, 2, 2], ':');
   const [hh, i1] = takePair(g, 0, 2, 23);
   const [mm, i2] = takePair(g, i1, 5, 59);
   const [ss] = takePair(g, i2, 5, 59);
   if (hh.length < 2) return hh;
   if (mm.length < 2) return `${hh}:${mm}`;
   return `${hh}:${mm}:${ss}`;
+}
+
+/**
+ * Маска С СОХРАНЕНИЕМ КУРСОРА. Сама маска пересобирает строку из цифр с нуля,
+ * поэтому браузер ставил курсор в конец: правка в середине (стоишь на месяце,
+ * жмёшь backspace) выглядела как «стирает с конца и тупит» — жалоба владелицы
+ * 2026-07-25. Считаем, сколько ЦИФР стояло левее курсора, и после маскирования
+ * возвращаем курсор на то же место по счёту цифр.
+ *
+ * el — поле ввода (значение уже изменено браузером), mask — maskDate/maskTime,
+ * prev — прошлое значение (нужно самой маске для корректного backspace).
+ * Возвращает готовое значение и позицию курсора.
+ */
+export function maskWithCaret(
+  el: { value: string; selectionStart: number | null },
+  mask: (raw: string, prev?: string) => string,
+  prev: string,
+): { value: string; caret: number } {
+  const raw = el.value;
+  const caret = el.selectionStart ?? raw.length;
+  const digitsBefore = (raw.slice(0, caret).match(/\d/g) ?? []).length;
+  const value = mask(raw, prev);
+  // маска сама дописала цифру (часы «25» → «02:5»): счёт цифр сбит, курсор по
+  // нему встал бы ПЕРЕД только что введённой — в таком случае уводим в конец
+  const nRaw = (raw.match(/\d/g) ?? []).length;
+  const nOut = (value.match(/\d/g) ?? []).length;
+  if (nOut > nRaw) return { value, caret: value.length };
+  // позиция ПОСЛЕ того же количества цифр в новой строке
+  let pos = 0, seen = 0;
+  while (pos < value.length && seen < digitsBefore) {
+    if (/\d/.test(value[pos])) seen++;
+    pos++;
+  }
+  // печатали вперёд и упёрлись в разделитель — перескочить через него,
+  // чтобы следующая цифра шла в новую группу, а не «перед точкой»
+  if (raw.length > prev.length) {
+    while (pos < value.length && !/\d/.test(value[pos])) pos++;
+  }
+  return { value, caret: pos };
 }
 
 /** «ДД.ММ.ГГГГ» (или с двухзначным годом) → 'YYYY-MM-DD' либо null. */

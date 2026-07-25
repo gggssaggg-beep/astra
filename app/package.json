@@ -19,7 +19,8 @@
     "test:events": "node test/events.mjs",
     "test:aspectpoint": "node test/aspectpoint.mjs",
     "test:quiet": "node test/quiet.mjs",
-    "test:digest": "node test/digest.mjs"
+    "test:digest": "node test/digest.mjs",
+    "test:inputmask": "node test/inputmask.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

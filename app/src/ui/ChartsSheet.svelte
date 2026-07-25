@@ -51,12 +51,11 @@
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
         nodalAxisFigures = false,
-        initialMode = 'transitNatal', onclose, onchat, oncommunity, ongoto }:
+        initialMode = 'transitNatal', onclose, oncommunity, ongoto }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
       nodalAxisFigures?: boolean;
       initialMode?: Mode; onclose: () => void;
-      onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string; selfContained?: boolean }) => void;
       oncommunity?: (sig: string, title: string) => void;
       ongoto?: (d: Date) => void } = $props();
 
@@ -471,13 +470,6 @@
     });
   });
 
-  // «Обсудить карту с Claude» — тот же полный контекст, что и в экспорте.
-  // selfContained: промпт уже несёт все данные карты → чат НЕ добавит небо дня
-  // (экономия токенов пользователя, правка владелицы 2026-07-07).
-  function discussChart(): void {
-    onchat?.(chartPromptText, { objects: [], title: chartTitle, selfContained: true });
-  }
-
   let showPrompt = $state(false);   // окно «Промпт для любой ИИ»
 </script>
 
@@ -551,9 +543,6 @@
     {/if}
 
     <div class="chatrow">
-      {#if onchat}
-        <button class="btn chatbtn" onclick={discussChart}>💬 Обсудить с Claude</button>
-      {/if}
       <button class="btn promptbtn" onclick={() => (showPrompt = true)}
         title="Готовый промпт для ChatGPT, Gemini и др.">📋 Промпт для ИИ</button>
     </div>
@@ -582,8 +571,7 @@
       <details class="fold">
         <summary class="grp">⛓ Цепочки диспозиторов</summary>
         <div class="hint small">Каждая планета служит управителю своего знака — до «царя» карты (планеты в своём знаке) или кольца соправителей.</div>
-        <div class="glass dispbox"><DispositorChains positions={posA}
-          onexplain={onchat ? (seed) => onchat(seed, { objects: [], title: 'Цепочки диспозиторов', selfContained: true }) : undefined} /></div>
+        <div class="glass dispbox"><DispositorChains positions={posA} /></div>
       </details>
     {/if}
 
@@ -822,7 +810,6 @@
     {engine} {orbOf} anchor={detailAnchor} lon1={detailLon1} lon2={detailLon2}
     ongoto={ongoto ? (d) => { detail = null; ongoto?.(d); } : null}
     onclose={() => (detail = null)}
-    onchat={(seed, src) => { detail = null; onchat?.(seed, src); }}
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
 {/if}
 
@@ -869,7 +856,6 @@
   .btn.open { width: 100%; margin-top: 10px; margin-bottom: 14px;
     padding-bottom: 15px; border-bottom: 1px solid var(--glass-brd); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
   .chatrow { display: flex; gap: 8px; margin: 2px 0 8px; }
-  .btn.chatbtn { flex: 1; }
   .btn.promptbtn { flex: 1; background: #ffffff10; }
   /* римский номер дома у планеты/куспида */
   .hbadge { flex: none; font-size: 0.7rem; font-weight: 700; color: var(--accent);

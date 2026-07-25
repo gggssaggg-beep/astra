@@ -2,12 +2,9 @@
   import { db } from '../lib/db.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { bottomSheet } from '../lib/sheet.ts';
-  import { getKey } from '../lib/secret.ts';
-  import { loadDeityMyth } from '../lib/chat.ts';
   import { PLANET_LORE } from '../lib/lore.ts';
   import { reveal } from '../lib/reveal.ts';
   import { autogrow } from '../lib/autogrow.ts';
-  import { success } from '../lib/haptics.ts';
   import GlowCard from './GlowCard.svelte';
 
   let { onclose }: { onclose: () => void } = $props();
@@ -36,32 +33,11 @@
     open = open === o ? null : o;
   }
 
-  let loadingObj = $state<string | null>(null);
-  let loadErr = $state<string | null>(null);
-
   function saveItem(i: number) {
     const it = items[i];
     db.archetypes.put({ object: it.object, deity: it.deity.trim(), text: it.text.trim(), updatedAt: new Date().toISOString() });
   }
 
-  async function loadMyth(i: number) {
-    if (loadingObj) return;
-    const key = getKey();
-    if (!key) { loadErr = 'Сначала введи ключ Claude во вкладке «Чат».'; return; }
-    const it = items[i];
-    loadErr = null; loadingObj = it.object;
-    try {
-      const text = await loadDeityMyth(key, it.object, it.deity || HINT[it.object]);
-      items[i].text = text;
-      if (!items[i].deity) items[i].deity = HINT[it.object];
-      saveItem(i);
-      success();     // миф подгружен и сохранён
-    } catch (e) {
-      loadErr = e instanceof Error ? e.message : String(e);
-    } finally {
-      loadingObj = null;
-    }
-  }
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
@@ -90,13 +66,6 @@
           <!-- «неявный» ввод: без коробки, текст целиком, курсор показывает правку -->
           <textarea class="seamless" use:autogrow={it.text} bind:value={it.text} rows="3"
             placeholder="Архетип, миф, ключевые мотивы…" onchange={() => saveItem(i)}></textarea>
-          <div class="rowbtns">
-            <button class="myth" disabled={loadingObj === it.object} onclick={() => loadMyth(i)}>
-              {loadingObj === it.object ? '…подгружаю…' : '✨ Подгрузить миф (Claude)'}
-            </button>
-          </div>
-          <!-- ошибка — прямо у кнопки, из-за которой случилась (не наверху списка) -->
-          {#if loadErr}<div class="lerr" style="margin-top:6px">⚠ {loadErr}</div>{/if}
         </div>
       {:else if it.text}
         <button class="preview" onclick={() => toggle(it.object)}>{it.text}</button>
@@ -114,7 +83,6 @@
   h2 { margin: 0; font-size: 1.1rem; }
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .hint { color: var(--ink-faint); font-size: 0.82rem; margin: 6px 0 12px; }
-  .lerr { color: var(--rose); font-size: 0.84rem; margin-bottom: 8px; }
 
   .row { background: #ffffff0a; border: 1px solid var(--glass-brd); border-radius: 14px;
     margin-bottom: 8px; overflow: hidden; }
@@ -143,7 +111,4 @@
   .flbl { color: var(--ink-faint); font-size: 0.78rem; flex: none; }
   .deity { flex: 1; min-width: 0; color: var(--ink); font: inherit; }
   /* превью в свёрнутой строке больше не режем — весь текст виден */
-  .rowbtns { display: flex; justify-content: flex-end; margin-top: 8px; }
-  .myth { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--accent); border-radius: 999px; padding: 6px 12px; font-size: 0.8rem; }
-  .myth:disabled { opacity: 0.6; }
 </style>

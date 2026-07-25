@@ -22,10 +22,10 @@
   import SignContext from './aspect/SignContext.svelte';
   import Hint from './Hint.svelte';
 
-  let { rec, engine, date, tz, orbOf, onclose, ondiscuss, ongoto, oncommunity }:
+  let { rec, engine, date, tz, orbOf, onclose, ongoto, oncommunity }:
     { rec: AspectRecord; engine: Engine; date: Date; tz: string;
       orbOf?: (name: string) => number; onclose: () => void;
-      ondiscuss?: (r: AspectRecord) => void; ongoto?: (d: Date) => void;
+      ongoto?: (d: Date) => void;
       oncommunity?: (sig: string, title: string) => void } = $props();
 
   const sig = untrack(() => aspectSignature(rec.p1, rec.p2, rec.aspect));
@@ -114,8 +114,8 @@
   <!-- ЭТОТ конкретный аспект: участники в своих знаках на момент точного -->
   <SignContext p1={rec.p1} p2={rec.p2} lon1={rec.pos1} lon2={rec.pos2} />
 
-  <AspectActions {sig} title={`${rec.p1} ${rec.aspect} ${rec.p2}`} label="Обсудить аспект с Claude"
-    ondiscuss={() => ondiscuss?.(rec)} onprompt={() => (showPrompt = true)} {oncommunity} />
+  <AspectActions {sig} title={`${rec.p1} ${rec.aspect} ${rec.p2}`}
+    onprompt={() => (showPrompt = true)} {oncommunity} />
 
   <ArchetypesBlock p1={rec.p1} p2={rec.p2} />
 

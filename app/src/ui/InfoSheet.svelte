@@ -1,7 +1,8 @@
 <script lang="ts">
   /** Обучалка (раунд 5): тык по символу в колесе → разбор планеты или аспекта.
    *  Контент — встроенный (lore.ts); для планеты подмешивается архетип астролога,
-   *  если он его правил. Кнопка «Обсудить с Claude» открывает чат по архетипам. */
+   *  если он его правил. Кнопка «Обсудить с Claude» убрана 2026-07-25 (чат снят
+   *  до доработки) — остался «Промпт для ИИ» для внешних моделей. */
   import type { WheelInfo } from '../lib/lore.ts';
   import { PLANET_LORE, ASPECT_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { PLANET_GLYPH, ZODIAC, SIGN_GLYPH } from '../engine/index.ts';
@@ -10,8 +11,8 @@
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
 
-  let { info, onclose, ondiscuss, onopenfull }:
-    { info: WheelInfo; onclose: () => void; ondiscuss?: (seed: string) => void;
+  let { info, onclose, onopenfull }:
+    { info: WheelInfo; onclose: () => void;
       // передан только для аспекта, который есть в списке дня → мостик к полной
       // карточке аспекта (времена вход/точно/выход, заметка, «когда ещё»)
       onopenfull?: () => void } = $props();
@@ -30,22 +31,8 @@
   // знак зодиака
   const sign = $derived(info.kind === 'sign' ? SIGN_LORE[info.index] : null);
 
-  function discuss() {
-    if (info.kind === 'planet') {
-      ondiscuss?.(`Расскажи про планету ${info.name} в астрологии — её роль и архетип `
-        + `(${deity}). Кратко и по делу.`);
-    } else if (info.kind === 'sign') {
-      ondiscuss?.(`Расскажи про знак ${ZODIAC[info.index]} в астрологии — стихия, `
-        + `характер, как в нём проявляются планеты. Кратко и по делу.`);
-    } else {
-      ondiscuss?.(`Обсудим аспект ${info.p1} ${info.aspect} ${info.p2} `
-        + `(${info.symbol}, ${asp?.angle}°). Опираясь на заложенные архетипы участников `
-        + `и характер этого аспекта — что это сочетание значит?`);
-    }
-  }
-
-  // «Промпт для любой ИИ» — тот же готовый текст, что и рядом с Claude, но для
-  // вставки в ChatGPT/Gemini/др. Строится под тип тапнутого символа.
+  // «Промпт для любой ИИ» — готовый текст для вставки в ChatGPT/Gemini/др.
+  // Строится под тип тапнутого символа.
   let showPrompt = $state(false);
   const promptText = $derived.by(() => {
     if (info.kind === 'planet') {
@@ -113,9 +100,6 @@
   {/if}
 
   <div class="actrow">
-    <button class="discuss" onclick={discuss}>
-      <span class="dg glyph">💬</span> Обсудить с Claude
-    </button>
     <button class="discuss ghost" title="готовый текст для ChatGPT, Gemini и др." onclick={() => (showPrompt = true)}>
       <span class="dg glyph">📋</span> Промпт для ИИ
     </button>

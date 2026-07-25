@@ -4,11 +4,11 @@
   import GlowCard from './GlowCard.svelte';
   import Icon from './Icon.svelte';
 
-  let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths, onChat,
+  let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths,
         onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures }:
     { onclose: () => void; onCourse: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
-      onChat: () => void; onPlanetSigns: () => void; onPlanetHouses: () => void;
+      onPlanetSigns: () => void; onPlanetHouses: () => void;
       onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void;
       onFigures: () => void } = $props();
 </script>
@@ -20,9 +20,9 @@
 
   <!-- тап: обводка обегает контур → открытие (единый паттерн GlowCard).
        Список плоский (1 тап до всего), заголовки-капсы .grp только группируют —
-       это НЕ аккордеон. Журнал переехал сюда из нижнего меню (просьба 2026-07-06),
-       чат — тоже; Сообщество живёт ТОЛЬКО в нижнем меню; Синастрия убрана
-       (дублировала «Карты»). -->
+       это НЕ аккордеон. Журнал переехал сюда из нижнего меню (просьба 2026-07-06);
+       Сообщество живёт ТОЛЬКО в нижнем меню; Синастрия убрана (дублировала
+       «Карты»); «Чат с Claude» убран 2026-07-25 — снят до доработки. -->
 
   <div class="grp">Учусь</div>
   <GlowCard radius={14} onactivate={onCourse}>
@@ -132,13 +132,6 @@
     </button>
   </GlowCard>
 
-  <GlowCard radius={14} onactivate={onChat}>
-    <button class="row reveal" use:reveal>
-      <span class="ic"><Icon name="message" /></span>
-      <div class="txt"><b>Чат с Claude</b><small>трактовки по архетипам, на своём ключе</small></div>
-      <span class="arr">→</span>
-    </button>
-  </GlowCard>
 </section>
 
 <style>

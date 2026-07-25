@@ -30,7 +30,7 @@
 
   let { a, ownerA = null, ownerB = null, tz, win = null, engine = null, orbOf = null,
         lon1 = null, lon2 = null,
-        anchor = null, ongoto = null, onclose, onchat, oncommunity }:
+        anchor = null, ongoto = null, onclose, oncommunity }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null; tz: string;
       win?: { begin: Date; exact: Date; end: Date } | null;
       engine?: Engine | null; orbOf?: ((name: string) => number) | null;
@@ -41,7 +41,6 @@
       anchor?: { lon: number; planet: string } | null;
       ongoto?: ((d: Date) => void) | null;
       onclose: () => void;
-      onchat?: (seed: string, source: { objects: string[]; aspectSignature?: string; title?: string }) => void;
       oncommunity?: (sig: string, title: string) => void } = $props();
 
   // окно транзитного аспекта (вход орбиса → точно → выход) — аспект это ИНТЕРВАЛ
@@ -92,12 +91,6 @@
     db.interpretations.put({ signature: sig, text: interpText.trim(), updatedAt: new Date().toISOString() });
     interpSaved = true; success();
     setTimeout(() => (interpSaved = false), 1600);
-  }
-
-  function discuss(): void {
-    onchat?.(`Обсудим взаимодействие ${title} в совмещённой карте. Опираясь на заложенные `
-      + `в приложении архетипы участников — что это сочетание значит для отношений и на что обратить внимание?`,
-      { objects: [a.p1, a.p2], aspectSignature: sig, title });
   }
 
   // «Промпт для любой ИИ» по этому межаспекту
@@ -182,7 +175,7 @@
     <SignContext p1={a.p1} p2={a.p2} {lon1} {lon2} />
   {/if}
 
-  <AspectActions {sig} {title} ondiscuss={discuss} onprompt={() => (showPrompt = true)} {oncommunity} />
+  <AspectActions {sig} {title} onprompt={() => (showPrompt = true)} {oncommunity} />
 
   <ArchetypesBlock p1={a.p1} p2={a.p2} />
 

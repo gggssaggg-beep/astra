@@ -5,7 +5,6 @@
   import type { Engine, AspectRecord } from './engine/index.ts';
   import { getEngine } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
-  import { hydrateKey } from './lib/secret.ts';
   import { todayCivil, zonedDayStartUTC, civilOf } from './lib/format.ts';
   import { orbResolver } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
@@ -20,7 +19,6 @@
   import SignMythsSheet from './ui/SignMythsSheet.svelte';
   import ChartsSheet from './ui/ChartsSheet.svelte';
   import AstrologerSheet from './ui/AstrologerSheet.svelte';
-  import ChatSheet from './ui/ChatSheet.svelte';
   import LibrarySheet from './ui/LibrarySheet.svelte';
   import InterpretationsSheet from './ui/InterpretationsSheet.svelte';
   import HousesSheet from './ui/HousesSheet.svelte';
@@ -71,7 +69,6 @@
   const closeLib = () => { libSheet = null; showLibrary = true; };
   let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
   let clientChartsWaiting = $state(0);   // бейдж «Карты»: новые карты от клиентов (только у астролога)
-  let showChat = $state(false);
   let showAstrologer = $state(false);
   let showLibrary = $state(false);
   let showCommunity = $state<false | { signature?: string; title?: string }>(false);
@@ -118,10 +115,6 @@
     return [...day.moon, ...day.fast, ...day.slow]
       .find((r) => aspectSignature(r.p1, r.p2, r.aspect) === sig) ?? null;
   });
-  let chatSeed = $state<string | null>(null);
-  // контекст, к которому привязан чат (аспект/объекты) — чтобы сохранить переписку
-  // в журнал «в соответствующее место»: с тегами объектов и сигнатурой аспекта.
-  let chatSource = $state<{ objects: string[]; aspectSignature?: string; title?: string; selfContained?: boolean } | null>(null);
 
   function dismissWelcome() {
     showWelcome = false;
@@ -145,14 +138,6 @@
     }
     openCourse();
   }
-  // открыть чат с готовой затравкой (обсуждение аспекта/планеты по архетипам)
-  function openChat(seed: string, source: typeof chatSource = null) {
-    chatSeed = seed;
-    chatSource = source;
-    selRec = null; wheelInfo = null;
-    showChat = true;
-  }
-
   // «Подробнее →» из глоссария: закрыть «?» и открыть соответствующую шторку
   // (мишени — уже существующие; ничего нового не заводим)
   function openGlossTarget(target: GlossSheet) {
@@ -297,7 +282,6 @@
     if (selRec) { closeAspect(); return; }
     if (wheelInfo) { wheelInfo = null; return; }
     if (showAstrologer) { showAstrologer = false; return; }
-    if (showChat) { showChat = false; chatSeed = null; chatSource = null; return; }
     if (showCommunity) {
       // внутри Сообщества «Назад» идёт на шаг выше (профиль → тред → лента),
       // и только с ленты закрывает шторку
@@ -323,7 +307,7 @@
 
   // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
   function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
-    showData = showLibrary = showChat = false;
+    showData = showLibrary = false;
     libSheet = null; closeCourse();
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     resetScrub();
@@ -367,7 +351,6 @@
     // чтобы заметки/архетипы/пояс/время уведомлений не «терялись» после перезапуска.
     try {
       await hydrate();
-      void hydrateKey();   // ключ Claude из durable-хранилища (не ждём — нужен только чату)
       void refreshClientCharts();   // бейдж карт клиентов (0 у всех, кроме астролога)
       // разовое уведомление «доступна новая версия» после применения OTA-бандла
       // (просьба владелицы 2026-07-07). Ключ версии — durable; свежую установку
@@ -596,7 +579,6 @@
     onTracked={() => openLib('tracked')}
     onJournal={() => openLib('journal')}
     onSignMyths={() => openLib('signMyths')}
-    onChat={() => { showLibrary = false; showChat = true; }}
     onPlanetSigns={() => openLib('planetSigns')}
     onPlanetHouses={() => openLib('planetHouses')}
     onDispositors={() => openLib('dispositors')}
@@ -664,7 +646,6 @@
     tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
     nodalAxisFigures={settings.nodalAxisFigures ?? false}
     initialMode={showCharts.mode ?? 'transitNatal'}
-    onchat={(seed, source) => openChat(seed, source)}
     oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}
     ongoto={(d) => { showCharts = false; slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); date = d;
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
@@ -691,14 +672,11 @@
 {#if selRec && engine}
   <InterpretationSheet rec={selRec} {engine} date={effectiveDate} tz={settings.tz} {orbOf} onclose={closeAspect}
     oncommunity={(sig, title) => { selRec = null; selFrom = 'day'; showCommunity = { signature: sig, title }; }}
-    ongoto={(d) => { resetScrub(); date = d; selRec = null; selFrom = 'day'; }}
-    ondiscuss={(r) => openChat(`Обсудим аспект ${r.p1} ${r.aspect} ${r.p2}. Опираясь на заложенные `
-      + `в приложении архетипы участников — что это сочетание значит и на что обратить внимание?`,
-      { objects: [r.p1, r.p2], aspectSignature: aspectSignature(r.p1, r.p2, r.aspect), title: `${r.p1} ${r.aspect} ${r.p2}` })} />
+    ongoto={(d) => { resetScrub(); date = d; selRec = null; selFrom = 'day'; }} />
 {/if}
 
 {#if wheelInfo}
-  <InfoSheet info={wheelInfo} onclose={() => (wheelInfo = null)} ondiscuss={openChat}
+  <InfoSheet info={wheelInfo} onclose={() => (wheelInfo = null)}
     onopenfull={wheelAspectRec
       ? () => { const r = wheelAspectRec; wheelInfo = null; if (r) { pickAspect(r); buzzTick(); } }
       : undefined} />
@@ -726,10 +704,9 @@
   <GlossarySheet k={glossState.key} onclose={closeGloss} onnavigate={openGlossTarget} />
 {/if}
 
-{#if showChat && engine}
-  <ChatSheet {engine} date={effectiveDate} tz={settings.tz} {orbOf} seed={chatSeed} source={chatSource}
-    onclose={() => { showChat = false; chatSeed = null; chatSource = null; }} />
-{/if}
+<!-- Чат трактовок (ChatSheet) снят с монтажа 2026-07-25: реализация сырая,
+     кнопки «Обсудить с Claude» и ввод ключа убраны. Файлы ui/ChatSheet.svelte,
+     lib/chat.ts, lib/secret.ts оставлены в репо — вернуть после доработки. -->
 
 <style>
   main {

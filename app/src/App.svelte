@@ -9,6 +9,8 @@
   import { orbResolver } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
   import { aspectsOnCached } from './lib/dayCache.ts';
+  import { recoverNoteDirections } from './lib/notesMigrate.ts';
+  import { natalPositions } from './lib/charts.ts';
   import DayScreen from './ui/DayScreen.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
@@ -411,7 +413,7 @@
       showWelcome = !settings.seenWelcome;
     } catch { /* стартуем с дефолтов */ }
 
-    try { engine = await getEngine('swieph'); reschedule(); }
+    try { engine = await getEngine('swieph'); reschedule(); migrateNoteDirections(); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
     // подхватить файл данных с диска (если доступ уже разрешён — тихо; только веб)
     try {
@@ -428,6 +430,27 @@
   }
 
   function reschedule() { if (engine) void rescheduleAll(engine, db.settings.get(), db.settings.get().tz); }
+
+  // Разовое восстановление НАПРАВЛЕНИЯ транзита у старых заметок (2026-07-25).
+  // «Мой Марс ☌ транзитное Солнце» и «моё Солнце ☌ транзитный Марс» — разные
+  // события; у прежних заметок направление не писалось. Определяем его по дате
+  // заметки и натальной карте — и только там, где ответ ОДНОЗНАЧЕН.
+  function migrateNoteDirections(): void {
+    const s = db.settings.get();
+    if (s.notesDirV1 || !engine) return;
+    const self = s.transitSelfId ? db.people.get(s.transitSelfId) : null;
+    if (!self) return;   // нет «моей карты» — определять не от чего, попробуем позже
+    try {
+      const natal = natalPositions(engine, self, s.objects);
+      const { updates } = recoverNoteDirections(engine, db.notes.all().slice(), natal, orbOf, s.objects);
+      for (const [id, dir] of updates) {
+        const n = db.notes.get(id);
+        if (n) db.notes.put({ ...n, transitSignature: dir });
+      }
+      db.settings.set({ ...db.settings.get(), notesDirV1: true });
+      settings = db.settings.get();
+    } catch { /* не критично: заметки просто останутся без направления */ }
+  }
   function onPanelChanged() {
     const wasToday = isToday;
     settings = { ...db.settings.get() };

@@ -10,11 +10,11 @@
   import type { StaticAspect, Engine } from '../engine/index.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { db, uid } from '../lib/db.ts';
-  import { aspectSignature } from '../lib/signature.ts';
+  import { aspectSignature, transitSignature } from '../lib/signature.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
-  import { transitSelfLore, transitFrameText, transitFeel } from '../lib/transitSelfLore.ts';
+  import { transitSelfLore, transitFrameText, transitFeel, transitRhythm } from '../lib/transitSelfLore.ts';
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
   import { autogrow } from '../lib/autogrow.ts';
@@ -76,6 +76,13 @@
   // «В транзите» — добавка к натальному тексту пары (у своей же планеты её не
   // даём: там весь текст и так про цикл). Зеркало блока «В паре» для синастрии.
   const tFeel = $derived(isTransit && !selfTransit ? transitFeel(a.aspect) : null);
+  // «кто движется, тот и задаёт смысл» + ритм транзитной планеты (как часто
+  // возвращается, сколько держится, бывают ли три прохода на ретро)
+  const rhythm = $derived(isTransit ? transitRhythm(a.p2, a.p1) : null);
+  // НАПРАВЛЕННАЯ сигнатура: p1 — натальная точка, p2 — транзитная планета.
+  // По ней заметки «Марс(я)☌Солнце(транзит)» и «Солнце(я)☌Марс(транзит)»
+  // больше не сваливаются в одну ленту.
+  const dirSig = $derived(isTransit ? transitSignature(a.p1, a.p2, a.aspect) : null);
   // подпись блока и placeholder заметки — по контексту, без слова «пара» в транзите
   const blockLbl = $derived(isTransit ? 'Что происходит' : 'Взаимодействие');
   const notePlaceholder = $derived(isTransit ? 'Как проявился этот транзит…'
@@ -175,6 +182,12 @@
       <div class="lbl" style="margin-top:10px">В транзите</div>
       <div class="ptext">{tFeel}</div>
     {/if}
+    {#if rhythm}
+      <!-- КТО ДВИЖЕТСЯ — тот и задаёт смысл; плюс ритм: раз в год на два дня
+           или раз в два года на полторы недели с тремя проходами на ретро -->
+      <div class="lbl" style="margin-top:10px">Ритм этого транзита</div>
+      <div class="ptext">{rhythm}</div>
+    {/if}
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
       placeholder={isTransit ? 'Своя трактовка этого аспекта — коснись и пиши, сохранится в Библиотеку…'
         : 'Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…'}
@@ -191,9 +204,9 @@
   <ArchetypesBlock p1={a.p1} p2={a.p2} />
 
   <!-- дата заметки: «сейчас» на момент сохранения (снимок вне дня) — дефолт блока -->
-  <AspectNoteBlock p1={a.p1} p2={a.p2} {sig} placeholder={notePlaceholder} {source} />
+  <AspectNoteBlock p1={a.p1} p2={a.p2} {sig} {dirSig} placeholder={notePlaceholder} {source} />
 
-  <SimilarNotes {sig} {tz} />
+  <SimilarNotes {sig} {dirSig} {tz} />
 
   {#if engine && ongoto}
     <OccurrenceSearch {engine} {tz} p1={a.p1} p2={a.p2} aspect={a.aspect}

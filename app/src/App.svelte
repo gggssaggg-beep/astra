@@ -201,6 +201,10 @@
   // аспекты — копим дельту и применяем раз в кадр (как scrubTransit в «Картах»).
   let scrubPending = 0, scrubRaf = 0;
   function scrubWheel(deltaMs: number): void {
+    // перемотка времени сбрасывает выделение аспекта: на новый момент выбранной
+    // линии может не быть — иначе Wheel гасит ВСЕ линии как «не выбранные»
+    // (жалоба владелицы 2026-07-25). Аналог защиты activeKeys в «Картах».
+    if (selSig) selSig = null;
     scrubPending += deltaMs * SCRUB_MULT[scrubScale];
     if (scrubRaf) return;
     scrubRaf = requestAnimationFrame(() => { scrubOffset += scrubPending; scrubPending = 0; scrubRaf = 0; });

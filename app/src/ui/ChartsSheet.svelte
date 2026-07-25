@@ -863,7 +863,11 @@
     border-radius: 12px; padding: 11px 14px; }
   .btn.primary { background: var(--accent); border-color: transparent; color: var(--on-accent); font-weight: 600; }
   .btn.add { width: 100%; margin-top: 6px; }
-  .btn.open { width: 100%; margin-top: 10px; }
+  /* «Открыть карту» отклеена от списка людей: свой зазор снизу + тонкий
+     разделитель, чтобы кнопка не читалась как часть карточки первого человека
+     (просьба владелицы 2026-07-25) */
+  .btn.open { width: 100%; margin-top: 10px; margin-bottom: 14px;
+    padding-bottom: 15px; border-bottom: 1px solid var(--glass-brd); border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
   .chatrow { display: flex; gap: 8px; margin: 2px 0 8px; }
   .btn.chatbtn { flex: 1; }
   .btn.promptbtn { flex: 1; background: #ffffff10; }

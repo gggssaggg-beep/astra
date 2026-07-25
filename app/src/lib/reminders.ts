@@ -221,10 +221,13 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
         // станции вперёд — они заметнее рядовых аспектов
         const items = [...stItems, ...win.slice(0, 6).map((x) =>
           `${PLANET_GLYPH[x.rec.p1] ?? x.rec.p1}${x.rec.symbol}${PLANET_GLYPH[x.rec.p2] ?? x.rec.p2} ${fmtTime(x.rec.exactTime as Date, tz)}`)];
+        // на небе спокойно (ни аспектов, ни станций) — сводку НЕ шлём вовсе
+        // (просьба владелицы 2026-07-25: без пустых «спокойный отрезок»-пингов)
+        if (!items.length) continue;
         list.push({
           id: did++,
           title: digestTitle(twice, localMinutes(at, tz)),
-          body: items.length ? items.join(' · ') : 'Особых аспектов нет — спокойный отрезок.',
+          body: items.join(' · '),
           channelId: CH,
           extra: { dayAnchor: civilOf(at, tz).toISOString(), signature: win.length
             ? aspectSignature(win[0].rec.p1, win[0].rec.p2, win[0].rec.aspect) : null },

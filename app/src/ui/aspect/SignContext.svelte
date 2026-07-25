@@ -7,12 +7,20 @@
   import { PLANET_GLYPH, ZODIAC } from '../../engine/index.ts';
   import { fmtPos } from '../../lib/format.ts';
   import { planetSignLore } from '../../lib/planetSignLore.ts';
-  let { p1, p2, lon1, lon2, label = 'Участники в знаках' }:
-    { p1: string; p2: string; lon1: number; lon2: number; label?: string } = $props();
+  let { p1, p2, lon1, lon2, label = 'Участники в знаках', transit = false }:
+    { p1: string; p2: string; lon1: number; lon2: number; label?: string;
+      // «я + небо»: p1 — натальная планета человека, p2 — транзитная (небесная).
+      // Тексты «планета в знаке» написаны про ХАРАКТЕР («такой человек…»), к
+      // транзитному положению они неприменимы — там это просто окраска неба
+      // сейчас. Поэтому подписываем строки и не выдаём натальный текст на транзит
+      // (аудит текстов 2026-07-25).
+      transit?: boolean } = $props();
   const signOf = (lon: number): string => ZODIAC[((Math.floor(lon / 30) % 12) + 12) % 12];
   const rows = $derived([
-    { planet: p1, lon: lon1, lore: planetSignLore(p1, signOf(lon1)) },
-    { planet: p2, lon: lon2, lore: planetSignLore(p2, signOf(lon2)) },
+    { planet: p1, lon: lon1, note: transit ? 'твоя натальная' : null,
+      lore: planetSignLore(p1, signOf(lon1)) },
+    { planet: p2, lon: lon2, note: transit ? 'в небе сейчас' : null,
+      lore: transit ? null : planetSignLore(p2, signOf(lon2)) },
   ]);
 </script>
 
@@ -22,13 +30,15 @@
     {#if r.lore}
       <details class="prow">
         <summary><span class="g glyph">{PLANET_GLYPH[r.planet] ?? '•'}</span>
-          <b>{r.planet}</b><span class="pos glyph">{fmtPos(r.lon)}</span><span class="arr">▸</span></summary>
+          <b>{r.planet}</b>{#if r.note}<span class="who">{r.note}</span>{/if}
+          <span class="pos glyph">{fmtPos(r.lon)}</span><span class="arr">▸</span></summary>
         <div class="ltext">{r.lore}</div>
       </details>
     {:else}
-      <!-- доп. объекты без текста «в знаке» — просто позиция -->
+      <!-- транзитная планета и доп. объекты без текста «в знаке» — просто позиция -->
       <div class="prow flat"><span class="g glyph">{PLANET_GLYPH[r.planet] ?? '•'}</span>
-        <b>{r.planet}</b><span class="pos glyph">{fmtPos(r.lon)}</span></div>
+        <b>{r.planet}</b>{#if r.note}<span class="who">{r.note}</span>{/if}
+        <span class="pos glyph">{fmtPos(r.lon)}</span></div>
     {/if}
   {/each}
 </div>
@@ -43,6 +53,9 @@
   .g { font-size: 1.1rem; color: var(--silver); width: 1.4rem; text-align: center; }
   .prow b { font-size: 0.9rem; }
   .pos { color: var(--ink-dim); font-size: 0.84rem; margin-left: auto; }
+  /* чья планета: «твоя натальная» / «в небе сейчас» — иначе две строки читались
+     как разбор двух РАЗНЫХ ЛЮДЕЙ (жалоба владелицы) */
+  .who { color: var(--ink-faint); font-size: 0.72rem; }
   .arr { color: var(--ink-faint); font-size: 0.8rem; transition: transform 0.2s ease; }
   .prow[open] .arr { transform: rotate(90deg); }
   .ltext { color: var(--ink-dim); font-size: 0.88rem; line-height: 1.5; padding: 8px 4px 4px calc(1.4rem + 8px); }

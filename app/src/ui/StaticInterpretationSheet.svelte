@@ -14,7 +14,7 @@
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
-  import { transitSelfLore, transitFrameText } from '../lib/transitSelfLore.ts';
+  import { transitSelfLore, transitFrameText, transitFeel } from '../lib/transitSelfLore.ts';
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
   import { autogrow } from '../lib/autogrow.ts';
@@ -73,6 +73,9 @@
   // это взаимодействие ДВУХ людей (синастрия/двойные карты)? → добавка «в паре»
   const twoPeople = $derived(!!ownerA && !!ownerB && ownerA !== ownerB && !isTransit);
   const feel = $derived(twoPeople ? SYNASTRY_FEEL[a.aspect] ?? null : null);
+  // «В транзите» — добавка к натальному тексту пары (у своей же планеты её не
+  // даём: там весь текст и так про цикл). Зеркало блока «В паре» для синастрии.
+  const tFeel = $derived(isTransit && !selfTransit ? transitFeel(a.aspect) : null);
   // подпись блока и placeholder заметки — по контексту, без слова «пара» в транзите
   const blockLbl = $derived(isTransit ? 'Что происходит' : 'Взаимодействие');
   const notePlaceholder = $derived(isTransit ? 'Как проявился этот транзит…'
@@ -166,6 +169,12 @@
       <div class="lbl" style="margin-top:10px">В паре</div>
       <div class="ptext">{feel}</div>
     {/if}
+    {#if tFeel}
+      <!-- текст выше — натальный (про характер); здесь переводим на «сейчас»:
+           у транзита есть начало и конец (аудит текстов 2026-07-25) -->
+      <div class="lbl" style="margin-top:10px">В транзите</div>
+      <div class="ptext">{tFeel}</div>
+    {/if}
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
       placeholder={isTransit ? 'Своя трактовка этого аспекта — коснись и пиши, сохранится в Библиотеку…'
         : 'Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…'}
@@ -174,7 +183,7 @@
   </div>
 
   {#if lon1 != null && lon2 != null}
-    <SignContext p1={a.p1} p2={a.p2} {lon1} {lon2} />
+    <SignContext p1={a.p1} p2={a.p2} {lon1} {lon2} transit={isTransit} />
   {/if}
 
   <AspectActions {sig} {title} onprompt={() => (showPrompt = true)} {oncommunity} />

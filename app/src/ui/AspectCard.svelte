@@ -7,13 +7,23 @@
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { aspectSignature } from '../lib/signature.ts';
-  import { db } from '../lib/db.ts';
+  import { db, onChange } from '../lib/db.ts';
   import Hint from './Hint.svelte';
 
   let { rec, tz, onpick, selected = false, discussions = 0 }:
     { rec: AspectRecord; tz: string; onpick?: (r: AspectRecord) => void; selected?: boolean;
       discussions?: number } = $props();
   const tone = $derived(aspectTone(rec.aspect));
+  const sig = $derived(aspectSignature(rec.p1, rec.p2, rec.aspect));
+  // ★ «в избранном» (отслеживаемый аспект) прямо на карточке — просьба владелицы
+  // 2026-07-25. db.tracked.all() отдаёт ТУ ЖЕ ссылку → перечитываем по onChange,
+  // иначе звезда не появится сразу после тапа по ☆ в шторке (Svelte 5).
+  let trackedTick = $state(0);
+  $effect(() => onChange(() => (trackedTick += 1)));
+  const tracked = $derived.by(() => {
+    void trackedTick;
+    return db.tracked.all().some((t) => t.signature === sig);
+  });
   // аспект «живой» прямо сейчас — дышащая точка (снимок на момент отрисовки)
   const live = $derived.by(() => {
     const now = Date.now();
@@ -23,7 +33,7 @@
   // краткая трактовка: своя (из библиотеки) > уникальная «пара×аспект» (первое
   // предложение) > общая по типу аспекта
   const shortLore = $derived.by(() => {
-    const own = db.interpretations.get(aspectSignature(rec.p1, rec.p2, rec.aspect))?.text.trim();
+    const own = db.interpretations.get(sig)?.text.trim();
     if (own) return own.split('\n')[0];
     const uniq = pairAspectLore(rec.p1, rec.p2, rec.aspect);
     if (uniq) return uniq.split(/(?<=\.)\s/)[0];
@@ -43,6 +53,7 @@
       {PLANET_GLYPH[rec.p1] ?? rec.p1}<span class="asp glyph">{rec.symbol}</span>{PLANET_GLYPH[rec.p2] ?? rec.p2}
     </span>
     <span class="names">{rec.p1} {rec.aspect} {rec.p2}</span>
+    {#if tracked}<span class="fav" title="в избранном — отслеживаешь этот аспект">★</span>{/if}
     {#if discussions}<span class="disc" title="в сообществе есть обсуждение">💬 {discussions}</span>{/if}
     {#if live}<span class="live tone-{tone}" title="сейчас в орбисе"></span>{/if}
     {#if onpick}<Hint k="orb-current" />{/if}
@@ -71,6 +82,9 @@
   .names { flex: 1; color: var(--ink-dim); font-size: 0.86rem; }
   .disc { font-size: 0.72rem; color: var(--accent); background: #ffffff12;
     border: 1px solid var(--glass-brd); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  /* ★ избранное — тем же золотом, что звезда в шторке трактовки */
+  .fav { flex: none; color: var(--gold); font-size: 0.95rem; line-height: 1;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--gold) 60%, transparent); }
   /* орбис — значение (правило иерархии): --ink; серебро зарезервировано за Луной */
   .orb { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-weight: 600; color: var(--ink); }
   .arr { margin-left: 4px; opacity: 0.8; }

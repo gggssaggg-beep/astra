@@ -15,6 +15,9 @@
   import { reveal } from '../lib/reveal.ts';
   import AspectTimes from './AspectTimes.svelte';
   import type { TransitWindow } from '../lib/forecast.ts';
+  import { aspectSignature } from '../lib/signature.ts';
+  import { db, onChange } from '../lib/db.ts';
+  import { transitSelfLore } from '../lib/transitSelfLore.ts';
 
   let { a, ownerA = null, ownerB = null, selected, win = undefined, tz = null }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null;
@@ -26,14 +29,28 @@
   // подпись «Солнце (Аня)» в синастрии (владелец задан) или просто «Солнце» иначе
   const n1 = $derived(ownerA ? `${a.p1} (${ownerA})` : a.p1);
   const n2 = $derived(ownerB ? `${a.p2} (${ownerB})` : a.p2);
-  // строка трактовки: уникальная «пара×аспект», иначе общий смысл пары
-  const lore = $derived(pairAspectLore(a.p1, a.p2, a.aspect) ?? pairLore(a.p1, a.p2));
+  // строка трактовки: уникальная «пара×аспект», иначе общий смысл пары.
+  // ТРАНЗИТ к своей же планете (Марс↔Марс): корпус одноимённых пар написан под
+  // синастрию («оба», «пара») — вместо него текст фазы цикла (правка 2026-07-25).
+  const lore = $derived(
+    ownerB === 'транзит' && a.p1 === a.p2
+      ? transitSelfLore(a.p1, a.aspect)
+      : pairAspectLore(a.p1, a.p2, a.aspect) ?? pairLore(a.p1, a.p2));
+  // ★ «в избранном» — как на карточках главной (просьба владелицы 2026-07-25)
+  const sig = $derived(aspectSignature(a.p1, a.p2, a.aspect));
+  let trackedTick = $state(0);
+  $effect(() => onChange(() => (trackedTick += 1)));
+  const tracked = $derived.by(() => {
+    void trackedTick;
+    return db.tracked.all().some((t) => t.signature === sig);
+  });
 </script>
 
 <div class="srow reveal tone-{tone}" class:selected use:reveal>
   <div class="top">
     <span class="pair glyph">{g1}<span class="asp glyph">{a.symbol}</span>{g2}</span>
     <span class="names">{n1} {a.symbol} {n2}</span>
+    {#if tracked}<span class="fav" title="в избранном — отслеживаешь этот аспект">★</span>{/if}
     <span class="orb">{a.orb.toFixed(2)}°</span>
   </div>
   {#if lore}<div class="lore">{lore}</div>{/if}
@@ -65,4 +82,6 @@
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .orb { flex: none; font-variant-numeric: tabular-nums; font-family: var(--font-mono);
     font-weight: 600; color: var(--silver); font-size: 0.86rem; }
+  .fav { flex: none; color: var(--gold); font-size: 0.9rem; line-height: 1;
+    text-shadow: 0 0 8px color-mix(in srgb, var(--gold) 60%, transparent); }
 </style>

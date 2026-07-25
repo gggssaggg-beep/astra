@@ -14,6 +14,7 @@
   import { ASPECT_LORE } from '../lib/lore.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
+  import { transitSelfLore, transitFrameText } from '../lib/transitSelfLore.ts';
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
   import { autogrow } from '../lib/autogrow.ts';
@@ -52,13 +53,29 @@
   const n2 = $derived(ownerB ? `${a.p2} (${ownerB})` : a.p2);
   const title = $derived(`${n1} ${a.aspect} ${n2}`);
 
-  const pair = untrack(() => pairLore(a.p1, a.p2));
+  // «я + небо»: второе кольцо — транзит, а не второй человек
+  const isTransit = $derived(ownerB === 'транзит');
+  // транзитная планета к СВОЕЙ ЖЕ натальной (Марс ↔ Марс) — это фаза цикла
+  // планеты, а НЕ пара двух людей (жалоба владелицы 2026-07-25)
+  const selfTransit = $derived(isTransit && a.p1 === a.p2);
+
+  // Корпус pairLore/pairAspectLore для ОДНОИМЁННЫХ пар написан под синастрию
+  // («оба», «пара»). В транзите его не показываем — вместо него текст цикла.
+  const pair = $derived(isTransit && a.p1 === a.p2 ? null : pairLore(a.p1, a.p2));
   const lore = $derived(ASPECT_LORE[a.aspect]);
   // уникальный текст «пара×аспект»; null у доп. объектов → старая связка ниже
-  const unique = untrack(() => pairAspectLore(a.p1, a.p2, a.aspect));
+  const unique = $derived(isTransit && a.p1 === a.p2 ? null : pairAspectLore(a.p1, a.p2, a.aspect));
+  // транзит к своей же планете → текст фазы цикла; транзит к другой планете →
+  // рамка «небо задевает твоё» перед общим смыслом пары
+  const selfText = $derived(selfTransit ? transitSelfLore(a.p1, a.aspect) : null);
+  const frame = $derived(isTransit && !selfTransit ? transitFrameText(a.p2, a.p1) : null);
   // это взаимодействие ДВУХ людей (синастрия/двойные карты)? → добавка «в паре»
-  const twoPeople = $derived(!!ownerA && !!ownerB && ownerA !== ownerB && ownerB !== 'транзит');
+  const twoPeople = $derived(!!ownerA && !!ownerB && ownerA !== ownerB && !isTransit);
   const feel = $derived(twoPeople ? SYNASTRY_FEEL[a.aspect] ?? null : null);
+  // подпись блока и placeholder заметки — по контексту, без слова «пара» в транзите
+  const blockLbl = $derived(isTransit ? 'Что происходит' : 'Взаимодействие');
+  const notePlaceholder = $derived(isTransit ? 'Как проявился этот транзит…'
+    : twoPeople ? 'Как проявилось в этой паре…' : 'Как проявилось…');
 
   let tracked = $state(!!db.tracked.all().find((t) => t.signature === sig));
   function toggleTrack(): void {
@@ -92,6 +109,10 @@
     focus: `${title}${pair ? ` — смысл пары: ${pair}` : ''}${unique ? `. Трактовка: ${unique}` : ''}`,
     extra: twoPeople
       ? 'Это межаспект двух людей (синастрия). Разбери, как он ощущается ВНУТРИ взаимодействия пары.'
+      : selfTransit
+      ? `Это транзит планеты к СВОЕМУ ЖЕ натальному положению (${a.p1}) — фаза цикла этой планеты у одного человека, НЕ пара людей. Разбери, что за период сейчас идёт и что с ним делать.`
+      : isTransit
+      ? `Это транзит: небесный ${a.p2} задевает натальный ${a.p1} ОДНОГО человека — временный период, не черта характера и не отношения двух людей.`
       : 'Разбери этот аспект: взаимодействие энергий через характер аспекта.',
   }));
 
@@ -121,18 +142,24 @@
     <div class="winrow">Окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
   {:else}
     <div class="exact">Орбис {a.orb.toFixed(2)}° ·
-      {ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}</div>
+      {isTransit ? 'транзит к твоей карте' : ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}</div>
   {/if}
 
   <div class="block">
-    <div class="lbl">Взаимодействие</div>
-    {#if unique}
+    <div class="lbl">{blockLbl}</div>
+    {#if selfText}
+      <!-- транзит к своей же планете: фаза цикла, а не «пара» (правка 2026-07-25) -->
+      <div class="ptext">{selfText}</div>
+      {#if lore}<div class="ltext">{lore.symbol} {a.aspect} · {lore.short}</div>{/if}
+    {:else if unique}
       <!-- уникальный текст ИМЕННО этого сочетания — первым (типовая строка
            аспекта читалась как «трин, трин, трин» — жалоба владелицы) -->
+      {#if frame}<div class="ptext frame">{frame}</div>{/if}
       <div class="ptext">{unique}</div>
       {#if lore}<div class="ltext">{lore.symbol} {a.aspect} · {lore.short}</div>{/if}
       {#if pair}<div class="ltext">{a.p1} — {a.p2}: {pair}</div>{/if}
     {:else}
+      {#if frame}<div class="ptext frame">{frame}</div>{/if}
       {#if pair}<div class="ptext">{pair}</div>{/if}
       {#if lore}
         <div class="lshort">{lore.symbol} {lore.short}</div>
@@ -145,7 +172,8 @@
       <div class="ptext">{feel}</div>
     {/if}
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
-      placeholder="Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…"
+      placeholder={isTransit ? 'Своя трактовка этого аспекта — коснись и пиши, сохранится в Библиотеку…'
+        : 'Своя трактовка этой пары — коснись и пиши, сохранится в Библиотеку…'}
       onchange={saveInterp}></textarea>
     {#if interpSaved}<div class="hint oksave">✓ Сохранено в библиотеку трактовок</div>{/if}
   </div>
@@ -159,7 +187,7 @@
   <ArchetypesBlock p1={a.p1} p2={a.p2} />
 
   <!-- дата заметки: «сейчас» на момент сохранения (снимок вне дня) — дефолт блока -->
-  <AspectNoteBlock p1={a.p1} p2={a.p2} {sig} placeholder="Как проявилось в этой паре…" />
+  <AspectNoteBlock p1={a.p1} p2={a.p2} {sig} placeholder={notePlaceholder} />
 
   <SimilarNotes {sig} {tz} />
 
@@ -189,6 +217,8 @@
   .winrow { color: var(--ink-dim); font-size: 0.78rem; margin: 0 0 4px; }
   .winrow b { color: var(--gold); font-weight: 600; }
   .ptext { font-size: 0.92rem; margin-bottom: 8px; }
+  /* рамка «небо задевает твоё» — тихая вводная строка перед смыслом пары */
+  .ptext.frame { color: var(--ink-dim); font-size: 0.86rem; }
   .lshort { font-weight: 600; margin-bottom: 4px; }
   .ltext { font-size: 0.88rem; color: var(--ink-dim); margin-bottom: 10px; }
   .oksave { color: var(--gold); margin-top: 6px; }

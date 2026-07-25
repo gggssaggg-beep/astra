@@ -44,7 +44,8 @@
   import { glyphStyle } from './lib/glyphStyle.svelte.ts';
   import ScrollThread from './ui/ScrollThread.svelte';
   import type { WheelInfo } from './lib/lore.ts';
-  import { rescheduleAll, onNotificationTap, notifyNewVersion } from './lib/reminders.ts';
+  import { rescheduleAll, onNotificationTap, notifyNewVersion,
+    type NotificationTarget } from './lib/reminders.ts';
   import { initPush } from './lib/push.ts';
   import { watchLowBattery } from './lib/battery.ts';
   import { resumeOta, appliedVersion } from './lib/ota.ts';
@@ -67,7 +68,11 @@
   let libSheet = $state<LibKey | null>(null);
   const openLib = (k: LibKey) => { showLibrary = false; libSheet = k; };
   const closeLib = () => { libSheet = null; showLibrary = true; };
-  let showCharts = $state<false | { mode?: 'transitNatal' | 'triple' | 'synastry' }>(false);
+  let showCharts = $state<false | {
+    mode?: 'transitNatal' | 'triple' | 'synastry';
+    // адрес аспекта из уведомления: открыть карту транзит+натал и выделить его
+    select?: { personId: string; nName: string; tName: string; aspect: string; at?: string };
+  }>(false);
   let clientChartsWaiting = $state(0);   // бейдж «Карты»: новые карты от клиентов (только у астролога)
   let showAstrologer = $state(false);
   let showLibrary = $state(false);
@@ -305,14 +310,24 @@
     void CapApp.minimizeApp();
   }
 
-  // тап по уведомлению: открыть день аспекта на главном и ВЫДЕЛИТЬ этот аспект
-  function openFromNotification(info: { dayAnchor?: string; signature?: string }) {
+  // Тап по уведомлению. Аспект НЕБА → день на главном с выделенной карточкой.
+  // «Мой» аспект (транзит к натальной карте) → МОЯ карта ТРАНЗИТ+НАТАЛ на момент
+  // аспекта, он выделен и раскрыт (просьба владелицы 2026-07-25).
+  function openFromNotification(info: NotificationTarget) {
     showData = showLibrary = false;
     libSheet = null; closeCourse();
     showCharts = false; showCommunity = false; showAstrologer = false; selRec = null; wheelInfo = null;
     resetScrub();
     if (info.dayAnchor) { const d = new Date(info.dayAnchor); if (!isNaN(d.getTime())) date = d; }
     if (info.signature) selSig = info.signature;
+    // карта человека: нужны id (кто) и имена участников аспекта
+    if (info.transitNatal && info.selfId && info.nName && info.tName && info.aspect
+      && db.people.get(info.selfId)) {
+      showCharts = { mode: 'transitNatal',
+        select: { personId: info.selfId, nName: info.nName, tName: info.tName,
+          aspect: info.aspect, at: info.at } };
+      return;   // экран дня прокручивать не нужно — открыта шторка карты
+    }
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   }
 
@@ -642,14 +657,19 @@
 {/if}
 
 {#if showCharts && engine}
+  <!-- {#key}: адрес из уведомления читается при СОЗДАНИИ компонента (untrack).
+       Если шторка карт уже открыта, смена select обязана её пересоздать. -->
+  {#key showCharts.select}
   <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={effSignStyle} defaultTz={settings.tz}
     tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
     nodalAxisFigures={settings.nodalAxisFigures ?? false}
     initialMode={showCharts.mode ?? 'transitNatal'}
+    initialSelect={showCharts.select ?? null}
     oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}
     ongoto={(d) => { showCharts = false; slideDir = Math.sign(d.getTime() - effectiveDate.getTime()); resetScrub(); date = d;
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCharts = false)} />
+  {/key}
 {/if}
 
 {#if showCommunity}

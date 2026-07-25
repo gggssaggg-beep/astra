@@ -269,7 +269,17 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
             title: `${hh.tGlyph} ${hh.symbol} ${hh.nGlyph}`,
             body: `Транзит к ${hh.owner}: ${hh.tName} ${hh.aspect} ${hh.nName}`,
             channelId: CH,
-            extra: { dayAnchor: civilOf(hh.when, tz).toISOString() },
+            // тап по «моему» аспекту открывает МОЮ карту ТРАНЗИТ+НАТАЛ на этот
+            // момент с выделенным аспектом (просьба владелицы 2026-07-25).
+            // Куспиды (`Дом N`) в карте отдельной строкой не выделяются — тогда
+            // просто открываем карту на момент.
+            extra: {
+              dayAnchor: civilOf(hh.when, tz).toISOString(),
+              transitNatal: true,
+              selfId: settings.transitSelfId,
+              nName: hh.nName, tName: hh.tName, aspect: hh.aspect,
+              at: hh.when.toISOString(),
+            },
             schedule: { at: hh.when, allowWhileIdle: true },
           });
           tcount++;
@@ -289,15 +299,27 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
   }
 }
 
-/** Тап по уведомлению → колбэк с extra (день + сигнатура аспекта), чтобы App
- *  открыл нужный день и выделил аспект. Регистрировать один раз на старте. */
-export function onNotificationTap(
-  cb: (info: { dayAnchor?: string; signature?: string }) => void,
-): void {
+/** Что уведомление знает о своём аспекте (кладём в extra при планировании). */
+export interface NotificationTarget {
+  dayAnchor?: string;      // день на главной (ISO гражданской даты)
+  signature?: string;      // сигнатура аспекта неба → выделить в списке дня
+  // «мой» аспект: транзит к натальной карте → открыть карту ТРАНЗИТ+НАТАЛ
+  transitNatal?: boolean;
+  selfId?: string;         // чья карта (id человека из «моя карта» настроек)
+  nName?: string;          // натальная точка (p1 в строках карты)
+  tName?: string;          // транзитная планета (p2)
+  aspect?: string;
+  at?: string;             // ISO момента точного аспекта — на него мотаем транзит
+}
+
+/** Тап по уведомлению → колбэк с extra (день + сигнатура аспекта либо адрес
+ *  карты транзит+натал), чтобы App открыл нужный экран и выделил аспект.
+ *  Регистрировать один раз на старте. */
+export function onNotificationTap(cb: (info: NotificationTarget) => void): void {
   if (!NATIVE) return;
   void LocalNotifications.addListener('localNotificationActionPerformed', (action) => {
-    const ex = action.notification?.extra as { dayAnchor?: string; signature?: string } | undefined;
-    if (ex && (ex.dayAnchor || ex.signature)) { push('тап по уведомлению'); cb(ex); }
+    const ex = action.notification?.extra as NotificationTarget | undefined;
+    if (ex && (ex.dayAnchor || ex.signature || ex.transitNatal)) { push('тап по уведомлению'); cb(ex); }
   });
 }
 

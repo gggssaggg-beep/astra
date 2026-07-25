@@ -52,11 +52,16 @@
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
         nodalAxisFigures = false,
-        initialMode = 'transitNatal', onclose, oncommunity, ongoto }:
+        initialMode = 'transitNatal', initialSelect = null, onclose, oncommunity, ongoto }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
       nodalAxisFigures?: boolean;
-      initialMode?: Mode; onclose: () => void;
+      initialMode?: Mode;
+      // Открыть СРАЗУ карту транзит+натал этого человека на момент `at` и
+      // выделить аспект (тап по уведомлению «мой аспект», просьба 2026-07-25).
+      initialSelect?: { personId: string; nName: string; tName: string;
+        aspect: string; at?: string } | null;
+      onclose: () => void;
       oncommunity?: (sig: string, title: string) => void;
       ongoto?: (d: Date) => void } = $props();
 
@@ -114,7 +119,11 @@
   let people = $state(db.people.all().slice());
   // восстановление последней карты: только при обычном открытии хаба (явный
   // initialMode из Библиотеки — например «Синастрия» — не перебиваем)
+  // адрес из уведомления сильнее «памяти последней карты»
+  const fromNotify = untrack(() =>
+    initialSelect && db.people.get(initialSelect.personId) ? initialSelect : null);
   const restore = untrack(() => {
+    if (fromNotify) return null;
     if (initialMode !== 'transitNatal' || !lastMode) return null;
     const alive = lastPair.filter((id) => db.people.get(id));
     if (alive.length !== lastPair.length) return null;
@@ -122,10 +131,12 @@
     return { mode: lastMode, pair: alive,
       view: lastView === 'chart' && alive.length === need ? 'chart' as const : 'list' as const };
   });
-  let view = $state<'list' | 'form' | 'chart'>(restore?.view ?? 'list');
-  let mode = $state<Mode>(untrack(() => restore?.mode ?? initialMode));
-  let pair = $state<string[]>(restore?.pair ?? []); // выбранные id (0 → «А», 1 → «Б»)
-  let selKey = $state<string | null>(null);     // выделенная линия в колесе
+  let view = $state<'list' | 'form' | 'chart'>(fromNotify ? 'chart' : restore?.view ?? 'list');
+  let mode = $state<Mode>(untrack(() => fromNotify ? 'transitNatal' : restore?.mode ?? initialMode));
+  let pair = $state<string[]>(fromNotify ? [fromNotify.personId] : restore?.pair ?? []); // выбранные id (0 → «А», 1 → «Б»)
+  // выделенная линия в колесе; из уведомления — сразу нужный аспект
+  let selKey = $state<string | null>(fromNotify
+    ? `${fromNotify.nName}|${fromNotify.tName}|${fromNotify.aspect}` : null);
   let openPos = $state<string | null>(null);    // развёрнутое «Положение» (рамка активна)
   // запоминаем выбор для следующего открытия (память сессии, не диск)
   $effect(() => { lastMode = mode; lastPair = pair.slice(); lastView = view === 'chart' ? 'chart' : 'list'; });
@@ -173,8 +184,12 @@
     housesA ? ROMAN[houseOfLon(lon, housesA.cusps) - 1] : '';
   const houseSysLabel = $derived(HOUSE_SYSTEMS.find((h) => h.id === houseSystem)?.label ?? houseSystem);
 
-  // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск)
-  let transitAt = $state(new Date());
+  // транзит: старт «сейчас», можно проматывать (ввод даты/времени, шаги, диск).
+  // Из уведомления — момент точного аспекта (иначе к открытию он уже «уехал»).
+  let transitAt = $state(untrack(() => {
+    const d = fromNotify?.at ? new Date(fromNotify.at) : null;
+    return d && !isNaN(d.getTime()) ? d : new Date();
+  }));
   const transitPos = $derived(engine.positions(transitAt, objects ?? undefined));
   // кэш Intl-форматтера ПОДПИСИ транзита (label): пересоздаём при смене пояса.
   // Форматтеры полей даты/времени и вся панель управления — в дочернем
@@ -323,6 +338,19 @@
     return new Set(src.map((a) => staticKey(a)));
   });
   $effect(() => { if (selKey && !activeKeys.has(selKey)) selKey = null; });
+
+  // Из уведомления: как только аспекты карты посчитаны — РАСКРЫТЬ его описание
+  // (владелица: «открывается моя карта транзит+натал и там выделен этот аспект»).
+  // Один раз; если аспект уже вне орбиса, эффект выше просто снимет выделение.
+  let notifyOpened = false;
+  $effect(() => {
+    if (!fromNotify || notifyOpened || view !== 'chart') return;
+    const key = `${fromNotify.nName}|${fromNotify.tName}|${fromNotify.aspect}`;
+    const a = crossTA.find((x) => staticKey(x) === key);
+    if (!a || !posA.length) return;
+    notifyOpened = true;
+    openDetail(a, personA?.name ?? null, 'транзит', posA, 'A');
+  });
 
   // «Фигуры» карты (раунд 29): натал — классические; транзитные режимы —
   // фигуры, ЗАМКНУТЫЕ транзитом (натальная заготовка + транзитная планета).

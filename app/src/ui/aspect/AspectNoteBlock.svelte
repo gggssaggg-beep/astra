@@ -4,17 +4,19 @@
   import { db, uid } from '../../lib/db.ts';
   import { noteDateStr } from '../../lib/journal.ts';
   import { success } from '../../lib/haptics.ts';
-  let { p1, p2, sig, date = null, placeholder = 'Как проявилось сегодня…' }:
+  let { p1, p2, sig, date = null, placeholder = 'Как проявилось сегодня…', source = null }:
     { p1: string; p2: string; sig: string;
       // дата записи: день экрана (транзитный аспект) или null = «сейчас» НА МОМЕНТ
       // сохранения (статичный снимок — как было в StaticInterpretationSheet)
-      date?: Date | null; placeholder?: string } = $props();
+      date?: Date | null; placeholder?: string;
+      // ОТКУДА заметка: «Я+Саша 13.06.25» / «Небо 13.06.25» (просьба 2026-07-25)
+      source?: string | null } = $props();
   let noteText = $state('');
   let savedOk = $state(false);          // «✓ В журнале» — видно, что запись легла
   function addNote(): void {
     const t = noteText.trim(); if (!t) return;
     db.notes.put({ id: uid(), createdAt: new Date().toISOString(), date: noteDateStr(date ?? new Date()),
-      text: t, objects: [p1, p2], aspectSignature: sig });
+      text: t, objects: [p1, p2], aspectSignature: sig, source: source ?? undefined });
     noteText = ''; success();
     savedOk = true; setTimeout(() => (savedOk = false), 1600);
   }
@@ -23,7 +25,7 @@
 <div class="block">
   <div class="lbl">Заметка к этому аспекту</div>
   <textarea bind:value={noteText} rows="2" {placeholder}></textarea>
-  <div class="row"><span class="hint">Сохранится в журнал с привязкой к этому аспекту.</span>
+  <div class="row"><span class="hint">Сохранится в журнал с привязкой к этому аспекту{#if source} · <b>{source}</b>{/if}.</span>
     <button class="btn" class:okflash={savedOk} onclick={addNote} disabled={!noteText.trim() && !savedOk}>
       {savedOk ? '✓ В журнале' : 'В журнал'}</button></div>
 </div>

@@ -27,6 +27,7 @@
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
+  import { chartSource } from '../lib/journal.ts';
   import { analyzeHouses, houseOfLon, type HouseInfo } from '../lib/houses.ts';
   import { HOUSE_SYSTEMS } from '../lib/models.ts';
   import { buildAstroPrompt, type PromptPerson } from '../lib/aiPrompt.ts';
@@ -471,6 +472,11 @@
   });
 
   let showPrompt = $state(false);   // окно «Промпт для любой ИИ»
+
+  // «Откуда» заметка: «Я+Саша 13.06.25» / «Я 20.06.2006» (просьба владелицы
+  // 2026-07-25). «Я» — карта, выбранная как своя в Настройках (transitSelfId).
+  const noteSource = $derived(chartSource(mode, personA, personB, transitAt,
+    db.settings.get().transitSelfId));
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
@@ -807,7 +813,7 @@
 
 {#if detail}
   <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz} win={detailWin}
-    {engine} {orbOf} anchor={detailAnchor} lon1={detailLon1} lon2={detailLon2}
+    {engine} {orbOf} anchor={detailAnchor} lon1={detailLon1} lon2={detailLon2} source={noteSource}
     ongoto={ongoto ? (d) => { detail = null; ongoto?.(d); } : null}
     onclose={() => (detail = null)}
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />

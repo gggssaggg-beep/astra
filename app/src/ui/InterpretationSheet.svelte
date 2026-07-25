@@ -10,6 +10,7 @@
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
   import { fmtTime } from '../lib/format.ts';
+  import { skySource } from '../lib/journal.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { tap, success } from '../lib/haptics.ts';
@@ -119,7 +120,7 @@
 
   <ArchetypesBlock p1={rec.p1} p2={rec.p2} />
 
-  <AspectNoteBlock p1={rec.p1} p2={rec.p2} {sig} {date} />
+  <AspectNoteBlock p1={rec.p1} p2={rec.p2} {sig} {date} source={skySource(date)} />
 
   <SimilarNotes {sig} {tz} />
 

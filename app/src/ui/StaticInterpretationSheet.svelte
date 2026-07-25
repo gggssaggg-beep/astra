@@ -30,7 +30,7 @@
 
   let { a, ownerA = null, ownerB = null, tz, win = null, engine = null, orbOf = null,
         lon1 = null, lon2 = null,
-        anchor = null, ongoto = null, onclose, oncommunity }:
+        anchor = null, source = null, ongoto = null, onclose, oncommunity }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null; tz: string;
       win?: { begin: Date; exact: Date; end: Date } | null;
       engine?: Engine | null; orbOf?: ((name: string) => number) | null;
@@ -39,6 +39,8 @@
       // НЕПОДВИЖНОМУ натальному градусу (lon) объекта a.p1. Поиск «когда ещё»
       // ищет именно это, а не два транзитных тела (жалоба владелицы 2026-07-09).
       anchor?: { lon: number; planet: string } | null;
+      // «откуда» заметка: «Я+Саша 13.06.25» (собирает ChartsSheet по режиму карты)
+      source?: string | null;
       ongoto?: ((d: Date) => void) | null;
       onclose: () => void;
       oncommunity?: (sig: string, title: string) => void } = $props();
@@ -180,7 +182,7 @@
   <ArchetypesBlock p1={a.p1} p2={a.p2} />
 
   <!-- дата заметки: «сейчас» на момент сохранения (снимок вне дня) — дефолт блока -->
-  <AspectNoteBlock p1={a.p1} p2={a.p2} {sig} placeholder={notePlaceholder} />
+  <AspectNoteBlock p1={a.p1} p2={a.p2} {sig} placeholder={notePlaceholder} {source} />
 
   <SimilarNotes {sig} {tz} />
 

@@ -17,7 +17,9 @@
   <div class="lbl">Похожие прошлые ({similar.length})</div>
   {#if !similar.length}<div class="hint">По этой паре пока пусто — первая заметка появится здесь ✧</div>{/if}
   {#each similar as n (n.id)}
-    <div class="past"><b title={dmy(n.date)}>{fmtRelDay(n.date, tz)}</b><div>{n.text}</div></div>
+    <div class="past"><b title={dmy(n.date)}>{fmtRelDay(n.date, tz)}</b>
+      {#if n.source}<span class="src" title="откуда сделана заметка">{n.source}</span>{/if}
+      <div>{n.text}</div></div>
   {/each}
 </div>
 
@@ -27,4 +29,8 @@
   .hint { color: var(--ink-faint); font-size: 0.8rem; }
   .past { padding: 6px 0; border-top: 1px solid var(--glass-brd); font-size: 0.9rem; }
   .past:first-of-type { border-top: none; }
+  /* «откуда» заметка: «Я+Саша 13.06.25» — чтобы прошлые записи не путались */
+  .src { color: var(--accent); font-size: 0.72rem; background: #ffffff10;
+    border: 1px solid var(--glass-brd); border-radius: 999px; padding: 1px 8px;
+    margin-left: 6px; white-space: nowrap; }
 </style>

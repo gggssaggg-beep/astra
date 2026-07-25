@@ -1,6 +1,6 @@
 <script lang="ts">
   import { db, uid, onChange } from '../lib/db.ts';
-  import { noteDateStr, filterNotes, type Period } from '../lib/journal.ts';
+  import { noteDateStr, filterNotes, skySource, type Period } from '../lib/journal.ts';
   import type { JournalNote } from '../lib/models.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { reveal } from '../lib/reveal.ts';
@@ -42,11 +42,31 @@
   let savedOk = $state(false);           // «✓ Сохранено» на кнопке — фидбек, что запись легла
   function save() {
     const t = text.trim(); if (!t) return;
-    db.notes.put({ id: uid(), createdAt: new Date().toISOString(), date: noteDateStr(date), text: t, objects: [...sel] });
+    db.notes.put({ id: uid(), createdAt: new Date().toISOString(), date: noteDateStr(date),
+      text: t, objects: [...sel], source: skySource(date) });
     text = ''; sel = new Set(); refresh();
     success();
     savedOk = true;
     setTimeout(() => (savedOk = false), 1600);
+  }
+
+  // ── Правка заметки на месте (просьба владелицы 2026-07-25) ──────────────
+  // Тап по ✎ раскрывает textarea прямо в карточке; ✓ сохраняет (updatedAt →
+  // подпись «изменено»), ✕ отменяет. Планеты-теги правятся тем же набором чипов.
+  let editId = $state<string | null>(null);
+  let editText = $state('');
+  let editSel = $state<Set<string>>(new Set());
+  function startEdit(n: JournalNote) {
+    editId = n.id; editText = n.text; editSel = new Set(n.objects); tick();
+  }
+  function cancelEdit() { editId = null; editText = ''; editSel = new Set(); }
+  function toggleEditObj(o: string) {
+    const s = new Set(editSel); s.has(o) ? s.delete(o) : s.add(o); editSel = s;
+  }
+  function saveEdit(n: JournalNote) {
+    const t = editText.trim(); if (!t) return;
+    db.notes.put({ ...n, text: t, objects: [...editSel], updatedAt: new Date().toISOString() });
+    cancelEdit(); refresh(); success();
   }
 
   // удаление с «Вернуть»: промах пальцем больше не уносит наблюдение навсегда
@@ -118,7 +138,9 @@
     <div class="cmp glass">
       <div class="lbl">Сравнение ({cmpList.length})</div>
       {#each cmpList as n}
-        <div class="cnote"><b>{dmy(n.date)}</b> <span class="tags">{n.objects.join(' · ')}</span><div>{n.text}</div></div>
+        <div class="cnote"><b>{dmy(n.date)}</b>
+          {#if n.source}<span class="src">{n.source}</span>{/if}
+          <span class="tags">{n.objects.join(' · ')}</span><div>{n.text}</div></div>
       {/each}
     </div>
   {/if}
@@ -131,16 +153,34 @@
     {#if !list.length}<div class="empty">Здесь пока пусто ✧<br />
       <span class="empty2">Первая запись появится после наблюдений — журнал подождёт.</span></div>{/if}
     {#each list as n (n.id)}
-      <GlowCard selected={cmp.has(n.id)} radius={12}>
+      <GlowCard selected={cmp.has(n.id) || editId === n.id} radius={12}>
         <div class="note reveal" class:picked={cmp.has(n.id)} use:reveal>
           <div class="nhead">
             <b title={dmy(n.date)}>{rel(n.date)}</b>
-            {#if n.objects.length}<span class="tags">{n.objects.join(' · ')}</span>{/if}
+            <!-- ОТКУДА заметка: «Я+Саша 13.06.25» / «Небо 13.06.25» (у старых нет) -->
+            {#if n.source}<span class="src" title="откуда сделана заметка">{n.source}</span>{/if}
+            {#if n.objects.length && editId !== n.id}<span class="tags">{n.objects.join(' · ')}</span>{/if}
             <span class="spacer"></span>
-            <button class="mini" class:on={cmp.has(n.id)} title="Для сравнения" onclick={() => toggleCmp(n.id)}>⇄</button>
-            <button class="mini" title="Удалить" onclick={() => del(n.id)}>🗑</button>
+            {#if editId === n.id}
+              <button class="mini ok" title="Сохранить" onclick={() => saveEdit(n)} disabled={!editText.trim()}>✓</button>
+              <button class="mini" title="Отменить" onclick={cancelEdit}>✕</button>
+            {:else}
+              <button class="mini" class:on={cmp.has(n.id)} title="Для сравнения" onclick={() => toggleCmp(n.id)}>⇄</button>
+              <button class="mini" title="Править" onclick={() => startEdit(n)}>✎</button>
+              <button class="mini" title="Удалить" onclick={() => del(n.id)}>🗑</button>
+            {/if}
           </div>
-          <div class="ntext">{n.text}</div>
+          {#if editId === n.id}
+            <textarea class="nedit" bind:value={editText} rows="3"></textarea>
+            <div class="chips small">
+              {#each OBJ as o}
+                <button class="chip glyph" class:on={editSel.has(o)} onclick={() => toggleEditObj(o)}>{o}</button>
+              {/each}
+            </div>
+          {:else}
+            <div class="ntext">{n.text}</div>
+            {#if n.updatedAt}<div class="edited">изменено {rel(n.updatedAt.slice(0, 10))}</div>{/if}
+          {/if}
         </div>
       </GlowCard>
     {/each}
@@ -179,7 +219,17 @@
   .spacer { flex: 1; }
   .mini { background: transparent; border: none; color: var(--ink-faint); font-size: 0.95rem; padding: 2px 4px; border-radius: 6px; }
   .mini.on, .mini:hover { color: var(--ink); background: #ffffff14; }
+  .mini.ok { color: var(--gold); }
+  .mini:disabled { opacity: 0.4; }
   .ntext { font-size: 0.92rem; white-space: pre-wrap; }
+  /* «откуда» заметка — тихая подпись рядом с датой */
+  .src { color: var(--accent); font-size: 0.72rem; background: #ffffff10;
+    border: 1px solid var(--glass-brd); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+  .edited { color: var(--ink-faint); font-size: 0.72rem; margin-top: 4px; }
+  .nedit { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
+    border-radius: 10px; padding: 8px 10px; font: inherit; resize: vertical; margin-top: 4px; }
+  .chips.small { margin: 6px 0 2px; }
+  .chips.small .chip { font-size: 0.74rem; padding: 4px 9px; }
   .empty { text-align: center; color: var(--ink-dim); padding: 20px 0; line-height: 1.6; }
   .empty2 { color: var(--ink-faint); font-size: 0.84rem; }
   .okflash { background: var(--gold) !important; }

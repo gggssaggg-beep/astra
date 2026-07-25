@@ -48,12 +48,37 @@ export function transitSelfLore(planet: string, aspect: string): string | null {
   return `${cycle} ${phase}`;
 }
 
+// ── Согласование по роду (иначе «Транзитный Луна… по натальному Меркурий») ──
+/** Женский/средний род там, где правило по окончанию врёт (несклоняемые и т.п.). */
+const GENDER: Record<string, 'f' | 'n' | 'm'> = {
+  'Лилит': 'f', 'Раху': 'm', 'Кету': 'm', 'Солнце': 'n',
+};
+function genderOf(name: string): 'f' | 'n' | 'm' {
+  const g = GENDER[name];
+  if (g) return g;
+  const last = name.slice(-1);
+  if (last === 'а' || last === 'я') return 'f';
+  if (last === 'о' || last === 'е') return 'n';
+  return 'm';
+}
+/** Винительный падеж: «задевает твою натальную Венеру / твой натальный Марс». */
+function accusative(name: string): string {
+  if (GENDER[name] === 'f' && !/[ая]$/.test(name)) return name;   // Лилит — не склоняем
+  if (/а$/.test(name)) return name.slice(0, -1) + 'у';            // Венера → Венеру
+  if (/я$/.test(name)) return name.slice(0, -1) + 'ю';
+  return name;   // муж. неодуш. и ср. род — как именительный
+}
+
 /**
  * Транзитная планета к ДРУГОЙ натальной: рамка «небо задевает твоё» — чтобы
  * общий текст пары не читался как разбор двух людей.
  */
 export function transitFrameText(tPlanet: string, nPlanet: string): string {
-  return `Транзитный ${tPlanet} проходит по натальному ${nPlanet} — небо временно `
+  const g = genderOf(tPlanet);
+  const adj = g === 'f' ? 'Транзитная' : g === 'n' ? 'Транзитное' : 'Транзитный';
+  const ng = genderOf(nPlanet);
+  const your = ng === 'f' ? 'твою натальную' : ng === 'n' ? 'твоё натальное' : 'твой натальный';
+  return `${adj} ${tPlanet} задевает ${your} ${accusative(nPlanet)} — небо временно `
     + `включает эту твою тему. Это не черта характера, а период: у аспекта есть `
     + `начало, пик и конец (окно выше).`;
 }

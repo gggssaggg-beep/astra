@@ -538,7 +538,7 @@
       }
     }
     return buildAstroPrompt({
-      title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects,
+      title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects, weighted: true,
       // транзитные планеты — С ДОМАМИ натальной карты A (houseOfA); чьи это дома,
       // промпт называет явно (в тройной карте иначе не понять)
       transit: (mode === 'transitNatal' || mode === 'triple')

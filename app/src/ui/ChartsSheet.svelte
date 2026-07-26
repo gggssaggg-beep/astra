@@ -784,6 +784,22 @@
           <StaticAspectRow {a} selected={staticKey(a) === selKey} />
         </GlowCard>
       {/each}
+      <!-- срез «сейчас» к карте отношений. Линии в колесе НЕ рисуем: у композита
+           одно кольцо, транзитным точкам там места нет — только список -->
+      {#if crossTC.length}
+        <details class="fold">
+          <summary class="grp">🚶 Транзит к композиту сейчас · {crossTC.length}</summary>
+          <div class="hint small">Небо на {transitLabel} к карте отношений: какие темы связи
+            активированы прямо сейчас. Даты точных попаданий — в прогнозе ниже.</div>
+          {#each crossTC as a (staticKey(a))}
+            <GlowCard radius={12} selected={staticKey(a) === selKey}
+              onactivate={() => toggleDetail(a, 'композит', 'транзит', posMid, 'A')}>
+              <StaticAspectRow {a} ownerA={'композит'} ownerB={'транзит'} {tz}
+                win={winFor(a, 'A')} selected={staticKey(a) === selKey} />
+            </GlowCard>
+          {/each}
+        </details>
+      {/if}
     {:else if mode === 'synastry'}
       {#if crossSyn.length === 0}<div class="empty">Нет мажорных аспектов в орбисе.</div>{/if}
       {#each crossSyn as a (staticKey(a))}

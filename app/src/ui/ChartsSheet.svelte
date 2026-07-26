@@ -627,6 +627,12 @@
       <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
       <div class="legend">натальная карта {personA?.name}</div>
+    {:else if mode === 'composite'}
+      <!-- одно кольцо середин: домов у композита нет (housesA к нему не относятся),
+           скраба нет — карта статичная -->
+      <Wheel positions={posMid} staticAspects={compAsp} {signStyle}
+        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
+      <div class="legend">композит {personA?.name} + {personB?.name} — середины планет</div>
     {:else if mode === 'synastry'}
       <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
@@ -647,7 +653,7 @@
     <!-- данные рождения на самой карте: скриншот несёт ВСЮ информацию
          (дата/время/пояс/место) — внешний ИИ-разбор не гадает о моменте -->
     {#if personA}<div class="birth">{personA.name} — род. {fmtBirth(personA)}</div>{/if}
-    {#if (mode === 'synastry' || mode === 'triple') && personB}
+    {#if (mode === 'synastry' || mode === 'triple' || mode === 'composite') && personB}
       <div class="birth">{personB.name} — род. {fmtBirth(personB)}</div>
     {/if}
 
@@ -660,7 +666,7 @@
       <div class="warn">⚠ У {personA.name} время рождения не задано — {personA.slowOnly
         ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
     {/if}
-    {#if (mode === 'synastry' || mode === 'triple') && personB?.unknownTime}
+    {#if (mode === 'synastry' || mode === 'triple' || mode === 'composite') && personB?.unknownTime}
       <div class="warn">⚠ У {personB.name} время рождения не задано — {personB.slowOnly
         ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
     {/if}
@@ -730,6 +736,18 @@
       <!-- в одиночном натале владелец не подписывается: «Луна (Саша) ☌ Венера
            (Саша)» было избыточно — чей натал, видно в заголовке карты -->
       {#each natalAsp as a (staticKey(a))}
+        <GlowCard radius={12} selected={staticKey(a) === selKey}
+          onactivate={() => toggleDetail(a, null, null)}>
+          <StaticAspectRow {a} selected={staticKey(a) === selKey} />
+        </GlowCard>
+      {/each}
+    {:else if mode === 'composite'}
+      <!-- аспекты ВНУТРИ карты середин: владельцев нет, окон нет (карта статичная) -->
+      <div class="grp">Аспекты композита · {compAsp.length}</div>
+      <div class="hint small">Композит — карта самих отношений: аспекты читаются как характер союза,
+        а не кого-то из двоих.</div>
+      {#if compAsp.length === 0}<div class="empty">Нет мажорных аспектов в орбисе.</div>{/if}
+      {#each compAsp as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
           onactivate={() => toggleDetail(a, null, null)}>
           <StaticAspectRow {a} selected={staticKey(a) === selKey} />
@@ -901,9 +919,14 @@
         <summary>Позиции</summary>
         <div class="posgrp">{personA?.name}</div>
         {#each posA as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPosRx(p.lon, p.retro)}</div>{/each}
-        {#if mode === 'synastry' || mode === 'triple'}
+        {#if mode === 'synastry' || mode === 'triple' || mode === 'composite'}
           <div class="posgrp">{personB?.name}</div>
           {#each posB as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPosRx(p.lon, p.retro)}</div>{/each}
+        {/if}
+        {#if mode === 'composite'}
+          <!-- у точек композита нет ретро-статуса — fmtPos, не fmtPosRx -->
+          <div class="posgrp">Композит</div>
+          {#each posMid as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
         {/if}
         {#if mode === 'transitNatal' || mode === 'triple'}
           <div class="posgrp">Транзит ({transitLabel})</div>

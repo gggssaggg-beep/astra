@@ -9,6 +9,7 @@
   import type { Engine, DegreePassage } from '../engine/index.ts';
   import { findDegreePassages, degreeToLon, ZODIAC, PLANET_GLYPH } from '../engine/index.ts';
   import { fmtDayFull, fmtTime, fmtPos } from '../lib/format.ts';
+  import Hint from './Hint.svelte';
 
   let { engine, tz, onclose, ongoto }:
     { engine: Engine; tz: string; onclose: () => void; ongoto: (d: Date) => void } = $props();
@@ -44,7 +45,7 @@
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Поиск градуса" use:bottomSheet={{ onclose }}>
-  <header><h2>Поиск градуса</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
+  <header><h2>Поиск градуса <Hint k="degree" /></h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Когда планета проходила заданный градус — со всеми ретро-возвратами.</div>
 
   <div class="form">

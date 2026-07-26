@@ -9,6 +9,7 @@
   import type { Person } from '../../lib/models.ts';
   import { maskDate, maskTime, maskWithCaret, isoFromMasked, maskedFromIso, normTime } from '../../lib/inputmask.ts';
   import { searchCities, type City } from '../../lib/cities.ts';
+  import Hint from '../Hint.svelte';
 
   let { person, defaultTz, onsaved, ondeleted, oncancel, onclose,
         embedded = false, defaultName, saveLabel }:
@@ -130,7 +131,7 @@
   {/if}
 </div>
 <!-- время рождения: единый выбор (просьба владелицы — «красивое логичное меню») -->
-<div class="fld"><span>Время рождения</span>
+<div class="fld"><span>Время рождения <Hint k="unknown-time" /></span>
   <div class="tmode">
     <button type="button" class:on={!fUnknown} onclick={() => (fUnknown = false)}>Известно</button>
     <button type="button" class:on={fUnknown}

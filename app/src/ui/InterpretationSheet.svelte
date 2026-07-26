@@ -5,6 +5,7 @@
   import { db, uid } from '../lib/db.ts';
   import { aspectSignature } from '../lib/signature.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
+  import { ASPECT_GLOSS } from '../lib/glossary.ts';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore } from '../lib/pairAspectLore.ts';
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
@@ -87,8 +88,10 @@
     </div>
   </header>
 
-  {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}° <Hint k="aspect-window" /></div>
-  {:else}<div class="exact">Пара и аспект без привязки ко дню — общий разбор</div>{/if}
+  {#if rec.exactTime}<div class="exact">Точно: {fmtTime(rec.exactTime, tz)} · орбис {rec.exactOrb.toFixed(2)}° <Hint k="aspect-window" />
+    {#if ASPECT_GLOSS[rec.aspect]}<Hint k={ASPECT_GLOSS[rec.aspect]} />{/if}</div>
+  {:else}<div class="exact">Пара и аспект без привязки ко дню — общий разбор
+    {#if ASPECT_GLOSS[rec.aspect]}<Hint k={ASPECT_GLOSS[rec.aspect]} />{/if}</div>{/if}
 
   <div class="block">
     <div class="lbl">Трактовка</div>

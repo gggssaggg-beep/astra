@@ -12,6 +12,8 @@
   import { db, uid } from '../lib/db.ts';
   import { aspectSignature, transitSignature } from '../lib/signature.ts';
   import { ASPECT_LORE } from '../lib/lore.ts';
+  import { ASPECT_GLOSS } from '../lib/glossary.ts';
+  import Hint from './Hint.svelte';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
   import { transitSelfLore, transitFrameText, transitFeel, transitRhythm } from '../lib/transitSelfLore.ts';
@@ -147,7 +149,8 @@
     <div class="winrow">Окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
   {:else}
     <div class="exact">Орбис {a.orb.toFixed(2)}° ·
-      {isTransit ? 'транзит к твоей карте' : ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}</div>
+      {isTransit ? 'транзит к твоей карте' : ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}
+      {#if ASPECT_GLOSS[a.aspect]}<Hint k={ASPECT_GLOSS[a.aspect]} />{/if}</div>
   {/if}
 
   <div class="block">

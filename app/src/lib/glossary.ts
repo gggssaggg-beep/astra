@@ -28,6 +28,14 @@ export interface GlossEntry {
 
 const asp = (k: string) => () => ASPECT_LORE[k]?.text ?? '';
 
+/** Статья под КОНКРЕТНЫЙ аспект (ключи — русские названия из ASPECTS): «?» в
+ *  шторке аспекта ведёт в разбор именно его вида, а не в общее «Аспект».
+ *  Аудит 2026-07-27: статьи видов аспектов были написаны, но недостижимы. */
+export const ASPECT_GLOSS: Record<string, string> = {
+  'соединение': 'conjunction', 'секстиль': 'sextile', 'квадрат': 'square',
+  'трин': 'trine', 'оппозиция': 'opposition',
+};
+
 export const GLOSSARY: Record<string, GlossEntry> = {
   // ─── Основы ────────────────────────────────────────────────────────────────
   wheel: {

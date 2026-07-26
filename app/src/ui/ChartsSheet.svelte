@@ -1008,7 +1008,7 @@
         {/if}
         {#if mode === 'composite'}
           <!-- у точек композита нет ретро-статуса — fmtPos, не fmtPosRx -->
-          <div class="posgrp">Композит</div>
+          <div class="posgrp">Композит <Hint k="midpoint" /></div>
           {#each posMid as p}<div class="posrow"><span class="glyph">{p.glyph}</span> {p.name} — {fmtPos(p.lon)}</div>{/each}
         {/if}
         {#if mode === 'transitNatal' || mode === 'triple'}

@@ -328,6 +328,11 @@
   const crossSyn = $derived(posA.length && posB.length ? synastryAspects(posA, posB, orbOf).sort(byRank) : []);
   const crossTA = $derived(posA.length ? synastryAspects(posA, transitPos, orbOf).sort(byTransit) : []);
   const crossTB = $derived(posB.length ? synastryAspects(posB, transitPos, orbOf).sort(byTransit) : []);
+  // Текущие транзиты к точкам композита (срез «сейчас»): что в связи активировано.
+  // Точки фиксированы — окна считает тот же механизм rowWins, что у транзит+натал.
+  // Стоит здесь, а не рядом с compAsp: нужны transitPos и byTransit (объявлены выше).
+  const crossTC = $derived(mode === 'composite' && posMid.length
+    ? synastryAspects(posMid, transitPos, orbOf).sort(byTransit) : []);
 
   // «Двойное попадание» (правка астролога, тройная карта): ОДНА транзитная
   // планета аспектирует объекты ОБЕИХ карт сразу — показываем первыми и особо
@@ -361,7 +366,7 @@
   const activeKeys = $derived.by((): Set<string> => {
     const src = mode === 'natal' ? natalAsp
       : mode === 'synastry' ? crossSyn
-      : mode === 'composite' ? compAsp
+      : mode === 'composite' ? [...compAsp, ...crossTC]
       : mode === 'triple' ? [...crossTA, ...crossTB]
       : crossTA;
     return new Set(src.map((a) => staticKey(a)));
@@ -413,11 +418,14 @@
   const winFor = (a: StaticAspect, ring: 'A' | 'B'): TransitWindow | null | undefined =>
     rowWins.get(ring + staticKey(a));
   $effect(() => {
-    if (view !== 'chart' || (mode !== 'transitNatal' && mode !== 'triple')) return;
-    const jobs = [
-      ...crossTA.map((a) => ({ a, natal: posA, ring: 'A' as const })),
-      ...(mode === 'triple' ? crossTB.map((a) => ({ a, natal: posB, ring: 'B' as const })) : []),
-    ];
+    if (view !== 'chart' || (mode !== 'transitNatal' && mode !== 'triple' && mode !== 'composite')) return;
+    // композит: цель — точки карты середин (одно кольцо, ring 'A')
+    const jobs = mode === 'composite'
+      ? crossTC.map((a) => ({ a, natal: posMid, ring: 'A' as const }))
+      : [
+        ...crossTA.map((a) => ({ a, natal: posA, ring: 'A' as const })),
+        ...(mode === 'triple' ? crossTB.map((a) => ({ a, natal: posB, ring: 'B' as const })) : []),
+      ];
     const at = transitAt;
     const gen = ++winGen;
     if (winTimer) clearTimeout(winTimer);

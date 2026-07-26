@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type Mode = 'natal' | 'transitNatal' | 'triple' | 'synastry';
+  export type Mode = 'natal' | 'transitNatal' | 'triple' | 'synastry' | 'composite';
   // Память последней открытой карты НА СЕССИЮ: нечаянный свайп-вниз закрывал
   // шторку, и карту приходилось собирать заново (жалоба владелицы 2026-07-06).
   let lastMode: Mode | null = null;
@@ -10,11 +10,14 @@
 <script lang="ts">
   /**
    * Хаб совмещённых карт («Добавить» в нижнем меню). Хранит коллекцию людей
-   * (CRUD) и строит карты трёх типов:
+   * (CRUD) и строит карты пяти типов:
+   *   • Натал                  — одно кольцо, аспекты и положения одного человека;
    *   • Транзит + натал        — двойное кольцо (натал внутри, транзит снаружи);
    *   • Транзит + натал + натал — тройное кольцо (A / B / транзит), межаспекты
    *                               транзита к каждому наталу;
-   *   • Синастрия              — два натала, межаспекты A×B (композит владелица не ведёт).
+   *   • Синастрия              — два натала, межаспекты A×B;
+   *   • Композит               — ОДНА карта средних точек двоих (круговые середины),
+   *                               читается как карта самих отношений; домов нет.
    * Одна шторка, виды: список → форма человека → карта. Момент рождения —
    * DST-безопасный zonedTimeUTC. Транзит берётся на «сейчас» (кнопка ⟳ обновляет).
    */
@@ -23,7 +26,7 @@
   import { db } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
-  import { synastryAspects, staticAspects, staticKey, sunRank, ASPECTS, SLOW } from '../engine/index.ts';
+  import { synastryAspects, staticAspects, compositeChart, staticKey, sunRank, ASPECTS, SLOW } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
@@ -127,7 +130,7 @@
     if (initialMode !== 'transitNatal' || !lastMode) return null;
     const alive = lastPair.filter((id) => db.people.get(id));
     if (alive.length !== lastPair.length) return null;
-    const need = lastMode === 'triple' || lastMode === 'synastry' ? 2 : 1;
+    const need = lastMode === 'triple' || lastMode === 'synastry' || lastMode === 'composite' ? 2 : 1;
     return { mode: lastMode, pair: alive,
       view: lastView === 'chart' && alive.length === need ? 'chart' as const : 'list' as const };
   });
@@ -146,6 +149,7 @@
     { id: 'transitNatal', label: 'Транзит + натал', need: 1, hint: 'небо сейчас к карте человека' },
     { id: 'triple', label: 'Транзит + 2 натала', need: 2, hint: 'небо сейчас к двум людям' },
     { id: 'synastry', label: 'Синастрия', need: 2, hint: 'межаспекты карт двух людей' },
+    { id: 'composite', label: 'Композит', need: 2, hint: 'общая карта пары — середины между вашими планетами' },
   ];
   const needCount = $derived(MODES.find((m) => m.id === mode)!.need);
 

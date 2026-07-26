@@ -26,7 +26,7 @@
   import { db } from '../lib/db.ts';
   import type { Person, SignStyle } from '../lib/models.ts';
   import type { Engine } from '../engine/index.ts';
-  import { synastryAspects, staticAspects, compositeChart, staticKey, sunRank, ASPECTS, SLOW } from '../engine/index.ts';
+  import { synastryAspects, staticAspects, compositeChart, circularMidpoint, staticKey, sunRank, ASPECTS, SLOW } from '../engine/index.ts';
   import type { StaticAspect } from '../engine/index.ts';
   import { PLANET_LORE, SIGN_LORE } from '../lib/lore.ts';
   import { natalPositions, birthInstantUTC } from '../lib/charts.ts';
@@ -571,6 +571,23 @@
       if (compAsp.length) aspects.push('Аспекты композита: ' + aspLine(compAsp, null, null));
       if (crossTC.length) aspects.push('Транзит → композит (небо сейчас к карте отношений): '
         + aspLineT(crossTC, 'композит', 'A'));
+      // Общие чувствительные градусы пары: синастрические СОЕДИНЕНИЯ (точки двоих
+      // в одном градусе). Транзит по такому градусу включает обоих сразу; если он
+      // же в эти даты задевает точку композита — совпадение слоёв и есть ответ
+      // «почему именно сейчас» (слой из разбора ChatGPT 2026-07-27). crossSyn уже
+      // посчитан (считается при двух выбранных людях в любом режиме).
+      const conj = crossSyn.filter((x) => x.aspect === 'соединение').slice(0, 12);
+      if (conj.length) aspects.push('ОБЩИЕ ЧУВСТВИТЕЛЬНЫЕ ГРАДУСЫ ПАРЫ (синастрические '
+        + 'соединения: здесь точки двоих стоят в одном градусе — транзит по нему включает '
+        + 'обоих сразу; если тот же транзит в эти же даты задевает и точку композита, '
+        + 'совпадение слоёв — ответ на «почему именно сейчас»): '
+        + conj.map((x) => {
+          const lA = posA.find((p) => p.name === x.p1)?.lon;
+          const lB = posB.find((p) => p.name === x.p2)?.lon;
+          const mid = lA != null && lB != null
+            ? ` — общий градус ~${fmtPos(circularMidpoint(lA, lB))}` : '';
+          return `${x.p1} (${personA.name}) ☌ ${x.p2} (${personB.name})${mid}, орбис ${x.orb.toFixed(2)}°`;
+        }).join('; '));
     } else {
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });

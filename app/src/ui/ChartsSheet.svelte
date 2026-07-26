@@ -233,6 +233,7 @@
   let forecastList = $state<TransitHit[]>([]);
   let forecastBusy = $state(false);
   let forecastRan = $state(false);
+  let forecastAt = $state<Date | null>(null);   // от какого момента считали (для промпта)
   // Прогноз транзитов — в транзитных режимах и натале. В СИНАСТРИИ его НЕТ
   // (статичная карта двух людей — транзиты там сбивали с толку; правка владелицы).
   const forecastTargets = $derived(
@@ -269,11 +270,12 @@
   async function runForecast(): Promise<void> {
     if (forecastBusy || !forecastTargets.length) return;
     const gen = ++forecastGen;
+    const at = transitAt;
     forecastBusy = true; forecastRan = false;
     try {
-      const list = await forecastTransits(engine, forecastTargets, transitAt, forecastDays, objects ?? undefined);
+      const list = await forecastTransits(engine, forecastTargets, at, forecastDays, objects ?? undefined);
       if (gen !== forecastGen) return;
-      forecastList = list;
+      forecastList = list; forecastAt = at;
     } catch { if (gen === forecastGen) forecastList = []; }
     finally { if (gen === forecastGen) { forecastBusy = false; forecastRan = true; } }
   }
@@ -477,6 +479,32 @@
   };
   const aspLine = (list: StaticAspect[], oa: string, ob: string): string =>
     list.slice(0, 20).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}°`).join('; ');
+  // Транзитные аспекты — с направлением и ОКНОМ (вход → точно → выход). Эти
+  // числа уже посчитаны для строк карты (rowWins); раньше промпт просил ИИ
+  // вычислить их самостоятельно — она их выдумывала (правка 2026-07-26).
+  // Окна считаются с дебаунсом: если ещё не готовы — просто без них.
+  const aspLineT = (list: StaticAspect[], oa: string, ring: 'A' | 'B'): string =>
+    list.slice(0, 20).map((a) => {
+      const w = winFor(a, ring);
+      const tail = w
+        ? `, ${transitAt < w.exact ? 'сходится' : 'расходится'}`
+          + `, окно ${fmtHit(w.begin)} → точно ${fmtHit(w.exact)} → ${fmtHit(w.end)}`
+        : '';
+      return `${a.p1} (${oa}) ${a.aspect} ${a.p2} (транзит), орбис ${a.orb.toFixed(2)}°${tail}`;
+    }).join('; ');
+  // Ближайшие точные транзиты — если прогноз уже посчитан в этой карте (кнопка
+  // «Показать на N дн.»). Это и есть честный ответ на «какие дни активны».
+  // Прогноз считается по требованию и НЕ сбрасывается при смене людей/режима —
+  // поэтому фильтруем по владельцам текущей карты и метим момент, от которого
+  // он считался (после скраба он уже не «от сейчас»).
+  const forecastForPrompt = $derived.by(() => {
+    if (!forecastRan || mode === 'synastry') return undefined;
+    const owners = new Set([personA?.name, personB?.name].filter(Boolean) as string[]);
+    const items = forecastList.filter((h) => owners.has(h.owner)).slice(0, 14)
+      .map((h) => `${h.tName} (небо) ${h.aspect} ${h.nName} (${h.owner}) — ${fmtHit(h.when)}`);
+    if (!items.length) return undefined;
+    return { span: `${forecastDays} дн. от ${fmtHit(forecastAt ?? transitAt)}`, items };
+  });
   const housesLine = (): string | undefined =>
     houseInfoA ? houseInfoA.map((h) => `${['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][h.house - 1]} ${h.sign} (упр. ${h.rulers.join(', ')})`).join('; ') : undefined;
 
@@ -494,13 +522,17 @@
     } else {
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
-      if (crossTA.length) aspects.push(`Транзит → ${personA.name}: ` + aspLine(crossTA, personA.name, 'транзит'));
-      if (personB && crossTB.length) aspects.push(`Транзит → ${personB.name}: ` + aspLine(crossTB, personB.name, 'транзит'));
+      if (crossTA.length) aspects.push(`Транзит → ${personA.name}: ` + aspLineT(crossTA, personA.name, 'A'));
+      if (personB && crossTB.length) aspects.push(`Транзит → ${personB.name}: ` + aspLineT(crossTB, personB.name, 'B'));
     }
     return buildAstroPrompt({
       title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects,
+      // транзитные планеты — С ДОМАМИ натальной карты A (houseOfA); чьи это дома,
+      // промпт называет явно (в тройной карте иначе не понять)
       transit: (mode === 'transitNatal' || mode === 'triple')
-        ? { label: transitLabel, positions: posLine(transitPos, false), raw: rawLine(transitPos) } : undefined,
+        ? { label: transitLabel, positions: posLine(transitPos, true), raw: rawLine(transitPos),
+            housesOwner: housesA ? personA.name : undefined } : undefined,
+      forecast: forecastForPrompt,
       extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).' : undefined,
     });
   });

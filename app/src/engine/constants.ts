@@ -12,12 +12,15 @@ export const PLANET_GLYPH: Record<string, string> = {
   'Солнце': '☉', 'Луна': '☽', 'Меркурий': '☿', 'Венера': '♀',
   'Марс': '♂', 'Юпитер': '♃', 'Сатурн': '♄', 'Уран': '♅',
   'Нептун': '♆', 'Раху': '☊', 'Кету': '☋',
+  'Церера': '⚳', 'Паллада': '⚴', 'Юнона': '⚵', 'Веста': '⚶',
+  'Хирон': '⚷', 'Лилит': '⚸',
 };
 
 // Коды Swiss Ephemeris.
 export const SWE_CODE = {
   SUN: 0, MOON: 1, MERCURY: 2, VENUS: 3, MARS: 4, JUPITER: 5,
   SATURN: 6, URANUS: 7, NEPTUNE: 8, TRUE_NODE: 11,
+  CHIRON: 15, CERES: 17, PALLAS: 18, JUNO: 19, VESTA: 20, LILITH: 12,
 } as const;
 
 export const MOON = 'Луна';
@@ -36,10 +39,20 @@ export const BODIES: Record<string, number> = {
   'Меркурий': SWE_CODE.MERCURY,
 };
 
-// Имя → код для любого базового объекта (вкл. Луну/Кету).
+// Доп. объекты (тумблер в Настройках, по умолчанию ВЫКЛЮЧЕНЫ). Считаются из
+// того же бандла эфемерид: seas_18.se1 уже внутри swisseph.data.
+// Лилит — не тело, а средний апогей лунной орбиты (расчётная точка).
+export const EXTRA_BODIES: Record<string, number> = {
+  'Хирон': SWE_CODE.CHIRON, 'Церера': SWE_CODE.CERES, 'Паллада': SWE_CODE.PALLAS,
+  'Юнона': SWE_CODE.JUNO, 'Веста': SWE_CODE.VESTA, 'Лилит': SWE_CODE.LILITH,
+};
+
+// Имя → код для любого объекта (базовые вкл. Луну/Кету + доп. объекты).
 export function bodyCode(name: string): number {
   if (name === MOON) return SWE_CODE.MOON;
   if (name === 'Кету') return SWE_CODE.TRUE_NODE;
+  if (BODIES[name] != null) return BODIES[name];
+  if (EXTRA_BODIES[name] != null) return EXTRA_BODIES[name];
   return BODIES[name];
 }
 
@@ -59,9 +72,11 @@ export const SLOW = new Set(['Нептун', 'Уран', 'Сатурн', 'Юпи
 // Меркурием и Венерой); далее планеты по средней дистанции. Внутри пары первой
 // стоит более близкая к Солнцу (= более быстрая), и по вертикали сверху — пары,
 // которые ведёт более быстрый объект. Луна (-1) всегда ведёт свой (отдельный) блок.
+// Доп. объекты (астероиды/Лилит) идут ПОСЛЕ всех базовых, до дефолта 99.
 export const SUN_RANK: Record<string, number> = {
   'Луна': -1, 'Солнце': 0, 'Меркурий': 1, 'Венера': 2, 'Марс': 3,
   'Юпитер': 4, 'Сатурн': 5, 'Уран': 6, 'Нептун': 7, 'Раху': 8, 'Кету': 9,
+  'Хирон': 10, 'Церера': 11, 'Паллада': 12, 'Юнона': 13, 'Веста': 14, 'Лилит': 15,
 };
 export const sunRank = (name: string): number => SUN_RANK[name] ?? 99;
 

@@ -245,8 +245,11 @@
   let forecastAt = $state<Date | null>(null);   // от какого момента считали (для промпта)
   // Прогноз транзитов — в транзитных режимах и натале. В СИНАСТРИИ его НЕТ
   // (статичная карта двух людей — транзиты там сбивали с толку; правка владелицы).
+  // Композит — точки фиксированы (карта вне времени), поэтому обычный механизм
+  // прогноза работает: цель одна — «композит», набор posMid.
   const forecastTargets = $derived(
     mode === 'synastry' ? []
+      : mode === 'composite' ? (posMid.length ? [{ owner: 'композит', pos: posMid }] : [])
       : personA && personB ? [{ owner: personA.name, pos: posA }, { owner: personB.name, pos: posB }]
       : personA ? [{ owner: personA.name, pos: posA }] : []);
 
@@ -300,7 +303,10 @@
       p1: h.nName, p2: h.tName, aspect: h.aspect, symbol: h.symbol,
       angle: ASPECTS[h.aspect]?.angle ?? 0, orb: 0,
     };
-    openDetail(a, h.owner, 'транзит', isA ? posA : posB, isA ? 'A' : 'B');
+    // в композите owner = «композит» (isA=false) — натальный набор берём posMid,
+    // кольцо 'B' безвредно: окно всё равно считается по найденной долготе p1
+    const natal = mode === 'composite' ? posMid : isA ? posA : posB;
+    openDetail(a, h.owner, 'транзит', natal, isA ? 'A' : 'B');
   }
   const fmtHit = (d: Date): string => fmts(tz).label.format(d);
 
@@ -519,6 +525,7 @@
   const forecastForPrompt = $derived.by(() => {
     if (!forecastRan || mode === 'synastry') return undefined;
     const owners = new Set([personA?.name, personB?.name].filter(Boolean) as string[]);
+    if (mode === 'composite') owners.add('композит');   // владелец целей прогноза композита
     const items = forecastList.filter((h) => owners.has(h.owner)).slice(0, 14)
       .map((h) => `${h.tName} (небо) ${h.aspect} ${h.nName} (${h.owner}) — ${fmtHit(h.when)}`);
     if (!items.length) return undefined;

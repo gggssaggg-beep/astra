@@ -16,7 +16,7 @@
   import Hint from './Hint.svelte';
   import { pairLore } from '../lib/pairLore.ts';
   import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
-  import { transitSelfLore, transitFrameText, transitFeel, transitRhythm } from '../lib/transitSelfLore.ts';
+  import { transitSelfLore, transitFrameText, transitRhythm } from '../lib/transitSelfLore.ts';
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
   import { autogrow } from '../lib/autogrow.ts';
@@ -75,9 +75,9 @@
   // это взаимодействие ДВУХ людей (синастрия/двойные карты)? → добавка «в паре»
   const twoPeople = $derived(!!ownerA && !!ownerB && ownerA !== ownerB && !isTransit);
   const feel = $derived(twoPeople ? SYNASTRY_FEEL[a.aspect] ?? null : null);
-  // «В транзите» — добавка к натальному тексту пары (у своей же планеты её не
-  // даём: там весь текст и так про цикл). Зеркало блока «В паре» для синастрии.
-  const tFeel = $derived(isTransit && !selfTransit ? transitFeel(a.aspect) : null);
+  // Блок «В транзите» (transitFeel) УБРАН 2026-07-27: он пересказывал общий
+  // характер аспекта в третий раз. Сама функция в transitSelfLore.ts осталась —
+  // пригодится, если корпус переработают.
   // «кто движется, тот и задаёт смысл» + ритм транзитной планеты (как часто
   // возвращается, сколько держится, бывают ли три прохода на ретро)
   const rhythm = $derived(isTransit ? transitRhythm(a.p2, a.p1) : null);
@@ -85,6 +85,15 @@
   // По ней заметки «Марс(я)☌Солнце(транзит)» и «Солнце(я)☌Марс(транзит)»
   // больше не сваливаются в одну ленту.
   const dirSig = $derived(isTransit ? transitSignature(a.p1, a.p2, a.aspect) : null);
+  // ОДИН текст трактовки — самый конкретный из доступных. Раньше подряд шли
+  // шесть слоёв, и три из них пересказывали один и тот же аспект другими
+  // словами: общий смысл аспекта («△ трин · Гармония…»), общий смысл пары
+  // («Марс — Меркурий: ум и напор») и «В транзите». Владелица 2026-07-27:
+  // «убрать вообще, это мусор» — НЕ прятать под «Подробнее», а удалить.
+  // Общие тексты остаются ФОЛБЭКОМ: если уникального нет (доп. объекты,
+  // непокрытые пары) — показываем смысл пары, иначе смысл аспекта.
+  const mainText = $derived(selfText ?? unique ?? pair ?? lore?.text ?? '');
+
   // подпись блока и placeholder заметки — по контексту, без слова «пара» в транзите
   const blockLbl = $derived(isTransit ? 'Что происходит' : 'Взаимодействие');
   const notePlaceholder = $derived(isTransit ? 'Как проявился этот транзит…'
@@ -155,40 +164,20 @@
 
   <div class="block">
     <div class="lbl">{blockLbl}</div>
-    {#if selfText}
-      <!-- транзит к своей же планете: фаза цикла, а не «пара» (правка 2026-07-25) -->
-      <div class="ptext">{selfText}</div>
-      {#if lore}<div class="ltext">{lore.symbol} {a.aspect} · {lore.short}</div>{/if}
-    {:else if unique}
-      <!-- уникальный текст ИМЕННО этого сочетания — первым (типовая строка
-           аспекта читалась как «трин, трин, трин» — жалоба владелицы) -->
-      {#if frame}<div class="ptext frame">{frame}</div>{/if}
-      <div class="ptext">{unique}</div>
-      {#if lore}<div class="ltext">{lore.symbol} {a.aspect} · {lore.short}</div>{/if}
-      {#if pair}<div class="ltext">{a.p1} — {a.p2}: {pair}</div>{/if}
-    {:else}
-      {#if frame}<div class="ptext frame">{frame}</div>{/if}
-      {#if pair}<div class="ptext">{pair}</div>{/if}
-      {#if lore}
-        <div class="lshort">{lore.symbol} {lore.short}</div>
-        <div class="ltext">{lore.text}</div>
-      {/if}
-    {/if}
+    <!-- Рамка (одна строка: это период, а не черта) + ОДИН текст трактовки.
+         Общий смысл аспекта, общий смысл пары и «В транзите» УДАЛЕНЫ: три
+         пересказа одного и того же («мусор», владелица 2026-07-27). Ритм
+         транзита — ниже отдельным блоком: это не пересказ, а факты о сроках. -->
+    {#if frame}<div class="ptext frame">{frame}</div>{/if}
+    {#if mainText}<div class="ptext">{mainText}</div>{/if}
     {#if feel}
-      <!-- как это ощущается внутри взаимодействия двух людей (просьба владелицы) -->
-      <div class="lbl" style="margin-top:10px">В паре</div>
+      <!-- «В паре» остаётся только в синастрии: там нет ни рамки, ни ритма,
+           и это единственная добавка про взаимодействие двоих -->
+      <div class="lbl xlbl">В паре</div>
       <div class="ptext">{feel}</div>
     {/if}
-    {#if tFeel}
-      <!-- текст выше — натальный (про характер); здесь переводим на «сейчас»:
-           у транзита есть начало и конец (аудит текстов 2026-07-25) -->
-      <div class="lbl" style="margin-top:10px">В транзите</div>
-      <div class="ptext">{tFeel}</div>
-    {/if}
     {#if rhythm}
-      <!-- КТО ДВИЖЕТСЯ — тот и задаёт смысл; плюс ритм: раз в год на два дня
-           или раз в два года на полторы недели с тремя проходами на ретро -->
-      <div class="lbl" style="margin-top:10px">Ритм этого транзита</div>
+      <div class="lbl xlbl">Ритм этого транзита</div>
       <div class="ptext">{rhythm}</div>
     {/if}
     <textarea class="seamless" use:autogrow={interpText} bind:value={interpText} rows="2"
@@ -239,11 +228,10 @@
   .ptext { font-size: 0.92rem; margin-bottom: 8px; }
   /* рамка «небо задевает твоё» — тихая вводная строка перед смыслом пары */
   .ptext.frame { color: var(--ink-dim); font-size: 0.86rem; }
-  .lshort { font-weight: 600; margin-bottom: 4px; }
-  .ltext { font-size: 0.88rem; color: var(--ink-dim); margin-bottom: 10px; }
   .oksave { color: var(--gold); margin-top: 6px; }
   .block { padding: 12px 0; border-top: 1px solid var(--glass-brd); }
   .lbl { font-size: 0.74rem; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-faint); margin-bottom: 8px; }
+  .xlbl { margin-top: 10px; }
   textarea { width: 100%; background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 12px; padding: 10px 12px; font: inherit; resize: vertical; }
   .hint { color: var(--ink-faint); font-size: 0.8rem; }

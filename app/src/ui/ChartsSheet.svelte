@@ -157,6 +157,11 @@
     { id: 'composite', label: 'Композит', need: 2, hint: 'общая карта пары — середины между вашими планетами' },
   ];
   const needCount = $derived(MODES.find((m) => m.id === mode)!.need);
+  // статья глоссария под каждый режим — «?» рядом с описанием выбранного
+  const MODE_GLOSS: Record<Mode, string> = {
+    natal: 'natal', transitNatal: 'transit', triple: 'transit',
+    synastry: 'synastry', composite: 'composite',
+  };
 
   function setMode(m: Mode): void {
     mode = m;
@@ -650,10 +655,11 @@
       {#each MODES as m}
         <button class:on={mode === m.id} onclick={() => setMode(m.id)}>{m.label}</button>
       {/each}
-      <Hint k="transit" />
     </div>
+    <!-- «?» объясняет ВЫБРАННЫЙ режим (жалоба владелицы 2026-07-27: одна общая
+         «?» в ряду всегда открывала «Транзит» — не к селу ни к городу) -->
     <div class="hint">{MODES.find((m) => m.id === mode)!.hint} — выбери
-      {needCount === 1 ? 'человека' : 'двух людей'}.</div>
+      {needCount === 1 ? 'человека' : 'двух людей'}. <Hint k={MODE_GLOSS[mode]} /></div>
 
     <!-- «Открыть карту» НАД списком (просьба 2026-07-11): при длинном списке
          людей кнопка внизу терялась за прокруткой -->

@@ -569,6 +569,8 @@
         positions: posLine(posMid, false),
         raw: posMid.map((p) => `${p.name} ${p.lon.toFixed(3)}°`).join('; ') });
       if (compAsp.length) aspects.push('Аспекты композита: ' + aspLine(compAsp, null, null));
+      if (crossTC.length) aspects.push('Транзит → композит (небо сейчас к карте отношений): '
+        + aspLineT(crossTC, 'композит', 'A'));
     } else {
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
@@ -588,9 +590,13 @@
       people, aspects, weighted: true,
       // транзитные планеты — С ДОМАМИ натальной карты A (houseOfA); чьи это дома,
       // промпт называет явно (в тройной карте иначе не понять)
+      // у композита домов нет — небо даём без привязки к домам (housesOwner)
       transit: (mode === 'transitNatal' || mode === 'triple')
         ? { label: transitLabel, positions: posLine(transitPos, true), raw: rawLine(transitPos),
-            housesOwner: housesA ? personA.name : undefined } : undefined,
+            housesOwner: housesA ? personA.name : undefined }
+        : mode === 'composite' && crossTC.length
+          ? { label: transitLabel, positions: posLine(transitPos, false), raw: rawLine(transitPos) }
+          : undefined,
       forecast: forecastForPrompt,
       extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).'
         : mode === 'composite' ? 'Это композит — карта средних точек: каждая её точка — круговая '

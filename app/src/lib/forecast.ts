@@ -8,7 +8,7 @@
  * ~2.5 дня — это быт, не прогноз). Асинхронно, с передышками — не вешает UI.
  */
 import type { Engine, BodyPosition } from '../engine/index.ts';
-import { ASPECTS, BODIES, PLANET_GLYPH } from '../engine/index.ts';
+import { ASPECTS, BODIES, EXTRA_BODIES, PLANET_GLYPH } from '../engine/index.ts';
 
 const angdiff = (a: number, b: number): number => {
   const d = ((a - b) % 360 + 360) % 360;
@@ -86,7 +86,10 @@ export async function forecastTransits(
 ): Promise<TransitHit[]> {
   // транзитные тела — все базовые, КРОМЕ Луны (слишком часто); учитываем тумблеры
   let tBodies = [...Object.keys(BODIES), 'Кету'];
-  if (objects) { const on = new Set(objects); tBodies = tBodies.filter((n) => on.has(n)); }
+  if (objects) {
+    const on = new Set(objects);
+    tBodies = [...tBodies, ...Object.keys(EXTRA_BODIES)].filter((n) => on.has(n));
+  }
   const jd0 = E.toJD(from), jd1 = jd0 + days;
   const hits: TransitHit[] = [];
   let sinceYield = 0;

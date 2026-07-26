@@ -6,7 +6,7 @@
  * сутки). Для соединения/оппозиции точное время ищем по ЗНАКОВОЙ функции (иначе
  * |sep|-target лишь касается 0/180 и не меняет знак).
  */
-import { ASPECTS, BODIES, MOON, SLOW, sunRank } from './constants.ts';
+import { ASPECTS, BODIES, EXTRA_BODIES, MOON, SLOW, sunRank } from './constants.ts';
 import type { Engine } from './engine.ts';
 import type { AspectRecord, DayAspects } from './types.ts';
 
@@ -91,8 +91,12 @@ export function aspectsOn(E: Engine, dayStart: Date,
 
   let names = [...Object.keys(BODIES), 'Кету'];
   if (includeMoon) names.unshift(MOON);
-  // тумблеры объектов из настроек (нет списка → все базовые, как раньше)
-  if (objects) { const on = new Set(objects); names = names.filter((n) => on.has(n)); }
+  // тумблеры объектов из настроек (нет списка → все базовые, как раньше).
+  // Доп. объекты (астероиды/Лилит) участвуют ТОЛЬКО когда включены явно.
+  if (objects) {
+    const on = new Set(objects);
+    names = [...names, ...Object.keys(EXTRA_BODIES)].filter((n) => on.has(n));
+  }
 
   const slow: AspectRecord[] = [], fast: AspectRecord[] = [], moon: AspectRecord[] = [];
   const sep = (jd: number, a: string, b: string) => Math.abs(angdiff(E.lon(jd, a), E.lon(jd, b)));

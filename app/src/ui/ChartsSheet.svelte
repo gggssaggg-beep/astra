@@ -173,6 +173,11 @@
   const posA = $derived(personA ? slowFilter(personA, natalPositions(engine, personA, objects ?? undefined)) : []);
   const posB = $derived(personB ? slowFilter(personB, natalPositions(engine, personB, objects ?? undefined)) : []);
 
+  // Композит: карта средних точек двоих. slowOnly-фильтр людей наследуется сам —
+  // compositeChart сопоставляет по имени (пересечение наборов).
+  const posMid = $derived(mode === 'composite' && posA.length && posB.length ? compositeChart(posA, posB) : []);
+  const compAsp = $derived(posMid.length ? staticAspects(posMid, orbOf) : []);
+
   // дома внутренней карты (человек A) — нужны место (координаты) и известное время
   const hasPlace = (p: typeof personA): boolean =>
     !!p?.place && (p.place.lat !== 0 || p.place.lon !== 0);
@@ -345,6 +350,7 @@
   const activeKeys = $derived.by((): Set<string> => {
     const src = mode === 'natal' ? natalAsp
       : mode === 'synastry' ? crossSyn
+      : mode === 'composite' ? compAsp
       : mode === 'triple' ? [...crossTA, ...crossTB]
       : crossTA;
     return new Set(src.map((a) => staticKey(a)));
@@ -366,7 +372,9 @@
 
   // «Фигуры» карты (раунд 29): натал — классические; транзитные режимы —
   // фигуры, ЗАМКНУТЫЕ транзитом (натальная заготовка + транзитная планета).
-  const chartFigs = $derived(chartFigures(mode, posA, posB, transitPos, orbOf, nodalAxisFigures));
+  // Композит — классические фигуры на карте СЕРЕДИН (как натал; lib не меняем).
+  const chartFigs = $derived(chartFigures(mode === 'composite' ? 'natal' : mode,
+    mode === 'composite' ? posMid : posA, posB, transitPos, orbOf, nodalAxisFigures));
   // аспекты натальных планет к куспидам домов A (§4) — только если дома есть
   const cuspAsp = $derived(mode === 'natal' && housesA ? cuspAspects(posA, housesA.cusps, orbOf) : []);
   // транзиты к натальным куспидам A: проходящие планеты активируют темы домов
@@ -465,6 +473,7 @@
   const chartTitle = $derived(
     mode === 'natal' ? `Натал · ${personA?.name}`
     : mode === 'synastry' ? `${personA?.name} ✕ ${personB?.name}`
+    : mode === 'composite' ? `Композит · ${personA?.name} + ${personB?.name}`
     : mode === 'triple' ? `Транзит · ${personA?.name} + ${personB?.name}`
     : `Транзит · ${personA?.name}`);
 

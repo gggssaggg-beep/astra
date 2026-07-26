@@ -477,8 +477,14 @@
     const cusps = housesA ? ` | Куспиды°: ${housesA.cusps.map((c, i) => `${i + 1}:${c.toFixed(2)}`).join(', ')}` : '';
     return rawLine(posA) + cusps;
   };
+  // Вес аспекта по тесноте орбиса (доля от макс. орбиса пары). Считаем в
+  // приложении, а не просим ИИ «оценить силу» — она оценивает наугад (2026-07-27).
+  const weightOf = (a: StaticAspect): string => {
+    const share = a.orb / Math.max(orbOf(a.p1), orbOf(a.p2));
+    return share <= 0.34 ? 'сильный' : share <= 0.7 ? 'средний' : 'фоновый';
+  };
   const aspLine = (list: StaticAspect[], oa: string, ob: string): string =>
-    list.slice(0, 20).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}°`).join('; ');
+    list.slice(0, 20).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}° (${weightOf(a)})`).join('; ');
   // Транзитные аспекты — с направлением и ОКНОМ (вход → точно → выход). Эти
   // числа уже посчитаны для строк карты (rowWins); раньше промпт просил ИИ
   // вычислить их самостоятельно — она их выдумывала (правка 2026-07-26).
@@ -490,7 +496,7 @@
         ? `, ${transitAt < w.exact ? 'сходится' : 'расходится'}`
           + `, окно ${fmtHit(w.begin)} → точно ${fmtHit(w.exact)} → ${fmtHit(w.end)}`
         : '';
-      return `${a.p1} (${oa}) ${a.aspect} ${a.p2} (транзит), орбис ${a.orb.toFixed(2)}°${tail}`;
+      return `${a.p1} (${oa}) ${a.aspect} ${a.p2} (транзит), орбис ${a.orb.toFixed(2)}° (${weightOf(a)})${tail}`;
     }).join('; ');
   // Ближайшие точные транзиты — если прогноз уже посчитан в этой карте (кнопка
   // «Показать на N дн.»). Это и есть честный ответ на «какие дни активны».

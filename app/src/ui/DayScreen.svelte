@@ -70,9 +70,12 @@
   // Сетка заполняется по столбцам (grid-auto-flow: column, 5 строк).
   const ORDER = ['Солнце', 'Меркурий', 'Венера', 'Марс', 'Раху',
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Кету'];
-  const planets = $derived(
-    ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p)
-  );
+  // Доп. объекты (астероиды/Лилит), если включены тумблером, — хвостом списка:
+  // порядок ORDER задан астрологом только для базовых.
+  const planets = $derived([
+    ...ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p),
+    ...positions.filter((p) => p.name !== 'Луна' && !ORDER.includes(p.name)),
+  ]);
   const day = $derived(aspectsOnCached(engine, dayStart, orbOf, objects));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
   // КОЛЕСО ЧЕСТНОЕ К МОМЕНТУ: линии = РЕАЛЬНЫЕ углы между показанными планетами

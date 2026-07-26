@@ -12,6 +12,7 @@
  * впадает), но сами диспозируются к управителю своего знака.
  */
 import { SIGN_RULER } from './dispositorLore.ts';
+import { EXTRA_BODIES } from '../engine/constants.ts';
 import type { BodyPosition } from '../engine/index.ts';
 
 export interface DispChain {
@@ -31,8 +32,12 @@ export interface DispositorResult {
  * Диспозиторы для набора позиций (натал). Управитель может оказаться планетой,
  * выключенной тумблером объектов — тогда цепочка обрывается на её имени
  * (path включает недостижимого управителя последним, cycle пуст).
+ *
+ * Доп. объекты (астероиды, Лилит) знаками НЕ управляют — их отбрасываем сразу,
+ * иначе они висели бы в цепочках лишними притоками и мешали читать «царей».
  */
-export function chartDispositors(positions: BodyPosition[]): DispositorResult {
+export function chartDispositors(allPositions: BodyPosition[]): DispositorResult {
+  const positions = allPositions.filter((p) => EXTRA_BODIES[p.name] == null);
   const sign = new Map(positions.map((p) => [p.name, p.sign]));
   const rulerOf = (name: string): string | undefined => {
     const s = sign.get(name);

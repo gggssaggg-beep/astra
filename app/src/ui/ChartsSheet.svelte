@@ -530,6 +530,12 @@
       if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
       if (crossTA.length) aspects.push(`Транзит → ${personA.name}: ` + aspLineT(crossTA, personA.name, 'A'));
       if (personB && crossTB.length) aspects.push(`Транзит → ${personB.name}: ` + aspLineT(crossTB, personB.name, 'B'));
+      // Перекрёстная активация: одна небесная планета задевает ОБЕ карты сразу.
+      // UI это уже показывает (doubleHits) — теперь и промпт (2026-07-27).
+      if (mode === 'triple' && doubleHits.length && personB) {
+        aspects.push('ДВОЙНЫЕ ПОПАДАНИЯ (одна небесная планета задевает обе карты сразу — перекрёстная активация): '
+          + doubleHits.map((h) => `${h.planet} → ${personA.name}: ${h.toA.map((a) => `${a.aspect} ${a.p1}`).join(', ')} · ${personB.name}: ${h.toB.map((a) => `${a.aspect} ${a.p1}`).join(', ')}`).join('; '));
+      }
     }
     return buildAstroPrompt({
       title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects,
@@ -539,7 +545,12 @@
         ? { label: transitLabel, positions: posLine(transitPos, true), raw: rawLine(transitPos),
             housesOwner: housesA ? personA.name : undefined } : undefined,
       forecast: forecastForPrompt,
-      extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).' : undefined,
+      extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).'
+        : mode === 'triple' ? 'Это «два натала + транзит»: одно небо на двоих. Смотри перекрёстную '
+          + 'активацию: двойные попадания (в аспектах выше) и места, где натальные точки этих двоих '
+          + 'стоят в соединении друг с другом (в паре градусов) — транзит по такому градусу включает '
+          + 'обоих сразу.'
+        : undefined,
     });
   });
 

@@ -27,7 +27,7 @@ export interface PromptPerson {
 
 export interface AstroPrompt {
   title: string;
-  kind: 'natal' | 'synastry' | 'transitNatal' | 'triple' | 'day' | 'aspect';
+  kind: 'natal' | 'synastry' | 'composite' | 'transitNatal' | 'triple' | 'day' | 'aspect';
   houseSystem?: string;   // человекочитаемое название системы домов
   people?: PromptPerson[];
   // housesOwner — чьи дома проставлены у транзитных планет (дома считаются

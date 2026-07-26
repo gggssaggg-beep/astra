@@ -545,6 +545,13 @@
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
       if (crossSyn.length) aspects.push('Межаспекты: ' + aspLine(crossSyn, personA.name, personB.name));
+    } else if (mode === 'composite' && personB) {
+      people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, false), raw: rawLine(posA) });
+      people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
+      people.push({ name: `Композит ${personA.name} + ${personB.name}`,
+        birth: 'карта средних точек двух рождений (вне времени)',
+        positions: posLine(posMid, false), raw: rawLine(posMid) });
+      if (compAsp.length) aspects.push('Аспекты композита: ' + aspLine(compAsp, 'композит', 'композит'));
     } else {
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
@@ -566,6 +573,10 @@
             housesOwner: housesA ? personA.name : undefined } : undefined,
       forecast: forecastForPrompt,
       extra: mode === 'synastry' ? 'Это синастрия — взаимодействие двух карт (не композит).'
+        : mode === 'composite' ? 'Это композит — карта средних точек: каждая её точка — круговая '
+          + 'середина дуги между одноимёнными планетами двоих. Читается как карта САМИХ отношений '
+          + '(характер союза), а не характер кого-то из людей. У точек композита нет скоростей и '
+          + 'ретро-статуса, дома не считаются — не выдумывай их.'
         : mode === 'triple' ? 'Это «два натала + транзит»: одно небо на двоих. Смотри перекрёстную '
           + 'активацию: двойные попадания (в аспектах выше) и места, где натальные точки этих двоих '
           + 'стоят в соединении друг с другом (в паре градусов) — транзит по такому градусу включает '

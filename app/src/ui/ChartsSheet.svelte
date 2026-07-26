@@ -507,8 +507,9 @@
     const share = a.orb / Math.max(orbOf(a.p1), orbOf(a.p2));
     return share <= 0.34 ? 'сильный' : share <= 0.7 ? 'средний' : 'фоновый';
   };
-  const aspLine = (list: StaticAspect[], oa: string, ob: string): string =>
-    list.slice(0, 20).map((a) => `${a.p1} (${oa}) ${a.aspect} ${a.p2} (${ob}), орбис ${a.orb.toFixed(2)}° (${weightOf(a)})`).join('; ');
+  // null-владелец = без суффикса (композит: «(композит)» на каждой планете шумел)
+  const aspLine = (list: StaticAspect[], oa: string | null, ob: string | null): string =>
+    list.slice(0, 20).map((a) => `${a.p1}${oa ? ` (${oa})` : ''} ${a.aspect} ${a.p2}${ob ? ` (${ob})` : ''}, орбис ${a.orb.toFixed(2)}° (${weightOf(a)})`).join('; ');
   // Транзитные аспекты — с направлением и ОКНОМ (вход → точно → выход). Эти
   // числа уже посчитаны для строк карты (rowWins); раньше промпт просил ИИ
   // вычислить их самостоятельно — она их выдумывала (правка 2026-07-26).
@@ -553,10 +554,13 @@
     } else if (mode === 'composite' && personB) {
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, false), raw: rawLine(posA) });
       people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
+      // raw без скоростей: «v=+0.000» противоречил «скоростей нет» и читался
+      // ИИ как «планета стационарна» (вычитка живого промпта 2026-07-27)
       people.push({ name: `Композит ${personA.name} + ${personB.name}`,
         birth: 'карта средних точек двух рождений (вне времени)',
-        positions: posLine(posMid, false), raw: rawLine(posMid) });
-      if (compAsp.length) aspects.push('Аспекты композита: ' + aspLine(compAsp, 'композит', 'композит'));
+        positions: posLine(posMid, false),
+        raw: posMid.map((p) => `${p.name} ${p.lon.toFixed(3)}°`).join('; ') });
+      if (compAsp.length) aspects.push('Аспекты композита: ' + aspLine(compAsp, null, null));
     } else {
       people.push({ name: personA.name, birth: fmtBirth(personA), positions: posLine(posA, true), houses: housesLine(), raw: rawA() });
       if (personB) people.push({ name: personB.name, birth: fmtBirth(personB), positions: posLine(posB, false), raw: rawLine(posB) });
@@ -570,7 +574,10 @@
       }
     }
     return buildAstroPrompt({
-      title: chartTitle, kind: mode, houseSystem: houseSysLabel, people, aspects, weighted: true,
+      // без системы домов у композита: строка противоречила «дома не считаются»
+      title: chartTitle, kind: mode,
+      houseSystem: mode === 'composite' ? undefined : houseSysLabel,
+      people, aspects, weighted: true,
       // транзитные планеты — С ДОМАМИ натальной карты A (houseOfA); чьи это дома,
       // промпт называет явно (в тройной карте иначе не понять)
       transit: (mode === 'transitNatal' || mode === 'triple')

@@ -56,7 +56,9 @@ export function buildAstroPrompt(p: AstroPrompt): string {
     L.push(`\n=== ${per.name} ===\nРождение: ${per.birth}.`);
     L.push(`Положения: ${per.positions}.`);
     if (per.houses) L.push(`Дома (куспиды и управители): ${per.houses}.`);
-    if (per.raw) L.push(`Точные числа (долгота°/скорость): ${per.raw}.`);
+    // без расшифровки в скобках: что такое точные числа, объясняет CALC_RULES,
+    // а у композита скоростей нет — подпись «долгота°/скорость» врала бы
+    if (per.raw) L.push(`Точные числа: ${per.raw}.`);
   }
   if (p.transit) {
     L.push(`\n=== Транзит (небо на ${p.transit.label}) ===\n${p.transit.positions}.`);

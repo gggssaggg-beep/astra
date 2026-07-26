@@ -224,14 +224,28 @@ function seedDefaults(): boolean {
  *  чтобы новая раскладка богов дошла и до уже-запущенных устройств. Объекты, которых
  *  нет в дефолтах (карлики/TNO астролога), не трогаем. Срабатывает один раз на версию. */
 function migrateLore(): boolean {
-  if ((data.loreVersion ?? 0) >= LORE_VERSION) return false;
+  let changed = false;
+  // 1) НОВЫЕ объекты (доп. астероиды 2026-07-27) — досеваем ВСЕГДА, но НИКОГДА
+  //    не перезаписываем уже существующие: архетипы редактируемые, правки
+  //    астролога дороже свежих дефолтов. Версию для этого поднимать не нужно.
   for (const a of defaultArchetypes()) {
-    const rec = { ...a, updatedAt: new Date().toISOString() };
-    const i = data.archetypes.findIndex((x) => x.object === a.object);
-    if (i >= 0) data.archetypes[i] = rec; else data.archetypes.push(rec);
+    if (!data.archetypes.some((x) => x.object === a.object)) {
+      data.archetypes.push({ ...a, updatedAt: new Date().toISOString() });
+      changed = true;
+    }
   }
-  data.loreVersion = LORE_VERSION;
-  return true;
+  // 2) ПЕРЕустановка базовых поверх правок — только при повышении LORE_VERSION
+  //    (так до устройств доезжает новая раскладка богов).
+  if ((data.loreVersion ?? 0) < LORE_VERSION) {
+    for (const a of defaultArchetypes()) {
+      const rec = { ...a, updatedAt: new Date().toISOString() };
+      const i = data.archetypes.findIndex((x) => x.object === a.object);
+      if (i >= 0) data.archetypes[i] = rec; else data.archetypes.push(rec);
+    }
+    data.loreVersion = LORE_VERSION;
+    changed = true;
+  }
+  return changed;
 }
 
 /** Вызвать один раз при старте (await перед чтением данных в UI). На устройстве

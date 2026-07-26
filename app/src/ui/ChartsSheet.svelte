@@ -94,14 +94,19 @@
   function openDetail(a: StaticAspect, oa: string | null, ob: string | null,
     natalPos: BodyPosition[] | null = null, ring: 'A' | 'B' = 'A'): void {
     selKey = staticKey(a); detail = a; detailA = oa; detailB = ob; detailWin = null;
-    // фикс. долгота a.p1: из переданного натального набора либо из posA/posB
-    const lon1 = (natalPos ?? posA).find((p) => p.name === a.p1)?.lon
-      ?? posA.find((p) => p.name === a.p1)?.lon ?? posB.find((p) => p.name === a.p1)?.lon;
+    // В КОМПОЗИТЕ обе точки аспекта — из карты середин: натальные posA/posB тут
+    // чужие (иначе «когда ещё» искало бы транзит к градусу человека A, а «Участники
+    // в знаках» показали бы знаки людей вместо знаков композита).
+    const base = mode === 'composite' ? posMid : posA;
+    // фикс. долгота a.p1: из переданного натального набора либо из base/posB
+    const lon1 = (natalPos ?? base).find((p) => p.name === a.p1)?.lon
+      ?? base.find((p) => p.name === a.p1)?.lon ?? posB.find((p) => p.name === a.p1)?.lon;
     detailAnchor = lon1 != null ? { lon: lon1, planet: a.p2 } : null;
     // долгота a.p2 для SignContext: транзит → из transitPos; синастрия → posB;
-    // натал → тот же posA. p1 берём из уже найденного lon1.
+    // натал/композит → тот же набор. p1 берём из уже найденного lon1.
     const lon2 = ob === 'транзит'
       ? transitPos.find((p) => p.name === a.p2)?.lon
+      : mode === 'composite' ? posMid.find((p) => p.name === a.p2)?.lon
       : posB.find((p) => p.name === a.p2)?.lon ?? posA.find((p) => p.name === a.p2)?.lon;
     detailLon1 = lon1 ?? null;
     detailLon2 = lon2 ?? null;

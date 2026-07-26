@@ -60,7 +60,11 @@ export function buildAstroPrompt(p: AstroPrompt): string {
     if (p.transit.housesOwner) L.push(`Дома у транзитных планет — по натальной карте ${p.transit.housesOwner}.`);
     if (p.transit.raw) L.push(`Точные числа (долгота°/скорость): ${p.transit.raw}.`);
   }
-  if (p.aspects?.length) L.push(`\n=== Аспекты ===\n${p.aspects.join('; ')}.`);
+  if (p.aspects?.length) {
+    L.push(`\n=== Аспекты ===\n${p.aspects.join('; ')}.`);
+    L.push('Каждый аспект помечен весом (сильный/средний/фоновый) по тесноте орбиса. '
+      + 'Разбирай сначала сильные, потом средние; фоновые — одной фразой, без глубокого разбора.');
+  }
   if (p.forecast?.items.length) {
     L.push(`\n=== Ближайшие ТОЧНЫЕ транзиты (${p.forecast.span}) ===\n`
       + `Даты рассчитаны приложением и верны — бери их как есть.\n${p.forecast.items.join('; ')}.`);

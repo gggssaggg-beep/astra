@@ -41,7 +41,7 @@
   import { chartFigures } from '../lib/chartFigures.ts';
   import ChartFigureCard from './ChartFigureCard.svelte';
   import DispositorChains from './DispositorChains.svelte';
-  import { cuspAspects } from '../lib/cuspAspects.ts';
+  import { cuspAspects, isEqualGrid } from '../lib/cuspAspects.ts';
   import { PLANET_CUSP_LORE } from '../lib/planetCuspLore.ts';
   import { transitCuspText } from '../lib/transitCuspLore.ts';
   import StaticAspectRow from './StaticAspectRow.svelte';
@@ -391,12 +391,17 @@
   // Композит — классические фигуры на карте СЕРЕДИН (как натал; lib не меняем).
   const chartFigs = $derived(chartFigures(mode === 'composite' ? 'natal' : mode,
     mode === 'composite' ? posMid : posA, posB, transitPos, orbOf, nodalAxisFigures));
+  // Равнодомная сетка (куспиды через 30°): аспект к одному куспиду повторяется
+  // к восьми с тем же орбисом — оставляем только оси 1/10 (см. isEqualGrid).
+  const equalGrid = $derived(housesA ? isEqualGrid(housesA.cusps) : false);
+  const gridFilter = (c: { cusp: number }): boolean => !equalGrid || c.cusp === 1 || c.cusp === 10;
   // аспекты натальных планет к куспидам домов A (§4) — только если дома есть
-  const cuspAsp = $derived(mode === 'natal' && housesA ? cuspAspects(posA, housesA.cusps, orbOf) : []);
+  const cuspAsp = $derived(mode === 'natal' && housesA
+    ? cuspAspects(posA, housesA.cusps, orbOf).filter(gridFilter) : []);
   // транзиты к натальным куспидам A: проходящие планеты активируют темы домов
   // (снимок «сейчас»). Только в режимах с транзитом и когда дома A известны.
   const transitCuspAsp = $derived((mode === 'transitNatal' || mode === 'triple') && housesA
-    ? cuspAspects(transitPos, housesA.cusps, orbOf) : []);
+    ? cuspAspects(transitPos, housesA.cusps, orbOf).filter(gridFilter) : []);
   const ANGLE_LBL: Record<number, string> = { 1: 'Asc', 4: 'IC', 7: 'Dsc', 10: 'MC' };
   let openCusp = $state<string | null>(null);
   let openTCusp = $state<string | null>(null);
@@ -747,7 +752,8 @@
     {#if cuspAsp.length}
       <details class="fold">
         <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length} <Hint k="cusp" /></summary>
-        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.</div>
+        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.{#if equalGrid}
+          В равнодомной системе куспиды идут ровно через 30°, и аспект к одному повторяется к восьми — показаны только оси Asc и MC, остальные несут ту же сетку.{/if}</div>
         {#each cuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
           {@const lore = PLANET_CUSP_LORE[`${c.planet}|${c.cusp}`]}
@@ -768,7 +774,8 @@
     {#if transitCuspAsp.length}
       <details class="fold">
         <summary class="grp">🚶 Транзиты к куспидам · {transitCuspAsp.length}</summary>
-        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Транзитная планета у этой двери активирует сферу прямо сейчас, временно включает её тему. Снимок на текущий момент.</div>
+        <div class="hint small">Куспид — «дверь» дома (сферы жизни). Транзитная планета у этой двери активирует сферу прямо сейчас, временно включает её тему. Снимок на текущий момент.{#if equalGrid}
+          В равнодомной системе куспиды идут ровно через 30°, и аспект к одному повторяется к восьми — показаны только оси Asc и MC, остальные несут ту же сетку.{/if}</div>
         {#each transitCuspAsp as c (cuspKey(c))}
           {@const key = cuspKey(c)}
           <GlowCard radius={12} selected={openTCusp === key}

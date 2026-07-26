@@ -28,12 +28,13 @@ export const personLabel = (p: Person | null | undefined, selfId?: string | null
 
 /** Подпись «откуда» для заметки по совмещённой карте. */
 export function chartSource(
-  mode: 'natal' | 'transitNatal' | 'triple' | 'synastry',
+  mode: 'natal' | 'transitNatal' | 'triple' | 'synastry' | 'composite',
   a: Person | null, b: Person | null, at: Date, selfId?: string | null,
 ): string {
   const la = personLabel(a, selfId), lb = personLabel(b, selfId);
   // натал — карта одного человека вне времени: опознаётся датой РОЖДЕНИЯ
   if (mode === 'natal') return a ? `${la} ${fullDate(a.birthDate)}` : '';
+  if (mode === 'composite') return `${la}+${lb} композит`;   // карта вне времени, без даты
   if (mode === 'synastry') return `${la}+${lb} ${shortDate(at)}`;
   if (mode === 'triple') return `${la}+${lb}+небо ${shortDate(at)}`;
   return `${la}+небо ${shortDate(at)}`;   // transitNatal

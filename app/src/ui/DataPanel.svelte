@@ -10,9 +10,12 @@
   import { tgHref } from '../lib/telegram.ts';
   import Hint from './Hint.svelte';
 
-  // объекты для индивидуального орбиса (светила + планеты + узлы)
-  const ORB_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
+  // базовые объекты (всегда в списке) и доп. объекты (по умолчанию выключены)
+  const BASE_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
+  const EXTRA_OBJ = ['Хирон', 'Церера', 'Паллада', 'Юнона', 'Веста', 'Лилит'];
+  // объекты для индивидуального орбиса (светила + планеты + узлы + доп.)
+  const ORB_OBJ = [...BASE_OBJ, ...EXTRA_OBJ];
 
   let { onclose, onchanged, onhelp, onastrologer, onstarttour, onCourse }:
     { onclose: () => void; onchanged: () => void; onhelp?: () => void; onstarttour?: () => void;
@@ -264,7 +267,17 @@
     <div class="hint small">Что участвует в расчётах: аспекты дня, колесо, совмещённые карты, прогноз.
       Выключенное не считается и не рисуется.</div>
     <div class="objgrid">
-      {#each ORB_OBJ as o}
+      {#each BASE_OBJ as o}
+        <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
+          <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
+        </button>
+      {/each}
+    </div>
+    <div class="lbl" style="margin-top:14px">Дополнительные</div>
+    <div class="hint small">Астероиды и Чёрная Луна. По умолчанию выключены: включай по одному —
+      каждый добавляет свои аспекты в сводку и колесо.</div>
+    <div class="objgrid">
+      {#each EXTRA_OBJ as o}
         <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
           <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
         </button>

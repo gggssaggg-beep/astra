@@ -691,7 +691,7 @@
            скраба нет — карта статичная -->
       <Wheel positions={posMid} staticAspects={compAsp} {signStyle}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
-      <div class="legend">композит {personA?.name} + {personB?.name} — середины планет</div>
+      <div class="legend">композит {personA?.name} + {personB?.name} — середины планет <Hint k="composite" /></div>
     {:else if mode === 'synastry'}
       <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
@@ -818,7 +818,7 @@
            одно кольцо, транзитным точкам там места нет — только список -->
       {#if crossTC.length}
         <details class="fold">
-          <summary class="grp">🚶 Транзит к композиту сейчас · {crossTC.length}</summary>
+          <summary class="grp">🚶 Транзит к композиту сейчас · {crossTC.length} <Hint k="transit-composite" /></summary>
           <div class="hint small">Небо на {transitLabel} к карте отношений: какие темы связи
             активированы прямо сейчас. Даты точных попаданий — в прогнозе ниже.</div>
           {#each crossTC as a (staticKey(a))}

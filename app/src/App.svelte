@@ -71,7 +71,7 @@
   const openLib = (k: LibKey) => { showLibrary = false; libSheet = k; };
   const closeLib = () => { libSheet = null; showLibrary = true; };
   let showCharts = $state<false | {
-    mode?: 'transitNatal' | 'triple' | 'synastry';
+    mode?: 'transitNatal' | 'triple' | 'synastry' | 'composite';
     // адрес аспекта из уведомления: открыть карту транзит+натал и выделить его
     select?: { personId: string; nName: string; tName: string; aspect: string; at?: string };
   }>(false);
@@ -162,6 +162,7 @@
       case 'degree': openLib('degree'); break;
       case 'charts': showCharts = {}; break;
       case 'chartsSynastry': showCharts = { mode: 'synastry' }; break;
+      case 'chartsComposite': showCharts = { mode: 'composite' }; break;
       case 'settings': showData = true; break;
       case 'course': startCourse(); break;
     }

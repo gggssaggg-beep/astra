@@ -5,6 +5,7 @@
   import { success, tap } from '../lib/haptics.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import { FOCUS_OPTIONS, focusBlock, type FocusId } from '../lib/aiPrompt.ts';
+  import Hint from './Hint.svelte';
 
   let { text, onclose }: { text: string; onclose: () => void } = $props();
 
@@ -37,7 +38,7 @@
     в ChatGPT, Gemini или другой ИИ — расчёт уже сделан, останется трактовать.</div>
 
   <div class="focus">
-    <div class="flabel">Фокус разбора</div>
+    <div class="flabel">Фокус разбора <Hint k="ai-prompt" /></div>
     <div class="chips">
       {#each FOCUS_OPTIONS as f}
         <button class="chip" class:on={focus === f.id} onclick={() => pickFocus(f.id)}>{f.label}</button>

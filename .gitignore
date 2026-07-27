@@ -11,3 +11,6 @@ android/app/build/
 # Это не секрет (обычный debug-ключ вне Play Store), в отличие от релизных ключей.
 !app/android/app/astra-debug.keystore
 api_key*
+
+# личные картинки в корне (случайно попали от агента 2026-07-27)
+*.jpg

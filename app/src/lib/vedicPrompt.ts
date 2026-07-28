@@ -17,6 +17,12 @@ import { GRAHA_NAMES } from './vedicLore.ts';
 import {
   sadeSati, signIndexOf, RELATION_LABEL, CHARA_KARAKAS, VEDIC_ORDER_SET,
 } from './vedic.ts';
+import type { AntarWindow, SidIngress, StationInWindow } from './vedicForecast.ts';
+
+const DD = (d: Date): string => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()}`;
+};
 
 const D = (deg: number): string => degMin(deg);
 
@@ -39,6 +45,14 @@ export interface VedicPromptInput {
   ayanamsaDeg?: number;       // значение аянамши на момент рождения, °
   /** транзитные позиции (сидерические) на момент запроса + сам момент */
   transit?: { at: Date; positions: BodyPosition[] } | null;
+  /** прогнозный горизонт: антардаши + расписание переходов транзитов.
+   *  Ровно то, что астролог вбивала в ИИ руками (образец запроса 2026-07-29). */
+  forecast?: {
+    months: number;
+    antars: AntarWindow[];
+    ingresses: SidIngress[];
+    stations: StationInWindow[];
+  } | null;
   tz: string;
 }
 
@@ -114,6 +128,25 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
     L.push(`Саде Сати: ${ss ? ss.label : 'неактивна (Сатурн вне 12/1/2/4/8-го от Луны)'}.`);
   }
 
+  // ── прогнозный горизонт: антардаши + расписание транзитов ──
+  if (inp.forecast) {
+    const f = inp.forecast;
+    L.push(`\n### Прогнозный горизонт: ближайшие ${f.months} месяцев`);
+    L.push('Антардаши: ' + f.antars.map((a) =>
+      `${a.maha}–${a.antar} с ${DD(a.from)} до ${DD(a.to)}${a.current ? ' (ТЕКУЩАЯ)' : ''}`).join('; ') + '.');
+    if (f.ingresses.length) {
+      L.push('Переходы транзитов (дома от лагны):');
+      for (const g of f.ingresses) {
+        const house = ((g.toSign - c.lagnaSign + 12) % 12) + 1;
+        L.push(`  ${DD(g.at)} — ${g.name}${g.retro ? ' (ретро)' : ''} → ${ZODIAC[g.toSign]} (${house}-й дом)`);
+      }
+    }
+    if (f.stations.length) {
+      L.push('Станции: ' + f.stations.map((s) =>
+        `${DD(s.at)} ${s.planet} ${s.toRetro ? 'разворачивается в ретро' : 'выходит из ретро'} в ${ZODIAC[s.sign]}`).join('; ') + '.');
+    }
+  }
+
   // ── каркас разбора (сжатый мастер-промпт) ──
   L.push(`
 ## ЗАДАНИЕ
@@ -128,8 +161,10 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
 5. Психика: Луна (накшатра!), Меркурий, кармические узлы Раху/Кету по оси домов.
 6. Здоровье: 6-й дом, конституция по сильнейшим грахам, уязвимые зоны.
 7. Дхарма: 9-й дом, Юпитер, путь.
-8. Текущий период: маха/антар + транзиты Сатурна и Юпитера + Саде Сати — что
-   поддержано сейчас, что подождёт; ближайшие 1–2 года по датам антардаш.
+8. Текущий период и прогноз: разбери ТЕКУЩУЮ антардашу и следующие из
+   прогнозного горизонта ПО МЕСЯЦАМ, связывая каждую с переходами транзитов и
+   станциями из расписания выше (антардаша + транзит = влияние); Саде Сати
+   учитывай отдельно. Что поддержано сейчас, что подождёт — с датами.
 9. Итог: кто этот человек, главная тема жизни — 5–7 фраз без воды.
 Если данных не хватает — скажи, каких именно.`);
 

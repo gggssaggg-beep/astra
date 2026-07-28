@@ -56,6 +56,9 @@
   import { vedicNatal, chartCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
+  import { kutaMatch, manglik } from '../lib/kuta.ts';
+  import { nakshatraOf, signIndexOf } from '../lib/vedic.ts';
+  import { antarWindows, sidIngresses, stationsInWindow } from '../lib/vedicForecast.ts';
   import { ZODIAC } from '../engine/index.ts';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
@@ -199,6 +202,32 @@
 
   // дришти натальной карты — вместо западных списков аспектов в джйотише
   const drishtiA = $derived(vedicA ? grahaDrishti(vedicA.chart.planets, vedicA.chart.lagnaSign) : []);
+
+  // КУТА (гуна-милан) — джйотиш-замена синастрии: считается от ЛУН двоих,
+  // место рождения не обязательно (лагна не нужна). Манглик — только если у
+  // человека есть место (нужна лагна).
+  const kutaData = $derived.by(() => {
+    if (!vedic || mode !== 'synastry' || !personA || !personB) return null;
+    const mA = posA.find((p) => p.name === 'Луна'), mB = posB.find((p) => p.name === 'Луна');
+    if (!mA || !mB) return null;
+    const nA = nakshatraOf(mA.lon), nB = nakshatraOf(mB.lon);
+    const sA = signIndexOf(mA.lon), sB = signIndexOf(mB.lon);
+    const mang = (p: Person | null) => {
+      if (!p?.place) return null;
+      try {
+        const v = vedicNatal(engine, p);
+        return v ? manglik(v.chart.planets, v.chart.lagnaSign, v.chart.moonSign) : null;
+      } catch { return null; }
+    };
+    return {
+      res: kutaMatch(nA.index - 1, sA, nB.index - 1, sB),
+      a: { sign: ZODIAC[sA], nak: nA }, b: { sign: ZODIAC[sB], nak: nB },
+      mangA: mang(personA), mangB: mang(personB),
+    };
+  });
+
+  // что прятать из западных блоков: ведический натал/гочара ИЛИ кута-синастрия
+  const vedicHide = $derived(!!vedicA || !!kutaData);
 
   // Композит: карта средних точек двоих. slowOnly-фильтр людей наследуется сам —
   // compositeChart сопоставляет по имени (пересечение наборов).
@@ -582,8 +611,22 @@
     if (vedicA) {
       let ayanamsaDeg: number | undefined;
       try { ayanamsaDeg = engine.ayanamsa(engine.toJD(birthInstantUTC(personA))); } catch { /* без цифры */ }
+      // прогнозный горизонт 6 месяцев — как в живом запросе астролога
+      // (антардаши + переходы транзитов); ~1500 вызовов движка, но текст
+      // собирается лениво — только при открытии «Промпта для ИИ»
+      const months = 6, days = 183;
+      const to = new Date(transitAt.getTime() + days * 86400000);
+      let forecast = null;
+      try {
+        forecast = {
+          months,
+          antars: antarWindows(vedicA.dashas, transitAt, to),
+          ingresses: sidIngresses(engine, transitAt, days),
+          stations: stationsInWindow(engine, transitAt, to),
+        };
+      } catch { /* прогноз опционален — карта важнее */ }
       return buildVedicPrompt({
-        person: personA, natal: vedicA, ayanamsaDeg, tz,
+        person: personA, natal: vedicA, ayanamsaDeg, tz, forecast,
         transit: { at: transitAt, positions: transitPos },
       });
     }
@@ -738,9 +781,39 @@
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
       <div class="legend">композит {personA?.name} + {personB?.name} — середины планет <Hint k="composite" /></div>
     {:else if mode === 'synastry'}
-      <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
-      <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name} <Hint k="synastry" /></div>
+      {#if kutaData}
+        <!-- джйотиш-совместимость: КУТА (гуна-милан) по Лунам двоих — колесо и
+             орбисные межаспекты здесь ни при чём -->
+        <div class="kuta glass">
+          <div class="kmoons">
+            <div><b>{personA?.name}</b> — Луна {kutaData.a.sign} · {kutaData.a.nak.name} (пада {kutaData.a.nak.pada})</div>
+            <div><b>{personB?.name}</b> — Луна {kutaData.b.sign} · {kutaData.b.nak.name} (пада {kutaData.b.nak.pada})</div>
+          </div>
+          {#each kutaData.res.scores as s (s.name)}
+            <div class="krow">
+              <span class="kn">{s.name}</span>
+              <span class="knote">{s.note ?? ''}</span>
+              <span class="kv" class:zero={s.got === 0}>{s.got}/{s.max}</span>
+            </div>
+          {/each}
+          <div class="ktotal">Итог: <b>{kutaData.res.total} из 36</b> — {kutaData.res.verdict}</div>
+          {#if kutaData.res.doshas.length}
+            <div class="kdosha">⚠ {kutaData.res.doshas.join('; ')}</div>
+          {/if}
+          {#if kutaData.mangA || kutaData.mangB}
+            <div class="kmang">Манглик: {personA?.name} — {kutaData.mangA ? (kutaData.mangA.any ? 'да' : 'нет') : '(нет лагны)'};
+              {personB?.name} — {kutaData.mangB ? (kutaData.mangB.any ? 'да' : 'нет') : '(нет лагны)'}.
+              {#if kutaData.mangA?.any && kutaData.mangB?.any}Оба — доша взаимно погашена.{/if}</div>
+          {/if}
+        </div>
+        <div class="vnote">Кута считается от Луны первого выбранного ({personA?.name} = «невеста»
+          в направленных кутах — поменяй порядок выбора, если наоборот). Вашья и йони в v1
+          упрощены — сверить с программой астролога.</div>
+      {:else}
+        <Wheel positions={posA} positionsOuter={posB} staticAspects={crossSyn} {signStyle} houses={housesA}
+          selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
+        <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name} <Hint k="synastry" /></div>
+      {/if}
     {:else if mode === 'transitNatal'}
       {#if vedicA}
         <!-- гочара: транзитные грахи по домам ОТ НАТАЛЬНОЙ лагны — так джйотиш
@@ -771,10 +844,11 @@
          совместимость считается кутами (по накшатрам Лун), а композита нет
          вовсе. Не прячем (углы между планетами от аянамши не зависят — расчёт
          честен), но предупреждаем -->
-    {#if vedic && (mode === 'synastry' || mode === 'triple' || mode === 'composite')}
-      <div class="vnote">Это инструмент западной школы: в джйотише совместимость
-        считают по кутам (накшатры Лун) — они в планах. Сами углы между планетами
-        от аянамши не зависят, расчёт корректен.</div>
+    {#if vedic && (mode === 'triple' || mode === 'composite')}
+      <div class="vnote">Это инструмент западной школы: в джйотише аналога нет
+        (композит — изобретение XX века, «небо к двум наталам» смотрят гочарой
+        каждого отдельно). Углы между планетами от аянамши не зависят — расчёт
+        корректен, но читается по-западному.</div>
     {/if}
 
     <!-- данные рождения на самой карте: скриншот несёт ВСЮ информацию
@@ -798,7 +872,7 @@
         ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
     {/if}
 
-    {#if chartFigs.length && !vedicA}
+    {#if chartFigs.length && !vedicHide}
       <!-- «по желанию» (просьба владелицы): раздел свёрнут, как соседние fold-разделы.
            В джйотише скрыт: фигуры — орбисные конфигурации, западное -->
       <details class="fold">
@@ -820,7 +894,7 @@
       </details>
     {/if}
 
-    {#if cuspAsp.length && !vedicA}
+    {#if cuspAsp.length && !vedicHide}
       <details class="fold">
         <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length} <Hint k="cusp" /></summary>
         <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.{#if equalGrid}
@@ -842,7 +916,7 @@
       </details>
     {/if}
 
-    {#if transitCuspAsp.length && !vedicA}
+    {#if transitCuspAsp.length && !vedicHide}
       <details class="fold">
         <summary class="grp">🚶 Транзиты к куспидам · {transitCuspAsp.length}</summary>
         <div class="hint small">Куспид — «дверь» дома (сферы жизни). Транзитная планета у этой двери активирует сферу прямо сейчас, временно включает её тему. Снимок на текущий момент.{#if equalGrid}
@@ -863,11 +937,12 @@
       </details>
     {/if}
 
-    {#if vedicA}
+    {#if vedicHide}
       <!-- вместо западных орбисных списков — ДРИШТИ: аспекты грах по целым
            знакам, как читает джйотиш (ответ на вопрос владелицы 2026-07-29
            «почему в джйотиш западные аспекты?»). Прогноз здесь тоже скрыт:
            в джйотише прогнозируют дашами и гочарой, они в «Ведической карте» -->
+      {#if vedicA}
       <details class="fold" open={mode === 'natal'}>
         <summary class="grp">☍ Дришти · {drishtiA.length}</summary>
         <div class="hint small">Дришти считаются по целым знакам: граха смотрит из своего
@@ -882,6 +957,7 @@
           </div>
         {/each}
       </details>
+      {/if}
     {:else}
     {#if mode === 'natal'}
       {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
@@ -987,7 +1063,7 @@
     {/if}
     {/if}
 
-    {#if forecastTargets.length && !vedicA}
+    {#if forecastTargets.length && !vedicHide}
       <div class="fc">
         <div class="fchead">
           <span class="grp">Прогноз транзитов</span>
@@ -1177,6 +1253,19 @@
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }
   .drhead b { font-weight: 600; }
   .drhits { color: var(--ink-faint); font-size: 0.78rem; margin-top: 3px; }
+  /* кута (гуна-милан): таблица восьми кут + итог */
+  .kuta { padding: 12px 14px; margin: 8px 0 6px; border-radius: 16px; }
+  .kmoons { display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem;
+    color: var(--ink); margin-bottom: 10px; }
+  .krow { display: grid; grid-template-columns: 7.2rem 1fr 3.2rem; gap: 6px; padding: 5px 0;
+    align-items: baseline; font-size: 0.82rem; border-top: 1px solid var(--glass-brd); }
+  .kn { color: var(--ink-dim); }
+  .knote { color: var(--ink-faint); font-size: 0.74rem; }
+  .kv { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .kv.zero { color: var(--rose); }
+  .ktotal { margin-top: 10px; font-size: 0.9rem; color: var(--ink); }
+  .kdosha { color: var(--rose); font-size: 0.8rem; margin-top: 6px; }
+  .kmang { color: var(--ink-dim); font-size: 0.8rem; margin-top: 6px; line-height: 1.45; }
   .birth { color: var(--ink-dim); font-size: 0.78rem; text-align: center; margin: 0 0 4px;
     font-variant-numeric: tabular-nums; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);

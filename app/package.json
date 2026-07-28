@@ -14,6 +14,7 @@
     "test:vedicmath": "node test/vedicmath.mjs",
     "test:vargas": "node test/vargas.mjs",
     "test:drishti": "node test/drishti.mjs",
+    "test:kuta": "node test/kuta.mjs",
     "test:panchanga": "node test/panchanga.mjs",
     "test:static": "node test/static.mjs",
     "test:figures": "node test/figures.mjs",

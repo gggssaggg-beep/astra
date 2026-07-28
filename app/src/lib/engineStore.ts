@@ -11,7 +11,14 @@ const cache = new Map<string, Promise<Engine>>();
 const keyOf = (mode: EphemerisMode, o: EngineOptions): string =>
   `${mode}|${o.zodiac ?? 'tropical'}|${o.ayanamsa ?? 'lahiri'}|${o.nodes ?? 'auto'}`;
 
-export function getEngine(mode: EphemerisMode = 'swieph', opts: EngineOptions = {}): Promise<Engine> {
+/** Текущий профиль зодиака (из настроек). Меняется тумблером «Ведический режим»
+ *  и действует на ВЕСЬ интерфейс: getEngine() без аргументов отдаёт его движок. */
+let profile: EngineOptions = {};
+
+export function setEngineProfile(p: EngineOptions): void { profile = { ...p }; }
+export const engineProfile = (): EngineOptions => ({ ...profile });
+
+export function getEngine(mode: EphemerisMode = 'swieph', opts: EngineOptions = profile): Promise<Engine> {
   const key = keyOf(mode, opts);
   let p = cache.get(key);
   if (!p) {

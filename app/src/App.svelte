@@ -3,10 +3,10 @@
   import { Capacitor, registerPlugin } from '@capacitor/core';
   import { App as CapApp } from '@capacitor/app';
   import type { Engine, AspectRecord } from './engine/index.ts';
-  import { getEngine } from './lib/engineStore.ts';
+  import { getEngine, setEngineProfile } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { todayCivil, zonedDayStartUTC, civilOf } from './lib/format.ts';
-  import { orbResolver } from './lib/models.ts';
+  import { orbResolver, zodiacOptions, houseSystemOf } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
   import { aspectsOnCached } from './lib/dayCache.ts';
   import { recoverNoteDirections } from './lib/notesMigrate.ts';
@@ -414,6 +414,9 @@
       showWelcome = !settings.seenWelcome;
     } catch { /* стартуем с дефолтов */ }
 
+    // профиль зодиака — ДО создания движка: тумблер «Ведический режим» меняет
+    // весь расчёт (сидерические долготы, целознаковые дома), а не отдельный экран
+    setEngineProfile(zodiacOptions(settings));
     try { engine = await getEngine('swieph'); reschedule(); migrateNoteDirections(); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
     // подхватить файл данных с диска (если доступ уже разрешён — тихо; только веб)
@@ -454,7 +457,14 @@
   }
   function onPanelChanged() {
     const wasToday = isToday;
+    const prevZodiac = `${settings.zodiac ?? 'tropical'}|${settings.ayanamsa ?? 'lahiri'}`;
     settings = { ...db.settings.get() };
+    // переключили зодиак (или аянамшу) — движок другой, старый пересчитывать нечем
+    if (`${settings.zodiac ?? 'tropical'}|${settings.ayanamsa ?? 'lahiri'}` !== prevZodiac) {
+      setEngineProfile(zodiacOptions(settings));
+      getEngine('swieph').then((e) => { engine = e; reschedule(); })
+        .catch((e) => (error = e instanceof Error ? e.message : String(e)));
+    }
     // сменили пояс, стоя на «сегодня» — «сегодня» пересчитываем в новом поясе
     if (wasToday) { resetScrub(); date = todayCivil(settings.tz); }
     reschedule();
@@ -607,7 +617,7 @@
 {/if}
 
 {#if showAstrologer && engine}
-  <AstrologerSheet {engine} {orbOf} objects={settings.objects} houseSystem={settings.houseSystem}
+  <AstrologerSheet {engine} {orbOf} objects={settings.objects} houseSystem={houseSystemOf(settings)}
     tz={settings.tz} onclose={() => { showAstrologer = false; void refreshClientCharts(); }} />
 {/if}
 
@@ -687,7 +697,7 @@
        Если шторка карт уже открыта, смена select обязана её пересоздать. -->
   {#key showCharts.select}
   <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={effSignStyle} defaultTz={settings.tz}
-    tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
+    tz={settings.tz} objects={settings.objects} houseSystem={houseSystemOf(settings)}
     nodalAxisFigures={settings.nodalAxisFigures ?? false}
     initialMode={showCharts.mode ?? 'transitNatal'}
     initialSelect={showCharts.select ?? null}

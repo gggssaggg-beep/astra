@@ -682,7 +682,8 @@
 {/if}
 
 {#if libSheet === 'vedic' && engine}
-  <VedicSheet {engine} tz={settings.tz} selfId={settings.transitSelfId} onclose={closeLib} />
+  <VedicSheet {engine} tz={settings.tz} selfId={settings.transitSelfId}
+    simple={!!settings.vedicSimple} onclose={closeLib} />
 {/if}
 
 {#if libSheet === 'figures'}

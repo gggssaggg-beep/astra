@@ -22,8 +22,9 @@
   import VedicChart from './VedicChart.svelte';
   import Hint from './Hint.svelte';
 
-  let { engine, tz, selfId, onclose }:
-    { engine: Engine; tz: string; selfId?: string; onclose: () => void } = $props();
+  let { engine, tz, selfId, simple = false, onclose }:
+    { engine: Engine; tz: string; selfId?: string; simple?: boolean;
+      onclose: () => void } = $props();
 
   const people = db.people.all().slice();
   // выбор пользователя перекрывает «мою карту» из настроек, но не затирает её
@@ -76,12 +77,15 @@
         координат и точного времени — добавь место, и карта соберётся.</div>
     {:else}
       {@const c = natal.chart}
-      <div class="vargas">
-        <button class:on={varga === 'd1'} onclick={() => (varga = 'd1')}>D1 · раши</button>
-        <button class:on={varga === 'd9'} onclick={() => (varga = 'd9')}>D9 · навамша</button>
-      </div>
-      <VedicChart cells={varga === 'd9' ? navamshaCells(c) : chartCells(c)} />
-      {#if varga === 'd9'}
+      <!-- «я не астролог»: варги и отношения планет — специальные слои, их прячем -->
+      {#if !simple}
+        <div class="vargas">
+          <button class:on={varga === 'd1'} onclick={() => (varga = 'd1')}>D1 · раши</button>
+          <button class:on={varga === 'd9'} onclick={() => (varga = 'd9')}>D9 · навамша</button>
+        </div>
+      {/if}
+      <VedicChart cells={!simple && varga === 'd9' ? navamshaCells(c) : chartCells(c)} />
+      {#if !simple && varga === 'd9'}
         <div class="note">Навамша — «вторая карта»: по ней смотрят, дотягивает ли планета то,
           что обещает в раши. Градусы здесь не пишут — в варге своя, растянутая шкала.</div>
       {/if}
@@ -135,7 +139,7 @@
             упр. {p.nakshatra.lord})</div>
           <!-- хозяин знака в именительном: склонять имена планет по суффиксам
                нельзя («Меркурийа»), а сокращать до «у друга» — терять, у кого -->
-          <div class="psub">навамша {ZODIAC[p.navamsha]}{#if p.hostRelation}&nbsp;· хозяин знака {p.host} — {RELATION_LABEL[p.hostRelation]}{/if}</div>
+          {#if !simple}<div class="psub">навамша {ZODIAC[p.navamsha]}{#if p.hostRelation}&nbsp;· хозяин знака {p.host} — {RELATION_LABEL[p.hostRelation]}{/if}</div>{/if}
           <div class="tags">
             {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
             {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}

@@ -54,6 +54,8 @@
   import PeopleList from './charts/PeopleList.svelte';
   import VedicChart from './VedicChart.svelte';
   import { vedicNatal, chartCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
+  import { grahaDrishti } from '../lib/drishti.ts';
+  import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
   import { ZODIAC } from '../engine/index.ts';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
@@ -194,6 +196,9 @@
     if (!vedic || !personA || (mode !== 'natal' && mode !== 'transitNatal')) return null;
     try { return vedicNatal(engine, personA); } catch { return null; }
   });
+
+  // дришти натальной карты — вместо западных списков аспектов в джйотише
+  const drishtiA = $derived(vedicA ? grahaDrishti(vedicA.chart.planets, vedicA.chart.lagnaSign) : []);
 
   // Композит: карта средних точек двоих. slowOnly-фильтр людей наследуется сам —
   // compositeChart сопоставляет по имени (пересечение наборов).
@@ -572,6 +577,16 @@
 
   const chartPromptText = $derived.by((): string => {
     if (!personA) return '';
+    // джйотиш: заполненный раздел «КАРТА» мастер-промпта астролога вместо
+    // западного текста (образец — docs/JYOTISH_MASTER_PROMPT.md)
+    if (vedicA) {
+      let ayanamsaDeg: number | undefined;
+      try { ayanamsaDeg = engine.ayanamsa(engine.toJD(birthInstantUTC(personA))); } catch { /* без цифры */ }
+      return buildVedicPrompt({
+        person: personA, natal: vedicA, ayanamsaDeg, tz,
+        transit: { at: transitAt, positions: transitPos },
+      });
+    }
     const people: PromptPerson[] = [];
     const aspects: string[] = [];
     if (mode === 'natal') {
@@ -783,8 +798,9 @@
         ? 'показаны только медленные планеты' : 'взят полдень, Луна и быстрые планеты неточны'}.</div>
     {/if}
 
-    {#if chartFigs.length}
-      <!-- «по желанию» (просьба владелицы): раздел свёрнут, как соседние fold-разделы -->
+    {#if chartFigs.length && !vedicA}
+      <!-- «по желанию» (просьба владелицы): раздел свёрнут, как соседние fold-разделы.
+           В джйотише скрыт: фигуры — орбисные конфигурации, западное -->
       <details class="fold">
         <summary class="grp">◆ Фигуры{#if mode === 'transitNatal' || mode === 'triple'} — замыкает транзит{/if} · {chartFigs.length}</summary>
         {#each chartFigs as f (f.key)}
@@ -794,7 +810,9 @@
       </details>
     {/if}
 
-    {#if mode === 'natal' && posA.length}
+    <!-- диспозиторы в джйотише скрыты: цепочки идут по АВТОРСКОЙ западной
+         раскладке управителей, в джйотише управители классические -->
+    {#if mode === 'natal' && posA.length && !vedicA}
       <details class="fold">
         <summary class="grp">⛓ Цепочки диспозиторов</summary>
         <div class="hint small">Каждая планета служит управителю своего знака — до «царя» карты (планеты в своём знаке) или кольца соправителей.</div>
@@ -802,7 +820,7 @@
       </details>
     {/if}
 
-    {#if cuspAsp.length}
+    {#if cuspAsp.length && !vedicA}
       <details class="fold">
         <summary class="grp">📐 Аспекты к куспидам · {cuspAsp.length} <Hint k="cusp" /></summary>
         <div class="hint small">Куспид — «дверь» дома (сферы жизни). Планета, задевающая эту дверь, окрашивает вход в сферу своим архетипом. Орбис куспида 1°.{#if equalGrid}
@@ -824,7 +842,7 @@
       </details>
     {/if}
 
-    {#if transitCuspAsp.length}
+    {#if transitCuspAsp.length && !vedicA}
       <details class="fold">
         <summary class="grp">🚶 Транзиты к куспидам · {transitCuspAsp.length}</summary>
         <div class="hint small">Куспид — «дверь» дома (сферы жизни). Транзитная планета у этой двери активирует сферу прямо сейчас, временно включает её тему. Снимок на текущий момент.{#if equalGrid}
@@ -845,6 +863,26 @@
       </details>
     {/if}
 
+    {#if vedicA}
+      <!-- вместо западных орбисных списков — ДРИШТИ: аспекты грах по целым
+           знакам, как читает джйотиш (ответ на вопрос владелицы 2026-07-29
+           «почему в джйотиш западные аспекты?»). Прогноз здесь тоже скрыт:
+           в джйотише прогнозируют дашами и гочарой, они в «Ведической карте» -->
+      <details class="fold" open={mode === 'natal'}>
+        <summary class="grp">☍ Дришти · {drishtiA.length}</summary>
+        <div class="hint small">Дришти считаются по целым знакам: граха смотрит из своего
+          знака, градусы и орбисы не участвуют.</div>
+        {#each drishtiA as d (d.from)}
+          <div class="drow glass">
+            <div class="drhead"><b>{d.from}</b> из {d.fromHouse}-го дома — смотрит в
+              {d.targets.map((t) => `${t.house}-й`).join(', ')}</div>
+            {#if d.targets.some((t) => t.hits.length)}
+              <div class="drhits">под аспектом: {d.targets.flatMap((t) => t.hits).join(', ')}</div>
+            {/if}
+          </div>
+        {/each}
+      </details>
+    {:else}
     {#if mode === 'natal'}
       {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
       <!-- в одиночном натале владелец не подписывается: «Луна (Саша) ☌ Венера
@@ -947,8 +985,9 @@
         </GlowCard>
       {/each}
     {/if}
+    {/if}
 
-    {#if forecastTargets.length}
+    {#if forecastTargets.length && !vedicA}
       <div class="fc">
         <div class="fchead">
           <span class="grp">Прогноз транзитов</span>
@@ -1133,6 +1172,11 @@
   /* пояснение ведического режима: что здесь джйотиш, а что — западная школа */
   .vnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45;
     text-align: center; margin: -6px 8px 12px; }
+  /* строки дришти (джйотиш-аспекты по знакам) */
+  .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
+  .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }
+  .drhead b { font-weight: 600; }
+  .drhits { color: var(--ink-faint); font-size: 0.78rem; margin-top: 3px; }
   .birth { color: var(--ink-dim); font-size: 0.78rem; text-align: center; margin: 0 0 4px;
     font-variant-numeric: tabular-nums; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);

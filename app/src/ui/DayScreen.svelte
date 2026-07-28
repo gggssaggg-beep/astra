@@ -351,8 +351,9 @@
     </div>
   {/if}
 
-  {#if figures.length}
-    <!-- «по желанию» (просьба владелицы): раздел свёрнут, как разделы карт -->
+  {#if figures.length && !vedic}
+    <!-- «по желанию» (просьба владелицы): раздел свёрнут, как разделы карт.
+         В джйотише скрыт: фигуры строятся на орбисных аспектах — западное -->
     <details class="fold" data-tour="figures">
       <summary class="sec">Фигуры дня · {figures.length}<Hint k="figure" /><span class="arr">▸</span></summary>
       {#each figures as f (f.hit.key)}
@@ -363,7 +364,10 @@
     </details>
   {/if}
 
-  {#each [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}
+  <!-- Аспектные секции — ЗАПАДНАЯ школа (орбисы). В джйотише их нет: аспекты
+       (дришти) считаются по целым знакам, а «содержание дня» даёт панчанга
+       выше. Ответ на вопрос владелицы «почему в джйотиш западные аспекты?» -->
+  {#each vedic ? [] : [section('Луна', day.moon), section('Быстрые', day.fast), section('Медленные', day.slow)] as s}
     {#if s.list.length}
       <h3 class="sec" data-tour={s.title === firstAspectSec ? 'aspects' : undefined}>{s.title}{#if s.title === firstAspectSec} <Hint k="aspect" />{/if}</h3>
       <!-- П.5: разовый разбор карточки аспекта «на пальцах» — над самой первой
@@ -392,7 +396,7 @@
     {/if}
   {/each}
 
-  {#if !day.moon.length && !day.fast.length && !day.slow.length}
+  {#if !vedic && !day.moon.length && !day.fast.length && !day.slow.length}
     <div class="empty">☽ Небо сегодня тихое — ни одного мажорного аспекта в орбисе.<br />
       <span class="empty2">Такое бывает часто — это не поломка, приложение считает верно.<br />
         Полистай соседние дни ‹ › — там аспекты найдутся; или расширь орбис в Настройках.</span></div>

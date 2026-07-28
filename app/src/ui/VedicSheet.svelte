@@ -18,7 +18,7 @@
   import { db } from '../lib/db.ts';
   import type { Person } from '../lib/models.ts';
   import { vedicNatal, vedicSky, chartCells, navamshaCells, degMin } from '../lib/vedicChart.ts';
-  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL } from '../lib/vedic.ts';
+  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
   import VedicChart from './VedicChart.svelte';
   import Hint from './Hint.svelte';
@@ -40,6 +40,15 @@
   // расчёт карты — на смену человека; движок стабилен (создан в App один раз)
   const natal = $derived.by(() => (person ? untrack(() => vedicNatal(engine, person)) : null));
   const sky = untrack(() => vedicSky(engine));
+
+  // Саде Сати: транзитный Сатурн относительно НАТАЛЬНОЙ Луны (12/1/2-й знак =
+  // фазы; 4-й — кантака, 8-й — аштама). Показываем и «неактивна» не пишем:
+  // строка есть только когда Сатурн в одной из станций
+  const sadeSatiNow = $derived.by(() => {
+    if (!natal) return null;
+    const sat = sky.planets.find((p) => p.name === 'Сатурн');
+    return sat ? sadeSati(natal.chart.moonSign, sat.signIndex) : null;
+  });
 
   const karakaName = (code?: string) =>
     CHARA_KARAKAS.find((k) => k.code === code)?.name ?? '';
@@ -113,6 +122,9 @@
             <div><span class="k">Текущий период <Hint k="dasha" /></span><span class="v">{natal.now.maha.lord}
               {#if natal.now.antar}— {natal.now.antar.lord}{/if}
               {#if natal.now.pratyantar}— {natal.now.pratyantar.lord}{/if}</span></div>
+          {/if}
+          {#if sadeSatiNow}
+            <div><span class="k">Сатурн от Луны</span><span class="v">{sadeSatiNow.label}</span></div>
           {/if}
         </div>
       </div>

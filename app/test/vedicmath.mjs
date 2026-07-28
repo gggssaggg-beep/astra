@@ -240,6 +240,28 @@ console.log('=== отношения планет ===');
   }
 }
 
+console.log('=== Саде Сати ===');
+{
+  const { sadeSati } = await import('../src/lib/vedic.ts');
+  // Луна во Льве (4): фазы — Сатурн в Раке (12-й от Луны), Льве (1-й), Деве (2-й)
+  ok('Сатурн в 12-м от Луны — первая фаза', () =>
+    assert.equal(sadeSati(4, 3)?.phase, 1));
+  ok('Сатурн над Луной — вторая фаза (пик)', () =>
+    assert.equal(sadeSati(4, 4)?.phase, 2));
+  ok('Сатурн во 2-м от Луны — третья фаза', () =>
+    assert.equal(sadeSati(4, 5)?.phase, 3));
+  ok('4-й от Луны — кантака, 8-й — аштама', () => {
+    assert.equal(sadeSati(4, 7)?.kind, 'kantaka');
+    assert.equal(sadeSati(4, 11)?.kind, 'ashtama');
+  });
+  ok('в прочих знаках — неактивна (null)', () => {
+    assert.equal(sadeSati(4, 6), null);
+    assert.equal(sadeSati(4, 0), null);
+  });
+  ok('карта 12.03.1998 (Луна Лев), Сатурн в Рыбах (2026) — аштама-Шани (8-й)', () =>
+    assert.equal(sadeSati(4, 11)?.kind, 'ashtama'));
+}
+
 console.log('=== сборка карты D1 ===');
 {
   const retro = { 'Раху': true, 'Кету': true };

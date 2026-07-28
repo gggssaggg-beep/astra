@@ -367,6 +367,28 @@ export function compoundRelation(
   return tmp === 'friend' ? 'friend' : 'enemy';
 }
 
+// ─── Саде Сати и станции Сатурна от Луны ───────────────────────────────────
+export interface SadeSati {
+  kind: 'sadesati' | 'kantaka' | 'ashtama';
+  phase?: 1 | 2 | 3;   // только у Саде Сати
+  label: string;       // готовая подпись для UI/промпта
+}
+
+/**
+ * Саде Сати — «семь с половиной» Сатурна: транзитный Сатурн в 12-м, 1-м или
+ * 2-м ЗНАКЕ от натальной Луны (каждая фаза ~2,5 года). Плюс две малые станции:
+ * кантака (4-й от Луны) и аштама (8-й). Ничего из этого — null.
+ */
+export function sadeSati(moonSign: number, transitSaturnSign: number): SadeSati | null {
+  const d = ((transitSaturnSign - moonSign) % 12 + 12) % 12 + 1;   // 1..12 от Луны
+  if (d === 12) return { kind: 'sadesati', phase: 1, label: 'Саде Сати, первая фаза — Сатурн в 12-м от Луны' };
+  if (d === 1) return { kind: 'sadesati', phase: 2, label: 'Саде Сати, вторая фаза (пик) — Сатурн над Луной' };
+  if (d === 2) return { kind: 'sadesati', phase: 3, label: 'Саде Сати, третья фаза — Сатурн во 2-м от Луны' };
+  if (d === 4) return { kind: 'kantaka', label: 'кантака-Шани — Сатурн в 4-м от Луны' };
+  if (d === 8) return { kind: 'ashtama', label: 'аштама-Шани — Сатурн в 8-м от Луны' };
+  return null;
+}
+
 // ─── карта D1 (раши) ───────────────────────────────────────────────────────
 export interface VedicPlanet {
   name: string;

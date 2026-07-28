@@ -1023,6 +1023,7 @@
 {#if detail}
   <StaticInterpretationSheet a={detail} ownerA={detailA} ownerB={detailB} {tz} win={detailWin}
     {engine} {orbOf} anchor={detailAnchor} lon1={detailLon1} lon2={detailLon2} source={noteSource}
+    composite={mode === 'composite'}
     ongoto={ongoto ? (d) => { detail = null; ongoto?.(d); } : null}
     onclose={() => (detail = null)}
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />

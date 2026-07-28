@@ -5,12 +5,13 @@
   import Icon from './Icon.svelte';
 
   let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths,
-        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures }:
+        onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures,
+        onVedic, vedic = false }:
     { onclose: () => void; onCourse: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onPlanetSigns: () => void; onPlanetHouses: () => void;
       onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void;
-      onFigures: () => void } = $props();
+      onFigures: () => void; onVedic: () => void; vedic?: boolean } = $props();
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
@@ -108,6 +109,17 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  <!-- пункт живёт только в ведическом режиме: в западном движок тропический,
+       и карта D1 показала бы неверные знаки -->
+  {#if vedic}
+    <GlowCard radius={14} onactivate={onVedic}>
+      <button class="row reveal" use:reveal>
+        <span class="ic"><Icon name="star" /></span>
+        <div class="txt"><b>Ведическая карта</b><small>дома, накшатры, караки, периоды Вимшоттари</small></div>
+        <span class="arr">→</span>
+      </button>
+    </GlowCard>
+  {/if}
   <GlowCard radius={14} onactivate={onDegree}>
     <button class="row reveal" use:reveal>
       <span class="ic"><Icon name="search" /></span>

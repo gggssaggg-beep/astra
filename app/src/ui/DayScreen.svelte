@@ -10,8 +10,8 @@
   import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
   import VedicChart from './VedicChart.svelte';
-  import { SHORT } from '../lib/vedicChart.ts';
-  import { signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
+  import { gocharaCells } from '../lib/vedicChart.ts';
+  import { VEDIC_ORDER_SET } from '../lib/vedic.ts';
   import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from '../lib/panchanga.ts';
   import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
@@ -60,22 +60,7 @@
   // Транзиты в джйотише читают от ЛАГНЫ натальной карты, а не от Овна: «Сатурн
   // идёт по 7-му дому». Нет своей карты (или места рождения) — показываем просто
   // знаки, честно об этом подписав.
-  const skyCells = $derived.by(() => {
-    const lagna = vedicLagna ?? 0;
-    return Array.from({ length: 12 }, (_, i) => {
-      const si = (lagna + i) % 12;
-      return {
-        house: i + 1,
-        signIndex: si,
-        planets: positions
-          .filter((p) => VEDIC_ORDER_SET.has(p.name) && signIndexOf(p.lon) === si)
-          .map((p) => ({
-            short: SHORT[p.name] ?? p.name.slice(0, 2),
-            deg: Math.floor(p.degInSign), retro: p.retro,
-          })),
-      };
-    });
-  });
+  const skyCells = $derived(gocharaCells(positions, vedicLagna ?? 0));
   const vedicFrom = $derived(vedicLagna == null
     ? 'дома не показаны: задай свою карту с местом рождения — тогда транзит ляжет на твои дома'
     : 'дома — от лагны твоей карты (гочара)');

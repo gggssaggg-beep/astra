@@ -25,6 +25,22 @@
        Сообщество живёт ТОЛЬКО в нижнем меню; Синастрия убрана (дублировала
        «Карты»); «Чат с Claude» убран 2026-07-25 — снят до доработки. -->
 
+  <!-- джйотиш — ПЕРВЫМ в ведическом режиме (в западном пункта нет: тропический
+       движок дал бы карте D1 неверные знаки). Остальные разделы — западная
+       школа, о чём честно сказано строкой ниже -->
+  {#if vedic}
+    <div class="grp">Джйотиш</div>
+    <GlowCard radius={14} onactivate={onVedic}>
+      <button class="row reveal" use:reveal>
+        <span class="ic"><Icon name="star" /></span>
+        <div class="txt"><b>Ведическая карта</b><small>D1/D9, накшатры, караки, дришти, периоды Вимшоттари</small></div>
+        <span class="arr">→</span>
+      </button>
+    </GlowCard>
+    <div class="westnote">Разделы ниже — западная школа: там свои управители,
+      дома по градусам и аспекты по орбисам.</div>
+  {/if}
+
   <div class="grp">Учусь</div>
   <GlowCard radius={14} onactivate={onCourse}>
     <button class="row reveal" use:reveal>
@@ -109,17 +125,6 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
-  <!-- пункт живёт только в ведическом режиме: в западном движок тропический,
-       и карта D1 показала бы неверные знаки -->
-  {#if vedic}
-    <GlowCard radius={14} onactivate={onVedic}>
-      <button class="row reveal" use:reveal>
-        <span class="ic"><Icon name="star" /></span>
-        <div class="txt"><b>Ведическая карта</b><small>дома, накшатры, караки, периоды Вимшоттари</small></div>
-        <span class="arr">→</span>
-      </button>
-    </GlowCard>
-  {/if}
   <GlowCard radius={14} onactivate={onDegree}>
     <button class="row reveal" use:reveal>
       <span class="ic"><Icon name="search" /></span>
@@ -156,6 +161,8 @@
   .hint { color: var(--ink-faint); font-size: 0.84rem; margin: 4px 0 12px; }
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
+  /* честная строка в ведическом режиме: всё ниже — западная школа */
+  .westnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45; margin: 8px 4px 2px; }
   .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 14px; padding: 14px; margin-bottom: 10px; }

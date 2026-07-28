@@ -736,7 +736,7 @@
   {#key showCharts.select}
   <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={effSignStyle} defaultTz={settings.tz}
     tz={settings.tz} objects={settings.objects} houseSystem={houseSystemOf(settings)}
-    nodalAxisFigures={settings.nodalAxisFigures ?? false}
+    nodalAxisFigures={settings.nodalAxisFigures ?? false} vedic={isVedic}
     initialMode={showCharts.mode ?? 'transitNatal'}
     initialSelect={showCharts.select ?? null}
     oncommunity={(sig, title) => { showCommunity = { signature: sig, title }; }}

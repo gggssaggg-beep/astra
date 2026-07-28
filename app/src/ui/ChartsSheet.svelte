@@ -52,13 +52,18 @@
   import PersonForm from './charts/PersonForm.svelte';
   import TransitControls from './charts/TransitControls.svelte';
   import PeopleList from './charts/PeopleList.svelte';
+  import VedicChart from './VedicChart.svelte';
+  import { vedicNatal, chartCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
+  import { ZODIAC } from '../engine/index.ts';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
-        nodalAxisFigures = false,
+        nodalAxisFigures = false, vedic = false,
         initialMode = 'transitNatal', initialSelect = null, onclose, oncommunity, ongoto }:
     { engine: Engine; orbOf: (name: string) => number; signStyle: SignStyle;
       defaultTz: string; tz: string; objects?: string[] | null; houseSystem?: string;
       nodalAxisFigures?: boolean;
+      /** ведический режим: натал и транзит рисуются ромбом D1/гочарой, а не колесом */
+      vedic?: boolean;
       initialMode?: Mode;
       // Открыть СРАЗУ карту транзит+натал этого человека на момент `at` и
       // выделить аспект (тап по уведомлению «мой аспект», просьба 2026-07-25).
@@ -182,6 +187,13 @@
   // расчёт: движок зовём при смене людей/режима/момента (не при выделении линии)
   const posA = $derived(personA ? slowFilter(personA, natalPositions(engine, personA, objects ?? undefined)) : []);
   const posB = $derived(personB ? slowFilter(personB, natalPositions(engine, personB, objects ?? undefined)) : []);
+
+  // Ведический режим: натал человека A ромбом D1 (нужны место и время — иначе
+  // нет лагны). null → показываем колесо с честной подписью-предупреждением.
+  const vedicA = $derived.by(() => {
+    if (!vedic || !personA || (mode !== 'natal' && mode !== 'transitNatal')) return null;
+    try { return vedicNatal(engine, personA); } catch { return null; }
+  });
 
   // Композит: карта средних точек двоих. slowOnly-фильтр людей наследуется сам —
   // compositeChart сопоставляет по имени (пересечение наборов).
@@ -689,9 +701,21 @@
     {/snippet}
 
     {#if mode === 'natal'}
-      <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
-      <div class="legend">натальная карта {personA?.name}</div>
+      {#if vedicA}
+        <!-- джйотиш: натал — ромб D1, не колесо. Аспектные списки ниже остаются
+             западными (орбисы); полный ведический разбор — VedicSheet -->
+        <VedicChart cells={chartCells(vedicA.chart)} />
+        <div class="legend">D1 · раши {personA?.name} · лагна
+          {degMin(vedicA.chart.lagnaLon % 30)} {ZODIAC[vedicA.chart.lagnaSign]}</div>
+        <div class="vnote">Полный разбор — дома, накшатры, караки, дришти, даши — в
+          Библиотеке → «Ведическая карта». Списки аспектов ниже — западная школа.</div>
+      {:else}
+        <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
+          selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
+        <div class="legend">натальная карта {personA?.name}</div>
+        {#if vedic}<div class="vnote">Для ромба D1 нужны место и точное время рождения —
+          без них нет лагны, показано западное колесо.</div>{/if}
+      {/if}
     {:else if mode === 'composite'}
       <!-- одно кольцо середин: домов у композита нет (housesA к нему не относятся),
            скраба нет — карта статичная -->
@@ -703,16 +727,39 @@
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
       <div class="legend">внутри — {personA?.name}, снаружи — {personB?.name} <Hint k="synastry" /></div>
     {:else if mode === 'transitNatal'}
-      <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
-        selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
-      <div class="legend">внутри — {personA?.name}, снаружи — транзит на {transitLabel}</div>
-      {@render transitCtl()}
+      {#if vedicA}
+        <!-- гочара: транзитные грахи по домам ОТ НАТАЛЬНОЙ лагны — так джйотиш
+             и читает транзит («Сатурн идёт по 7-му дому»). Скраб работает:
+             transitPos пересчитывается, клетки следуют -->
+        <VedicChart cells={gocharaCells(transitPos, vedicA.chart.lagnaSign)} />
+        <div class="legend">гочара — транзит на {transitLabel} в домах {personA?.name}</div>
+        <div class="vnote">Дома — от натальной лагны ({ZODIAC[vedicA.chart.lagnaSign]}).
+          Натал тот же ромбом — режим «Натал»; окна транзитов ниже — западная школа.</div>
+        {@render transitCtl()}
+      {:else}
+        <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
+          selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
+        <div class="legend">внутри — {personA?.name}, снаружи — транзит на {transitLabel}</div>
+        {#if vedic}<div class="vnote">Для гочары нужны место и точное время рождения —
+          без них нет лагны, показано западное колесо.</div>{/if}
+        {@render transitCtl()}
+      {/if}
     {:else}
       <Wheel positions={posA} positionsOuter={posB} positionsOuter2={transitPos}
         staticAspects={crossTA} staticAspects2={crossTB} {signStyle} houses={housesA}
         selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
       <div class="legend">внутри — {personA?.name}, среднее — {personB?.name}, снаружи — транзит на {transitLabel}</div>
       {@render transitCtl()}
+    {/if}
+
+    <!-- синастрия/тройная/композит — ЗАПАДНЫЕ инструменты: в джйотише
+         совместимость считается кутами (по накшатрам Лун), а композита нет
+         вовсе. Не прячем (углы между планетами от аянамши не зависят — расчёт
+         честен), но предупреждаем -->
+    {#if vedic && (mode === 'synastry' || mode === 'triple' || mode === 'composite')}
+      <div class="vnote">Это инструмент западной школы: в джйотише совместимость
+        считают по кутам (накшатры Лун) — они в планах. Сами углы между планетами
+        от аянамши не зависят, расчёт корректен.</div>
     {/if}
 
     <!-- данные рождения на самой карте: скриншот несёт ВСЮ информацию
@@ -1083,6 +1130,9 @@
 
   /* карта */
   .legend { color: var(--ink-faint); font-size: 0.78rem; text-align: center; margin: 4px 0 12px; }
+  /* пояснение ведического режима: что здесь джйотиш, а что — западная школа */
+  .vnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45;
+    text-align: center; margin: -6px 8px 12px; }
   .birth { color: var(--ink-dim); font-size: 0.78rem; text-align: center; margin: 0 0 4px;
     font-variant-numeric: tabular-nums; }
   .mini { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);

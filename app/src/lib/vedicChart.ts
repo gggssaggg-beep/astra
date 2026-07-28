@@ -11,6 +11,7 @@ import { VEDIC_ORDER } from '../engine/index.ts';
 import type { Person } from './models.ts';
 import { birthInstantUTC } from './charts.ts';
 import { buildVedicChart, vimshottari, currentDasha, navamshaSign,
+  signIndexOf, VEDIC_ORDER_SET,
   type VedicChart, type DashaPeriod } from './vedic.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
@@ -82,6 +83,28 @@ export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
     retro: p.retro,
   })),
 }));
+
+/**
+ * Клетки ГОЧАРЫ: транзитные грахи, разложенные по домам от заданной лагны
+ * (натальной). Так джйотиш читает транзит: «Сатурн идёт по 7-му дому».
+ * Неведические объекты (Уран/Нептун/астероиды) отсеиваются здесь же.
+ * Используется экраном дня (лагна «моей карты») и «Картами» (лагна выбранного
+ * человека) — одна реализация, чтобы не разъезжались.
+ */
+export const gocharaCells = (positions: BodyPosition[], lagnaSign: number) =>
+  Array.from({ length: 12 }, (_, i) => {
+    const si = (lagnaSign + i) % 12;
+    return {
+      house: i + 1,
+      signIndex: si,
+      planets: positions
+        .filter((p) => VEDIC_ORDER_SET.has(p.name) && signIndexOf(p.lon) === si)
+        .map((p) => ({
+          short: SHORT[p.name] ?? p.name.slice(0, 2),
+          deg: Math.floor(p.degInSign), retro: p.retro,
+        })),
+    };
+  });
 
 /**
  * Клетки карты НАВАМШИ (D9). Лагна D9 — навамша Асцендента, дома дальше идут

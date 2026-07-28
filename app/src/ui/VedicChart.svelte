@@ -164,7 +164,9 @@
     stroke: color-mix(in srgb, var(--neon-violet) 40%, var(--glass-brd));
   }
   .grid { fill: none; stroke: var(--glass-brd); stroke-width: 0.35; opacity: 0.9; }
-  .cell { fill: transparent; stroke: none; }
+  /* Полигоны невидимы. Прозрачная заливка для браузера всё же «закрашена», т.е.
+     ловила бы касания и без обработчика — поэтому по умолчанию не ловим ничего. */
+  .cell { fill: transparent; stroke: none; pointer-events: none; }
   .cell.tappable { pointer-events: all; cursor: pointer; outline: none; }
   .signnum {
     fill: var(--ink-faint); font-size: 3.6px; opacity: 0.8;

@@ -12,6 +12,7 @@
     "test:parity": "node test/parity.mjs",
     "test:vedic": "node test/vedic.mjs",
     "test:vedicmath": "node test/vedicmath.mjs",
+    "test:vargas": "node test/vargas.mjs",
     "test:drishti": "node test/drishti.mjs",
     "test:panchanga": "node test/panchanga.mjs",
     "test:static": "node test/static.mjs",

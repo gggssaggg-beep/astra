@@ -86,9 +86,32 @@
   // ячейка ищется по номеру дома — порядок входного массива не важен
   const byHouse = $derived(new Map(cells.map((c) => [c.house, c])));
 
+  /**
+   * Кегль столбика планет. Чем больше планет в доме, тем мельче — иначе стеллиум
+   * вылезает за полигон. Треугольники теснее центральных ромбов (вписанный круг
+   * вдвое меньше), поэтому от трёх планет им дополнительная скидка.
+   */
+  const metrics = (n: number, rhomb: boolean) => {
+    const base = n <= 1 ? 5.2 : n === 2 ? 4.8 : n === 3 ? 4.2 : n === 4 ? 3.6 : 3.1;
+    const fs = rhomb || n < 3 ? base : base * 0.88;
+    return { fs, lh: fs * 1.15, sup: fs * 0.62, rise: fs * 0.4 };
+  };
+
   const view = $derived(VEDIC_CELLS.map((g) => {
     const cell = byHouse.get(g.house);
-    return { ...g, sign: cell ? cell.signIndex + 1 : null };
+    const ps = cell?.planets ?? [];
+    const m = metrics(ps.length, g.rhomb);
+    // Переносы строк — вручную (<tspan x= dy=>), т.к. SVG сам текст не переносит.
+    // Надстрочный градус уводит текущую точку вверх на rise; вернуть её обязан
+    // либо «R», либо (если ретроградности нет) следующая строка — иначе строки
+    // поползут вверх. Этот «долг» и копится в debt.
+    let debt = 0;
+    const lines = ps.map((p, i) => {
+      const dy = (i === 0 ? -((ps.length - 1) * m.lh) / 2 : m.lh) + debt;
+      debt = p.retro ? 0 : m.rise;
+      return { dy, short: p.short, deg: String(Math.max(0, Math.floor(p.deg))), retro: p.retro };
+    });
+    return { ...g, sign: cell ? cell.signIndex + 1 : null, lines, ...m };
   }));
 </script>
 
@@ -109,6 +132,13 @@
     {#if g.sign !== null}
       <text x={g.sx} y={g.sy} class="signnum">{g.sign}</text>
     {/if}
+    {#if g.lines.length}
+      <!-- tspan'ы держим В ОДНУ строку без пробелов: перевод строки в разметке
+           SVG превратился бы в реальный пробел между меткой и градусом -->
+      <text x={g.tx} y={g.ty} class="planets" font-size={g.fs}>
+        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro}>{l.short}</tspan><tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{#if l.retro}<tspan dy={g.rise} class="retro">R</tspan>{/if}{/each}
+      </text>
+    {/if}
   {/each}
 </svg>
 
@@ -122,4 +152,10 @@
     fill: var(--ink-faint); font-size: 3.6px; opacity: 0.8;
     text-anchor: middle; dominant-baseline: central;
   }
+  /* подписи планет — обычный текстовый шрифт: кириллица в моноширинном
+     запрещена правилами проекта (цифры градуса идут тем же шрифтом) */
+  .planets { fill: var(--ink); text-anchor: middle; dominant-baseline: central; }
+  .planets .deg { fill: var(--ink-dim); }
+  /* ретроградная планета — золотом, как глиф в колесе (ui/Wheel.svelte) */
+  .planets .retro { fill: var(--gold); }
 </style>

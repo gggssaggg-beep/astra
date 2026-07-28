@@ -18,7 +18,7 @@
   import { db } from '../lib/db.ts';
   import type { Person } from '../lib/models.ts';
   import { vedicNatal, vedicSky, chartCells, degMin } from '../lib/vedicChart.ts';
-  import { NATURAL_KARAKAS, CHARA_KARAKAS } from '../lib/vedic.ts';
+  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL } from '../lib/vedic.ts';
   import VedicChart from './VedicChart.svelte';
 
   let { engine, tz, selfId, onclose }:
@@ -123,6 +123,10 @@
           </div>
           <div class="psub">в {ORD[p.house]} доме · {p.nakshatra.name} (пада {p.nakshatra.pada},
             упр. {p.nakshatra.lord})</div>
+          <!-- хозяин знака в именительном: склонять имена планет по суффиксам
+               нельзя («Меркурийа»), а сокращать до «у друга» — терять, у кого -->
+          <div class="psub">навамша {ZODIAC[p.navamsha]}{#if p.hostRelation}
+            · хозяин знака {p.host} — {RELATION_LABEL[p.hostRelation]}{/if}</div>
           <div class="tags">
             {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
             {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}

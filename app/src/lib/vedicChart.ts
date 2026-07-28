@@ -10,8 +10,8 @@ import type { Engine, BodyPosition } from '../engine/index.ts';
 import { VEDIC_ORDER } from '../engine/index.ts';
 import type { Person } from './models.ts';
 import { birthInstantUTC } from './charts.ts';
-import { buildVedicChart, vimshottari, currentDasha, type VedicChart,
-  type DashaPeriod } from './vedic.ts';
+import { buildVedicChart, vimshottari, currentDasha, navamshaSign,
+  type VedicChart, type DashaPeriod } from './vedic.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
 export const SHORT: Record<string, string> = {
@@ -82,6 +82,27 @@ export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
     retro: p.retro,
   })),
 }));
+
+/**
+ * Клетки карты НАВАМШИ (D9). Лагна D9 — навамша Асцендента, дома дальше идут
+ * знаками от неё; планета попадает в дом по своему знаку в D9. Градус в клетке
+ * не пишем: в варге он не читается (там своя, растянутая шкала).
+ */
+export const navamshaCells = (c: VedicChart) => {
+  const lagna = navamshaSign(c.lagnaLon);
+  return Array.from({ length: 12 }, (_, i) => {
+    const si = (lagna + i) % 12;
+    return {
+      house: i + 1,
+      signIndex: si,
+      planets: c.planets.filter((p) => p.navamsha === si).map((p) => ({
+        short: SHORT[p.name] ?? p.name.slice(0, 2),
+        deg: -1,            // «нет градуса» — компонент подпись пропустит
+        retro: p.retro,
+      })),
+    };
+  });
+};
 
 /** «12°34′» — градус в знаке так, как его читает астролог. */
 export const degMin = (deg: number): string => {

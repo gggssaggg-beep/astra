@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   nakshatraOf, tithiOf, dignityOf, charaKarakas, ruledHouses, wholeSignHouse,
   vimshottari, currentDasha, buildVedicChart, SIGN_LORDS,
+  navamshaSign, vargaSign, naturalRelation, temporalRelation, compoundRelation,
 } from '../src/lib/vedic.ts';
 
 let n = 0;
@@ -162,6 +163,71 @@ console.log('=== Вимшоттари ===');
     assert.ok(cur.maha && cur.antar && cur.pratyantar, 'не найден один из уровней');
     assert.ok(cur.antar.from >= cur.maha.from && cur.antar.to <= cur.maha.to);
     assert.ok(cur.pratyantar.from >= cur.antar.from && cur.pratyantar.to <= cur.antar.to);
+  });
+}
+
+console.log('=== навамша D9 (эталон — таблица программы астролога) ===');
+{
+  // шесть планет с караками и Асцендент — те строки скрина, что читаются точно
+  const cases = [
+    ['Асцендент', ASC, 'Козерог'],
+    ['Солнце', CHART['Солнце'], 'Близнецы'],
+    ['Луна', CHART['Луна'], 'Весы'],
+    ['Меркурий', CHART['Меркурий'], 'Скорпион'],
+    ['Юпитер', CHART['Юпитер'], 'Водолей'],
+    ['Венера', CHART['Венера'], 'Овен'],
+  ];
+  for (const [who, lon, sign] of cases) {
+    ok(`${who}: навамша ${Z[navamshaSign(lon)]}`,
+      () => assert.equal(Z[navamshaSign(lon)], sign));
+  }
+  ok('классическое правило: подвижный знак начинает варгу с себя (0° Овна → Овен)',
+    () => assert.equal(navamshaSign(0), 0));
+  ok('фиксированный — с 9-го от себя (0° Тельца → Козерог)',
+    () => assert.equal(navamshaSign(30), 9));
+  ok('двойственный — с 5-го от себя (0° Близнецов → Весы)',
+    () => assert.equal(navamshaSign(60), 6));
+  ok('шаг навамши — 3°20′: 3°19′ Овна ещё Овен, 3°21′ уже Телец', () => {
+    assert.equal(vargaSign(3 + 19 / 60, 9), 0);
+    assert.equal(vargaSign(3 + 21 / 60, 9), 1);
+  });
+  ok('D1 через ту же функцию = обычный знак', () => {
+    assert.equal(vargaSign(CHART['Сатурн'], 1), 11);
+  });
+}
+
+console.log('=== отношения планет ===');
+{
+  ok('натуральные: Солнце дружит с Луной, враждует с Сатурном, нейтрально к Меркурию', () => {
+    assert.equal(naturalRelation('Солнце', 'Луна'), 'friend');
+    assert.equal(naturalRelation('Солнце', 'Сатурн'), 'enemy');
+    assert.equal(naturalRelation('Солнце', 'Меркурий'), 'neutral');
+  });
+  ok('отношения НЕ взаимны: Луна к Меркурию друг, Меркурий к Луне враг', () => {
+    assert.equal(naturalRelation('Луна', 'Меркурий'), 'friend');
+    assert.equal(naturalRelation('Меркурий', 'Луна'), 'enemy');
+  });
+  ok('у узлов натуральных отношений нет', () =>
+    assert.equal(naturalRelation('Раху', 'Солнце'), null));
+  ok('временные: 2,3,4,10,11,12-й знак от планеты — друзья, прочие — враги', () => {
+    assert.equal(temporalRelation(0, 1), 'friend');    // 2-й
+    assert.equal(temporalRelation(0, 11), 'friend');   // 12-й
+    assert.equal(temporalRelation(0, 0), 'enemy');     // 1-й (сама с собой)
+    assert.equal(temporalRelation(0, 6), 'enemy');     // 7-й
+  });
+  ok('составное: друг+друг = большой друг, враг+враг = большой враг', () => {
+    assert.equal(compoundRelation('friend', 'friend'), 'greatFriend');
+    assert.equal(compoundRelation('enemy', 'enemy'), 'greatEnemy');
+  });
+  ok('составное: друг+враг и враг+друг гасят друг друга в нейтралитет', () => {
+    assert.equal(compoundRelation('friend', 'enemy'), 'neutral');
+    assert.equal(compoundRelation('enemy', 'friend'), 'neutral');
+  });
+  ok('Венера в Козероге — большой друг хозяину Сатурну (совпало с экраном)', () => {
+    const c = buildVedicChart(CHART, {}, ASC);
+    const ven = c.planets.find((p) => p.name === 'Венера');
+    assert.equal(ven.host, 'Сатурн');
+    assert.equal(ven.hostRelation, 'greatFriend');
   });
 }
 

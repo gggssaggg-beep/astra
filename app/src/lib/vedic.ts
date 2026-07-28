@@ -286,6 +286,78 @@ export function currentDasha(periods: DashaPeriod[], at: Date): {
   return { maha, antar, pratyantar };
 }
 
+// ─── варги (дробные карты) ─────────────────────────────────────────────────
+/**
+ * Знак планеты в варге D-n: круг делится на 12·n частей, части нумеруются
+ * подряд от 0° Овна и раскладываются по знакам по кругу. Для D9 эта формула
+ * тождественна классическому правилу «подвижный знак начинает с себя,
+ * фиксированный — с 9-го, двойственный — с 5-го».
+ *
+ * Сверено с таблицей джйотиш-программы астролога (карта 12.03.1998): навамша
+ * всех шести планет с караками и Асцендента совпала.
+ */
+export const vargaSign = (lon: number, n: number): number =>
+  Math.floor(norm(lon) / (30 / n)) % 12;
+
+/** Навамша (D9) — вторая по важности карта после раши: её астролог смотрит
+ *  рядом со знаком, чтобы понять, «дотягивает» ли планета обещанное. */
+export const navamshaSign = (lon: number): number => vargaSign(lon, 9);
+
+// ─── отношения планет ──────────────────────────────────────────────────────
+// Натуральные (наисаргика) отношения — постоянные, из классики. Кто не назван
+// другом или врагом, тот нейтрален. Узлы в схему не входят.
+const NAT_FRIENDS: Record<string, string[]> = {
+  'Солнце': ['Луна', 'Марс', 'Юпитер'],
+  'Луна': ['Солнце', 'Меркурий'],
+  'Марс': ['Солнце', 'Луна', 'Юпитер'],
+  'Меркурий': ['Солнце', 'Венера'],
+  'Юпитер': ['Солнце', 'Луна', 'Марс'],
+  'Венера': ['Меркурий', 'Сатурн'],
+  'Сатурн': ['Меркурий', 'Венера'],
+};
+const NAT_ENEMIES: Record<string, string[]> = {
+  'Солнце': ['Венера', 'Сатурн'],
+  'Луна': [],
+  'Марс': ['Меркурий'],
+  'Меркурий': ['Луна'],
+  'Юпитер': ['Меркурий', 'Венера'],
+  'Венера': ['Солнце', 'Луна'],
+  'Сатурн': ['Солнце', 'Луна', 'Марс'],
+};
+
+export type Relation = 'greatFriend' | 'friend' | 'neutral' | 'enemy' | 'greatEnemy';
+export const RELATION_LABEL: Record<Relation, string> = {
+  greatFriend: 'большой друг', friend: 'друг', neutral: 'нейтрально',
+  enemy: 'враг', greatEnemy: 'большой враг',
+};
+
+/** Натуральное отношение A к B (постоянное). */
+export function naturalRelation(a: string, b: string): 'friend' | 'neutral' | 'enemy' | null {
+  if (!NAT_FRIENDS[a] || !NAT_FRIENDS[b]) return null;   // узлы отношений не имеют
+  if (NAT_FRIENDS[a].includes(b)) return 'friend';
+  if (NAT_ENEMIES[a].includes(b)) return 'enemy';
+  return 'neutral';
+}
+
+/**
+ * Временное (таткалика) отношение — зависит от конкретной карты: планеты во
+ * 2, 3, 4, 10, 11 и 12-м знаке ОТ данной ей временно дружественны, в 1, 5, 6,
+ * 7, 8 и 9-м — временно враждебны.
+ */
+export function temporalRelation(fromSign: number, toSign: number): 'friend' | 'enemy' {
+  const d = ((toSign - fromSign) % 12 + 12) % 12 + 1;   // 1..12
+  return [2, 3, 4, 10, 11, 12].includes(d) ? 'friend' : 'enemy';
+}
+
+/** Составное (панчадха) отношение: натуральное + временное. */
+export function compoundRelation(
+  nat: 'friend' | 'neutral' | 'enemy', tmp: 'friend' | 'enemy',
+): Relation {
+  if (nat === 'friend') return tmp === 'friend' ? 'greatFriend' : 'neutral';
+  if (nat === 'enemy') return tmp === 'friend' ? 'neutral' : 'greatEnemy';
+  return tmp === 'friend' ? 'friend' : 'enemy';
+}
+
 // ─── карта D1 (раши) ───────────────────────────────────────────────────────
 export interface VedicPlanet {
   name: string;
@@ -299,6 +371,11 @@ export interface VedicPlanet {
   dignity: DignityInfo;
   rules: number[];      // дома, которыми управляет (для узлов — пусто)
   karaka?: string;      // код чара-караки
+  navamsha: number;     // знак в навамше (D9), 0..11
+  /** Как планета относится к хозяину знака, в котором стоит: гостит у друга
+   *  или у врага. Null у узлов и у планеты в своём знаке (хозяин — она сама). */
+  hostRelation: Relation | null;
+  host: string;         // хозяин знака (диспозитор)
 }
 
 export interface VedicHouse {
@@ -341,6 +418,14 @@ export function buildVedicChart(
   const planets: VedicPlanet[] = names.map((name) => {
     const lon = norm(lons[name]);
     const si = signIndexOf(lon);
+    const host = SIGN_LORDS[si];
+    // отношение к хозяину знака: натуральное + временное (по расположению
+    // хозяина относительно самой планеты в этой карте)
+    let hostRelation: Relation | null = null;
+    const nat = host === name ? null : naturalRelation(name, host);
+    if (nat && lons[host] != null) {
+      hostRelation = compoundRelation(nat, temporalRelation(si, signIndexOf(lons[host])));
+    }
     return {
       name, lon, signIndex: si, sign: ZODIAC[si], degInSign: lon % 30,
       retro: !!retro[name],
@@ -349,6 +434,8 @@ export function buildVedicChart(
       dignity: dignityOf(name, lon),
       rules: ruledHouses(name, lagnaSign),
       karaka: karakas[name],
+      navamsha: navamshaSign(lon),
+      hostRelation, host,
     };
   });
 

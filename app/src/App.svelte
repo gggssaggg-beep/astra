@@ -456,6 +456,15 @@
       settings = db.settings.get();
     } catch { /* не критично: заметки просто останутся без направления */ }
   }
+  const isVedic = $derived((settings.zodiac ?? 'tropical') === 'sidereal');
+
+  /** Смена школы: сохраняем и пересобираем движок (зодиак — его свойство). */
+  function setZodiac(z: 'tropical' | 'sidereal') {
+    if ((settings.zodiac ?? 'tropical') === z) return;
+    db.settings.set({ ...db.settings.get(), zodiac: z });
+    onPanelChanged();
+  }
+
   function onPanelChanged() {
     const wasToday = isToday;
     const prevZodiac = `${settings.zodiac ?? 'tropical'}|${settings.ayanamsa ?? 'lahiri'}`;
@@ -570,6 +579,15 @@
     </div>
     <button class="nav" onclick={() => shift(1)} aria-label="Следующий день">›</button>
   </header>
+
+  <!-- Школа расчёта — на виду, а не в глубине настроек (просьба владелицы
+       2026-07-28): переключение меняет ВЕСЬ расчёт, искать его листанием
+       неправильно. Активную кнопку жать бессмысленно — она заблокирована,
+       случайный тап не пересчитывает карту. -->
+  <div class="school glass frost" role="group" aria-label="Школа астрологии">
+    <button class:on={!isVedic} disabled={!isVedic} onclick={() => setZodiac('tropical')}>Западная</button>
+    <button class:on={isVedic} disabled={isVedic} onclick={() => setZodiac('sidereal')}>Джйотиш</button>
+  </div>
 
   {#if needReconnect}
     <button class="reconnect glass" onclick={reconnect}>
@@ -785,6 +803,18 @@
   /* шапка одним рядом: дата-кнопка с кареткой + чип «сегодня» в ту же строку
      (раньше чип распирал шапку вторым рядом — «строка перегружена») */
   .title { flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+
+  /* строка школы: тонкая, во всю ширину — переключение видно без захода в настройки */
+  .school { display: flex; gap: 4px; padding: 3px; margin: 0 0 8px; border-radius: 999px; }
+  .school button {
+    flex: 1; padding: 6px 10px; border: none; border-radius: 999px; font-size: 0.78rem;
+    background: transparent; color: var(--ink-faint); transition: color 0.15s, background 0.15s;
+  }
+  .school button.on {
+    color: var(--ink); background: color-mix(in srgb, var(--glass) 70%, var(--gold) 10%);
+  }
+  /* активная кнопка отключена (жать нечего) — но выглядеть «мёртвой» не должна */
+  .school button:disabled { opacity: 1; }
   .date { font-family: var(--font-display); font-size: 1.0rem; font-weight: 600; letter-spacing: 0.3px; text-transform: capitalize; background: transparent; border: none; color: inherit; padding: 6px; border-radius: 8px; white-space: nowrap;
     min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
     text-shadow: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent); }

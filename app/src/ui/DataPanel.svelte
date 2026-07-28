@@ -14,6 +14,8 @@
   const BASE_OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс',
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
   const EXTRA_OBJ = ['Хирон', 'Церера', 'Паллада', 'Юнона', 'Веста', 'Лилит'];
+  // высшие планеты: открыты в Новое время, в классическом джйотише их нет
+  const OUTER = ['Уран', 'Нептун'];
   // объекты для индивидуального орбиса (светила + планеты + узлы + доп.)
   const ORB_OBJ = [...BASE_OBJ, ...EXTRA_OBJ];
 
@@ -239,6 +241,12 @@
     <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
       Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
       и получить разбор.</div>
+    {#if vedic}
+      <div class="hint small" style="margin-top:8px">⚠ Тур и курс написаны про ЗАПАДНУЮ
+        астрологию: знаки, дома по градусам, аспекты по орбисам. В джйотише часть этого
+        устроена иначе — управители знаков другие, аспекты считаются по целым знакам.
+        Ведический курс пока не написан.</div>
+    {/if}
   </div>
 
   </details>
@@ -269,17 +277,27 @@
       Выключенное не считается и не рисуется.</div>
     <div class="objgrid">
       {#each BASE_OBJ as o}
-        <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
+        <!-- в джйотише грах девять: Урана и Нептуна там нет вовсе. Не прячем
+             (в ведической карте их и так не показываем), а честно помечаем —
+             иначе непонятно, почему тумблер есть, а в карте объекта нет -->
+        <button class="objchip" class:on={cfg.objects.includes(o)}
+          class:muted={vedic && OUTER.includes(o)} onclick={() => toggleObject(o)}>
           <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
         </button>
       {/each}
     </div>
+    {#if vedic}
+      <div class="hint small" style="margin-top:6px">В джйотише грах девять — Урана и Нептуна
+        среди них нет. Тумблеры работают для западной части, в ведической карте эти планеты
+        не участвуют.</div>
+    {/if}
     <div class="lbl" style="margin-top:14px">Дополнительные</div>
     <div class="hint small">Астероиды и Чёрная Луна. По умолчанию выключены: включай по одному —
-      каждый добавляет свои аспекты в сводку и колесо.</div>
+      каждый добавляет свои аспекты в сводку и колесо.{#if vedic} В джйотише не используются.{/if}</div>
     <div class="objgrid">
       {#each EXTRA_OBJ as o}
-        <button class="objchip" class:on={cfg.objects.includes(o)} onclick={() => toggleObject(o)}>
+        <button class="objchip" class:on={cfg.objects.includes(o)} class:muted={vedic}
+          onclick={() => toggleObject(o)}>
           <span class="g glyph">{PLANET_GLYPH[o] ?? '•'}</span>{o}
         </button>
       {/each}
@@ -302,6 +320,12 @@
     </div>
     <div class="hint small">Можно задать орбис отдельно по светилам и планетам (пусто = по умолчанию).
       Для пары берётся больший из двух орбисов.</div>
+    {#if vedic}
+      <div class="hint small" style="margin-top:6px">⚠ Орбис — западное понятие. В джйотише
+        аспекты (дришти) считаются по ЦЕЛЫМ знакам, а не по градусам: Марс смотрит в 4-й, 7-й
+        и 8-й знак от себя, Юпитер — в 5-й, 7-й и 9-й, Сатурн — в 3-й, 7-й и 10-й. Эти
+        настройки действуют на западную часть приложения.</div>
+    {/if}
     <div class="orbgrid">
       {#each ORB_OBJ as o}
         <label class="orbcell">
@@ -583,6 +607,9 @@
     color: var(--ink-faint); font-size: 0.84rem; }
   .objchip .g { font-size: 1.05rem; color: var(--silver); width: 1.3rem; text-align: center; opacity: 0.5; }
   .objchip.on { color: var(--ink); border-color: var(--accent); background: #ffffff1a; }
+  /* объект не участвует в текущей школе (Уран/Нептун/астероиды в джйотише) —
+     гасим, но оставляем рабочим: западная часть ими по-прежнему считает */
+  .objchip.muted { opacity: 0.45; }
   .objchip.on .g { opacity: 1; }
   .orbgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
   .orbcell { display: flex; align-items: center; gap: 6px; background: #ffffff0c; border: 1px solid var(--glass-brd); border-radius: 10px; padding: 6px 8px; }

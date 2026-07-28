@@ -1,0 +1,1 @@
+{"name":"Astra — небо по дням","short_name":"Astra","description":"Оффлайн астро-приложение: транзиты, аспекты, события, журнал.","start_url":".","display":"standalone","background_color":"#070a1c","theme_color":"#0b1026","lang":"ru","scope":"./","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

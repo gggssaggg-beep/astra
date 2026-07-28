@@ -4,7 +4,7 @@
   import { aspectsOnCached, eventsOnCached, figuresOnCached } from '../lib/dayCache.ts';
   import type { Engine, AspectRecord, BodyPosition } from '../engine/index.ts';
   import { staticAspects } from '../engine/index.ts';
-  import { fmtPos, fmtPosRx, fmtTime, zonedDayStartUTC, todayCivil } from '../lib/format.ts';
+  import { fmtPos, fmtPosRx, fmtTime, zonedDayStartUTC, todayCivil, sameDay } from '../lib/format.ts';
   import AspectCard from './AspectCard.svelte';
   import FigureCard from './FigureCard.svelte';
   import GlowCard from './GlowCard.svelte';
@@ -309,9 +309,12 @@
       {#if vedicNext}
         <!-- титхи и накшатра меняются посреди суток — без времени перехода
              строка «сегодня Двадаши» вводит в заблуждение -->
+        <!-- переход часто ЗАВТРАШНИЙ (накшатра длится ~сутки): без пометки дня
+             «в 13:07» при «сейчас 21:19» читается как прошедшее время -->
         <div class="pnext">
-          <div>Луна перейдёт в {vedicNext.nak.next} в {fmtTime(vedicNext.nak.at, tz)}</div>
-          <div>Титхи сменится в {fmtTime(vedicNext.tithi.at, tz)}</div>
+          <div>Луна перейдёт в {vedicNext.nak.next}
+            {sameDay(vedicNext.nak.at, snapshot, tz) ? '' : 'завтра '}в {fmtTime(vedicNext.nak.at, tz)}</div>
+          <div>Титхи сменится {sameDay(vedicNext.tithi.at, snapshot, tz) ? '' : 'завтра '}в {fmtTime(vedicNext.tithi.at, tz)}</div>
         </div>
       {/if}
     </div>

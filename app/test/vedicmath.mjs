@@ -223,12 +223,21 @@ console.log('=== отношения планет ===');
     assert.equal(compoundRelation('friend', 'enemy'), 'neutral');
     assert.equal(compoundRelation('enemy', 'friend'), 'neutral');
   });
-  ok('Венера в Козероге — большой друг хозяину Сатурну (совпало с экраном)', () => {
+  // три строки колонки «Отношение» с экрана программы — сошлись все три
+  {
     const c = buildVedicChart(CHART, {}, ASC);
-    const ven = c.planets.find((p) => p.name === 'Венера');
-    assert.equal(ven.host, 'Сатурн');
-    assert.equal(ven.hostRelation, 'greatFriend');
-  });
+    const rel = (n) => c.planets.find((p) => p.name === n);
+    ok('Венера в Козероге — «большой друг» хозяину Сатурну (как на экране)', () => {
+      assert.equal(rel('Венера').host, 'Сатурн');
+      assert.equal(rel('Венера').hostRelation, 'greatFriend');
+    });
+    ok('Солнце в Водолее — «нейтрально» Сатурну: враг натурально, друг временно', () =>
+      assert.equal(rel('Солнце').hostRelation, 'neutral'));
+    ok('Луна во Льве — «нейтрально» Солнцу: друг натурально, враг временно', () =>
+      assert.equal(rel('Луна').hostRelation, 'neutral'));
+    ok('у узлов отношения к хозяину знака нет', () =>
+      assert.equal(rel('Раху').hostRelation, null));
+  }
 }
 
 console.log('=== сборка карты D1 ===');

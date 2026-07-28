@@ -17,7 +17,7 @@
   import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH } from '../engine/index.ts';
   import { db } from '../lib/db.ts';
   import type { Person } from '../lib/models.ts';
-  import { vedicNatal, vedicSky, chartCells, degMin } from '../lib/vedicChart.ts';
+  import { vedicNatal, vedicSky, chartCells, navamshaCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL } from '../lib/vedic.ts';
   import VedicChart from './VedicChart.svelte';
   import Hint from './Hint.svelte';
@@ -32,6 +32,7 @@
   const person = $derived<Person | null>(people.find((p) => p.id === personId) ?? null);
 
   let tab = $state<'chart' | 'sky'>('chart');
+  let varga = $state<'d1' | 'd9'>('d1');
   let openDasha = $state<string | null>(null);
 
   // расчёт карты — на смену человека; движок стабилен (создан в App один раз)
@@ -75,7 +76,15 @@
         координат и точного времени — добавь место, и карта соберётся.</div>
     {:else}
       {@const c = natal.chart}
-      <VedicChart cells={chartCells(c)} />
+      <div class="vargas">
+        <button class:on={varga === 'd1'} onclick={() => (varga = 'd1')}>D1 · раши</button>
+        <button class:on={varga === 'd9'} onclick={() => (varga = 'd9')}>D9 · навамша</button>
+      </div>
+      <VedicChart cells={varga === 'd9' ? navamshaCells(c) : chartCells(c)} />
+      {#if varga === 'd9'}
+        <div class="note">Навамша — «вторая карта»: по ней смотрят, дотягивает ли планета то,
+          что обещает в раши. Градусы здесь не пишут — в варге своя, растянутая шкала.</div>
+      {/if}
 
       <div class="card glass reveal" use:reveal>
         <div class="grid">
@@ -126,8 +135,7 @@
             упр. {p.nakshatra.lord})</div>
           <!-- хозяин знака в именительном: склонять имена планет по суффиксам
                нельзя («Меркурийа»), а сокращать до «у друга» — терять, у кого -->
-          <div class="psub">навамша {ZODIAC[p.navamsha]}{#if p.hostRelation}
-            · хозяин знака {p.host} — {RELATION_LABEL[p.hostRelation]}{/if}</div>
+          <div class="psub">навамша {ZODIAC[p.navamsha]}{#if p.hostRelation}&nbsp;· хозяин знака {p.host} — {RELATION_LABEL[p.hostRelation]}{/if}</div>
           <div class="tags">
             {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
             {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}
@@ -210,6 +218,11 @@
     background: color-mix(in srgb, var(--glass) 80%, var(--gold) 8%); }
 
   .select { width: 100%; margin-bottom: 10px; }
+  /* переключатель варг — мельче вкладок: это выбор карты внутри вкладки, не раздел */
+  .vargas { display: flex; gap: 6px; margin: 0 0 8px; }
+  .vargas button { flex: 1; padding: 6px 8px; border-radius: 10px; font-size: 0.78rem;
+    background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-faint); }
+  .vargas button.on { color: var(--ink-dim); border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
   .card { padding: 10px 12px; margin: 8px 0; }
   .hdr { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 1px; margin: 16px 4px 4px; }

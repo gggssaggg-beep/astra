@@ -119,8 +119,11 @@
     let debt = 0;
     const lines = ps.map((p, i) => {
       const dy = (i === 0 ? -((ps.length - 1) * m.lh) / 2 : m.lh) + debt;
-      debt = p.retro ? 0 : m.rise;
-      return { dy, short: p.short, deg: String(Math.max(0, Math.floor(p.deg))), retro: p.retro };
+      // deg < 0 = «градуса нет» (варги: там своя шкала, градус не читают) —
+      // тогда надстрочника нет вовсе, и точку вверх никто не уводит
+      const deg = p.deg < 0 ? null : String(Math.max(0, Math.floor(p.deg)));
+      debt = deg !== null && !p.retro ? m.rise : 0;
+      return { dy, short: p.short, deg, retro: p.retro };
     });
     return { ...g, sign: cell ? cell.signIndex + 1 : null, lines, ...m };
   }));
@@ -147,7 +150,7 @@
       <!-- tspan'ы держим В ОДНУ строку без пробелов: перевод строки в разметке
            SVG превратился бы в реальный пробел между меткой и градусом -->
       <text x={g.tx} y={g.ty} class="planets" font-size={g.fs}>
-        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro}>{l.short}</tspan><tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{#if l.retro}<tspan dy={g.rise} class="retro">R</tspan>{/if}{/each}
+        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro}>{l.short}</tspan>{#if l.deg !== null}<tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{/if}{#if l.retro}<tspan dy={l.deg !== null ? g.rise : 0} class="retro">R</tspan>{/if}{/each}
       </text>
     {/if}
   {/each}

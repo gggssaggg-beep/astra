@@ -17,7 +17,6 @@
   import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH } from '../engine/index.ts';
   import { db } from '../lib/db.ts';
   import type { Person } from '../lib/models.ts';
-  import { fmtDateShort } from '../lib/format.ts';
   import { vedicNatal, vedicSky, chartCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS } from '../lib/vedic.ts';
   import VedicChart from './VedicChart.svelte';
@@ -40,7 +39,9 @@
 
   const karakaName = (code?: string) =>
     CHARA_KARAKAS.find((k) => k.code === code)?.name ?? '';
-  const dt = (d: Date) => fmtDateShort(d, tz);
+  // даши тянутся десятилетиями — без года подпись «24 июл. — 24 июл.» бессмысленна
+  const dt = (d: Date) => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: tz, day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
   /** «Солнце (1, 11)» — в скобках дома, которыми планета управляет. */
   const rules = (r: number[]) => (r.length ? ` (${r.join(', ')})` : '');
   const ORD = ['', '1-м', '2-м', '3-м', '4-м', '5-м', '6-м', '7-м', '8-м', '9-м', '10-м', '11-м', '12-м'];

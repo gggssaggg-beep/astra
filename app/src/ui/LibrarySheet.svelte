@@ -44,10 +44,10 @@
         <span class="arr">→</span>
       </button>
     </GlowCard>
-    <div class="westnote">Разделы ниже — западная школа: там свои управители,
-      дома по градусам и аспекты по орбисам.</div>
   {/if}
 
+  <!-- курс написан про западную астрологию — в джйотише не показываем -->
+  {#if !vedic}
   <div class="grp">Учусь</div>
   <GlowCard radius={14} onactivate={onCourse}>
     <button class="row reveal" use:reveal>
@@ -56,6 +56,7 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  {/if}
 
   <div class="grp">Мой дневник</div>
   <GlowCard radius={14} onactivate={onJournal}>
@@ -73,6 +74,10 @@
     </button>
   </GlowCard>
 
+  <!-- весь блок трактовок — западная школа: орбисные аспекты, куспиды,
+       авторская раскладка управителей. В джйотише вместо него свои
+       тексты внутри «Ведической карты» -->
+  {#if !vedic}
   <div class="grp">Трактовки</div>
   <GlowCard radius={14} onactivate={onInterpretations}>
     <button class="row reveal" use:reveal>
@@ -117,7 +122,12 @@
     </button>
   </GlowCard>
 
+  {/if}
+
+  <!-- фигуры и ретро-фазы считаются по орбисам — западное; поиск градуса
+       работает в обеих школах, поэтому остаётся -->
   <div class="grp">Небо сейчас</div>
+  {#if !vedic}
   <GlowCard radius={14} onactivate={onFigures}>
     <button class="row reveal" use:reveal>
       <span class="ic"><Icon name="diamond" /></span>
@@ -132,6 +142,7 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  {/if}
   <GlowCard radius={14} onactivate={onDegree}>
     <button class="row reveal" use:reveal>
       <span class="ic"><Icon name="search" /></span>
@@ -141,13 +152,18 @@
   </GlowCard>
 
   <div class="grp">Мифы</div>
+
   <GlowCard radius={14} onactivate={onArchetypes}>
     <button class="row reveal" use:reveal>
       <span class="ic"><Icon name="columns" /></span>
-      <div class="txt"><b>Архетипы планет</b><small>миф и архетип на каждую планету</small></div>
+      <div class="txt"><b>{vedic ? 'Архетипы грах' : 'Архетипы планет'}</b><small>{vedic
+        ? 'наваграха: Сурья, Чандра, Мангала и другие' : 'миф и архетип на каждую планету'}</small></div>
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  <!-- мифы знаков — авторская западная раскладка богов; в джйотише знаками
+       владеют классические управители, эта раскладка там неверна -->
+  {#if !vedic}
   <GlowCard radius={14} onactivate={onSignMyths}>
     <button class="row reveal" use:reveal>
       <span class="ic"><Icon name="scroll" /></span>
@@ -155,6 +171,7 @@
       <span class="arr">→</span>
     </button>
   </GlowCard>
+  {/if}
 
 </section>
 
@@ -168,8 +185,6 @@
   .hint { color: var(--ink-faint); font-size: 0.84rem; margin: 4px 0 12px; }
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
-  /* честная строка в ведическом режиме: всё ниже — западная школа */
-  .westnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45; margin: 8px 4px 2px; }
   .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
     background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 14px; padding: 14px; margin-bottom: 10px; }

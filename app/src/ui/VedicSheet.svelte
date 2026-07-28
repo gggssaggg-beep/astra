@@ -22,6 +22,7 @@
   import { ashtakavarga } from '../lib/ashtakavarga.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
+  import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
   import { grahaSignText } from '../lib/grahaSignLore.ts';
   import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
@@ -300,6 +301,9 @@
             <span class="arr">{openDasha === d.lord ? '▾' : '▸'}</span>
           </button>
           {#if openDasha === d.lord}
+            <!-- что значит период: текст махадаши, а у текущей антардаши — её сочетание -->
+            {@const mTxt = mahaDashaText(d.lord)}
+            {#if mTxt}<div class="dashaTxt">{mTxt}</div>{/if}
             <div class="subs">
               {#each d.sub ?? [] as s}
                 {@const scur = natal.now.antar?.from.getTime() === s.from.getTime()}
@@ -307,6 +311,10 @@
                   <span class="sl">{d.lord} — {s.lord}</span>
                   <span class="sd">{dt(s.from)} — {dt(s.to)}</span>
                 </div>
+                {#if scur}
+                  {@const aTxt = antarDashaText(d.lord, s.lord)}
+                  {#if aTxt}<div class="dashaTxt sub2">{aTxt}</div>{/if}
+                {/if}
               {/each}
             </div>
           {/if}
@@ -450,6 +458,9 @@
   .dd { color: var(--ink-dim); font-size: 0.78rem; }
   .arr { color: var(--ink-faint); }
   .subs { padding: 2px 6px 8px; }
+  .dashaTxt { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5;
+    padding: 4px 6px 8px; }
+  .dashaTxt.sub2 { color: var(--ink-faint); font-size: 0.78rem; padding: 2px 10px 8px; }
   .sub { display: flex; justify-content: space-between; gap: 8px; padding: 5px 6px; border-radius: 8px; }
   .sub.cur { background: color-mix(in srgb, var(--glass) 80%, var(--gold) 8%); }
   .sl { color: var(--ink-dim); font-size: 0.8rem; }

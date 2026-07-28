@@ -14,6 +14,7 @@
   import { VEDIC_ORDER_SET, signIndexOf as sidSign, BHAVA_THEME } from '../lib/vedic.ts';
   import { skyDrishti } from '../lib/drishti.ts';
   import { ingressesOnDay } from '../lib/vedicForecast.ts';
+  import { gocharaText } from '../lib/gocharaLore.ts';
   import { ZODIAC as ZODIAC_RU, PLANET_GLYPH } from '../engine/index.ts';
   import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from '../lib/panchanga.ts';
   import Hint from './Hint.svelte';
@@ -393,8 +394,10 @@
           </div>
           {#if g.house}
             <div class="ingrWhat">входит в {g.house}-й дом — {BHAVA_THEME[g.house]}.
-              {g.passed ? 'Уже перешла' : 'Перейдёт сегодня'}: тема дома включается
-              на весь срок, пока граха идёт по знаку.</div>
+              {g.passed ? 'Уже перешла' : 'Перейдёт сегодня'}.</div>
+            {#if gocharaText(g.name, g.house)}
+              <div class="ingrLore">{gocharaText(g.name, g.house)}</div>
+            {/if}
           {:else}
             <div class="ingrWhat">Дом не показан — задай свою карту с местом рождения.</div>
           {/if}
@@ -481,6 +484,7 @@
   .ingrHead .rx { color: var(--gold); font-size: 0.78rem; }
   .ingrTime { margin-left: auto; color: var(--ink-faint); font-size: 0.78rem; }
   .ingrWhat { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45; margin-top: 3px; }
+  .ingrLore { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5; margin-top: 5px; }
   .vaspRow { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 0.84rem; }
   .vaspRow + .vaspRow { border-top: 1px solid var(--glass-brd); }
   .vk { color: var(--ink-faint); font-size: 0.72rem; min-width: 3.4rem; }

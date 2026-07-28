@@ -16,10 +16,13 @@ import { buildVedicChart, vimshottari, currentDasha,
 import { vargaSignAt, type VargaId } from './vargas.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
+/** Латиница — международный стандарт джйотиш-программ; выбор владелицы
+ *  2026-07-29 («так привычнее»). Лагна помечается As, как в тех же программах. */
 export const SHORT: Record<string, string> = {
-  'Солнце': 'Су', 'Луна': 'Лу', 'Марс': 'Ма', 'Меркурий': 'Ме', 'Юпитер': 'Юп',
-  'Венера': 'Ве', 'Сатурн': 'Са', 'Раху': 'Ра', 'Кету': 'Ке',
+  'Солнце': 'Su', 'Луна': 'Mo', 'Марс': 'Ma', 'Меркурий': 'Me', 'Юпитер': 'Ju',
+  'Венера': 'Ve', 'Сатурн': 'Sa', 'Раху': 'Ra', 'Кету': 'Ke',
 };
+export const LAGNA_SHORT = 'As';
 
 export interface VedicNatal {
   chart: VedicChart;
@@ -83,11 +86,18 @@ export function vedicSky(E: Engine, when: Date = new Date()): VedicSky {
 export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
   house: h.house,
   signIndex: h.signIndex,
-  planets: h.planets.map((p) => ({
-    short: SHORT[p.name] ?? p.name.slice(0, 2),
-    deg: Math.floor(p.degInSign),
-    retro: p.retro,
-  })),
+  planets: [
+    // As в первом доме: без метки лагны непонятно, где начало карты —
+    // во всех джйотиш-программах она стоит
+    ...(h.house === 1
+      ? [{ short: LAGNA_SHORT, deg: Math.floor(c.lagnaLon % 30), retro: false }]
+      : []),
+    ...h.planets.map((p) => ({
+      short: SHORT[p.name] ?? p.name.slice(0, 2),
+      deg: Math.floor(p.degInSign),
+      retro: p.retro,
+    })),
+  ],
 }));
 
 /**
@@ -103,12 +113,15 @@ export const gocharaCells = (positions: BodyPosition[], lagnaSign: number) =>
     return {
       house: i + 1,
       signIndex: si,
-      planets: positions
-        .filter((p) => VEDIC_ORDER_SET.has(p.name) && signIndexOf(p.lon) === si)
-        .map((p) => ({
-          short: SHORT[p.name] ?? p.name.slice(0, 2),
-          deg: Math.floor(p.degInSign), retro: p.retro,
-        })),
+      planets: [
+        ...(i === 0 ? [{ short: LAGNA_SHORT, deg: -1, retro: false }] : []),
+        ...positions
+          .filter((p) => VEDIC_ORDER_SET.has(p.name) && signIndexOf(p.lon) === si)
+          .map((p) => ({
+            short: SHORT[p.name] ?? p.name.slice(0, 2),
+            deg: Math.floor(p.degInSign), retro: p.retro,
+          })),
+      ],
     };
   });
 
@@ -127,11 +140,14 @@ export const vargaCells = (c: VedicChart, id: VargaId) => {
     return {
       house: i + 1,
       signIndex: si,
-      planets: c.planets.filter((p) => vargaSignAt(id, p.lon) === si).map((p) => ({
-        short: SHORT[p.name] ?? p.name.slice(0, 2),
-        deg: -1,
-        retro: p.retro,
-      })),
+      planets: [
+        ...(i === 0 ? [{ short: LAGNA_SHORT, deg: -1, retro: false }] : []),
+        ...c.planets.filter((p) => vargaSignAt(id, p.lon) === si).map((p) => ({
+          short: SHORT[p.name] ?? p.name.slice(0, 2),
+          deg: -1,
+          retro: p.retro,
+        })),
+      ],
     };
   });
 };

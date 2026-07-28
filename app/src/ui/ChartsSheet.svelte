@@ -722,8 +722,8 @@
         <VedicChart cells={chartCells(vedicA.chart)} />
         <div class="legend">D1 · раши {personA?.name} · лагна
           {degMin(vedicA.chart.lagnaLon % 30)} {ZODIAC[vedicA.chart.lagnaSign]}</div>
-        <div class="vnote">Полный разбор — дома, накшатры, караки, дришти, даши — в
-          Библиотеке → «Ведическая карта». Списки аспектов ниже — западная школа.</div>
+        <div class="vnote">Полный разбор — дома, накшатры, караки, даши — в
+          Библиотеке → «Ведическая карта».</div>
       {:else}
         <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
           selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
@@ -749,7 +749,7 @@
         <VedicChart cells={gocharaCells(transitPos, vedicA.chart.lagnaSign)} />
         <div class="legend">гочара — транзит на {transitLabel} в домах {personA?.name}</div>
         <div class="vnote">Дома — от натальной лагны ({ZODIAC[vedicA.chart.lagnaSign]}).
-          Натал тот же ромбом — режим «Натал»; окна транзитов ниже — западная школа.</div>
+          Натал тем же ромбом — режим «Натал».</div>
         {@render transitCtl()}
       {:else}
         <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}

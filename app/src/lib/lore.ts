@@ -9,6 +9,12 @@
  * мажорные аспекты, истинные узлы. (См. CLAUDE.md «Жёсткие правила расчёта».)
  */
 
+import { GRAHA_LORE } from './vedicLore.ts';
+
+/** Ключ хранения ведического архетипа: та же коллекция, отдельное пространство
+ *  имён — иначе правка Сурьи затёрла бы Гелиоса. */
+export const vedicKey = (object: string): string => `${object}·джйотиш`;
+
 export interface PlanetLore {
   deity: string;   // греческое божество (архетип)
   role: string;    // астрологическая роль — ключевые слова
@@ -344,9 +350,16 @@ export const ASPECT_LORE: Record<string, AspectLore> = {
 
 /** Дефолтные архетипы для db.archetypes (вшиты, редактируются поверх). */
 export function defaultArchetypes(): { object: string; deity: string; text: string }[] {
-  return Object.entries(PLANET_LORE).map(([object, l]) => ({
-    object, deity: l.deity, text: l.arch,
-  }));
+  return [
+    ...Object.entries(PLANET_LORE).map(([object, l]) => ({
+      object, deity: l.deity, text: l.arch,
+    })),
+    // Ведические архетипы (наваграха) живут ПОД СВОИМИ ключами: правка Сурьи не
+    // должна затирать Гелиоса — это разные традиции, и обе редактируемые.
+    ...Object.entries(GRAHA_LORE).map(([object, l]) => ({
+      object: vedicKey(object), deity: l.deity, text: l.arch,
+    })),
+  ];
 }
 
 /** Приветствие первого запуска: школа и правила. */

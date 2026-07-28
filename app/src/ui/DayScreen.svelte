@@ -9,6 +9,9 @@
   import FigureCard from './FigureCard.svelte';
   import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
+  import VedicChart from './VedicChart.svelte';
+  import { SHORT } from '../lib/vedicChart.ts';
+  import { signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
   import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
@@ -22,11 +25,16 @@
   // колеса/планет/Луны) и `scrubbed`/`scrubScale`; жест колеса и «↺ сейчас»/
   // смена масштаба — коллбэки наверх.
   let { engine, date, snapshot, scrubbed = false, scrubScale = 'day',
+        vedic = false, vedicLagna = null,
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
         selectedSignature = null, selectedInfo = null,
         onAspect, oninfo, onscrub, onresetnow, onscale }:
     { engine: Engine; date: Date; snapshot: Date; scrubbed?: boolean;
       scrubScale?: 'day' | 'month' | 'year';
+      vedic?: boolean;
+      /** знак лагны «моей карты» (0..11) — от него нумеруются дома гочары;
+       *  null = своей карты нет, показываем просто знаки */
+      vedicLagna?: number | null;
       orbOf: (name: string) => number; tz: string;
       objects?: string[] | null; signStyle?: SignStyle; nodalAxisFigures?: boolean;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
@@ -46,6 +54,30 @@
     { timeZone: tz, day: 'numeric', month: 'short' }).format(d);
 
   const positions = $derived(engine.positions(snapshot, objects ?? undefined));
+
+  // ── ведический вид неба (гочара) ───────────────────────────────────────────
+  // Транзиты в джйотише читают от ЛАГНЫ натальной карты, а не от Овна: «Сатурн
+  // идёт по 7-му дому». Нет своей карты (или места рождения) — показываем просто
+  // знаки, честно об этом подписав.
+  const skyCells = $derived.by(() => {
+    const lagna = vedicLagna ?? 0;
+    return Array.from({ length: 12 }, (_, i) => {
+      const si = (lagna + i) % 12;
+      return {
+        house: i + 1,
+        signIndex: si,
+        planets: positions
+          .filter((p) => VEDIC_ORDER_SET.has(p.name) && signIndexOf(p.lon) === si)
+          .map((p) => ({
+            short: SHORT[p.name] ?? p.name.slice(0, 2),
+            deg: Math.floor(p.degInSign), retro: p.retro,
+          })),
+      };
+    });
+  });
+  const vedicFrom = $derived(vedicLagna == null
+    ? 'дома не показаны: задай свою карту с местом рождения — тогда транзит ляжет на твои дома'
+    : 'дома — от лагны твоей карты (гочара)');
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
   const sun = $derived(positions.find((p) => p.name === 'Солнце'));
 
@@ -178,8 +210,16 @@
   onclickcapture={(e) => { if (glowHints && (e.target as HTMLElement)?.closest('.hint-q')) dismissHintGlow(); }}>
   {#if greet}<div class="greet display">{greet}</div>{/if}
   <div class="wheel-wrap glass" data-tour="wheel">
-    <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
-      {oninfo} {onscrub} />
+    <!-- В джйотише колеса нет: карту рисуют квадратом (северо-индийский ромб).
+         Круг с линиями аспектов — западная форма, и линии там строятся по
+         орбисам, которых в джйотише тоже нет (дришти считаются по знакам). -->
+    {#if vedic}
+      <VedicChart cells={skyCells} />
+      <div class="vhint">{vedicFrom}</div>
+    {:else}
+      <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
+        {oninfo} {onscrub} />
+    {/if}
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
          выглядит как загадочные «мои 4 утра» (вопрос владелицы). Прокрутка колеса
          двигает момент — тогда показываем прокрученную дату/время и кнопку «сейчас». -->
@@ -193,16 +233,20 @@
     </div>
     <!-- масштаб прокрутки как в «Картах»: оборот диска = сутки/30 суток/365 суток.
          Дата при прокрутке уезжает в ШАПКУ (её меняет App), контент следует. -->
-    <div class="scale" role="group" aria-label="Масштаб прокрутки">
-      <button class="sc" class:on={scrubScale === 'day'} onclick={() => onscale?.('day')}>день</button>
-      <button class="sc" class:on={scrubScale === 'month'} onclick={() => onscale?.('month')}>месяц</button>
-      <button class="sc" class:on={scrubScale === 'year'} onclick={() => onscale?.('year')}>год</button>
-    </div>
-    <div class="scalecap">крути колесо пальцем — {SCRUB_CAP[scrubScale]}</div>
-    <!-- легенда цветов линий/кромок — «невзначай», одной тихой строкой -->
-    <div class="legend">
-      <span class="lg harm">гармония</span><span class="lg tense">напряжение</span><span class="lg neutral">нейтрально</span>
-    </div>
+    <!-- прокрутка и легенда цветов — принадлежность КОЛЕСА: у квадратной карты
+         нет ни диска под палец, ни линий аспектов, которые надо расшифровывать -->
+    {#if !vedic}
+      <div class="scale" role="group" aria-label="Масштаб прокрутки">
+        <button class="sc" class:on={scrubScale === 'day'} onclick={() => onscale?.('day')}>день</button>
+        <button class="sc" class:on={scrubScale === 'month'} onclick={() => onscale?.('month')}>месяц</button>
+        <button class="sc" class:on={scrubScale === 'year'} onclick={() => onscale?.('year')}>год</button>
+      </div>
+      <div class="scalecap">крути колесо пальцем — {SCRUB_CAP[scrubScale]}</div>
+      <!-- легенда цветов линий/кромок — «невзначай», одной тихой строкой -->
+      <div class="legend">
+        <span class="lg harm">гармония</span><span class="lg tense">напряжение</span><span class="lg neutral">нейтрально</span>
+      </div>
+    {/if}
   </div>
 
   {#if day.audit.length}
@@ -309,6 +353,9 @@
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude; }
+  /* подпись под квадратной картой: от чего считаются дома гочары */
+  .vhint { text-align: center; color: var(--ink-faint); font-size: 0.74rem;
+    line-height: 1.4; margin: 8px 10px 0; }
   .snaptime { display: flex; align-items: center; justify-content: center; gap: 8px;
     text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   .resetnow { background: #ffffff12; border: 1px solid var(--glass-brd); color: var(--accent);

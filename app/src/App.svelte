@@ -10,7 +10,7 @@
   import { aspectSignature } from './lib/signature.ts';
   import { aspectsOnCached } from './lib/dayCache.ts';
   import { recoverNoteDirections } from './lib/notesMigrate.ts';
-  import { natalPositions } from './lib/charts.ts';
+  import { natalPositions, birthInstantUTC } from './lib/charts.ts';
   import DayScreen from './ui/DayScreen.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
@@ -458,6 +458,18 @@
   }
   const isVedic = $derived((settings.zodiac ?? 'tropical') === 'sidereal');
 
+  /** Знак лагны «моей карты» — от него в джйотише нумеруются дома транзита
+   *  (гочара). null: своей карты нет либо не задано место рождения. */
+  const myLagna = $derived.by(() => {
+    if (!isVedic || !engine || !settings.transitSelfId) return null;
+    const me = db.people.get(settings.transitSelfId);
+    if (!me?.place) return null;
+    try {
+      const h = engine.houses(engine.toJD(birthInstantUTC(me)), me.place.lat, me.place.lon, 'wholeSign');
+      return h ? Math.floor(((h.asc % 360) + 360) % 360 / 30) : null;
+    } catch { return null; }
+  });
+
   /** Смена школы: сохраняем и пересобираем движок (зодиак — его свойство). */
   function setZodiac(z: 'tropical' | 'sidereal') {
     if ((settings.zodiac ?? 'tropical') === z) return;
@@ -607,6 +619,7 @@
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
+          vedic={isVedic} vedicLagna={myLagna}
           {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}
@@ -709,7 +722,7 @@
 {/if}
 
 {#if libSheet === 'arch'}
-  <ArchetypesSheet onclose={closeLib} />
+  <ArchetypesSheet vedic={isVedic} onclose={closeLib} />
 {/if}
 
 {#if libSheet === 'tracked'}

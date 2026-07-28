@@ -2,23 +2,35 @@
   import { db } from '../lib/db.ts';
   import { PLANET_GLYPH } from '../engine/index.ts';
   import { bottomSheet } from '../lib/sheet.ts';
-  import { PLANET_LORE } from '../lib/lore.ts';
+  import { PLANET_LORE, vedicKey } from '../lib/lore.ts';
+  import { GRAHA_LORE } from '../lib/vedicLore.ts';
   import { reveal } from '../lib/reveal.ts';
   import { autogrow } from '../lib/autogrow.ts';
   import GlowCard from './GlowCard.svelte';
 
-  let { onclose }: { onclose: () => void } = $props();
+  let { vedic = false, onclose }: { vedic?: boolean; onclose: () => void } = $props();
 
-  const OBJ = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
-  // подсказки-греческие соответствия — из встроенного контента (lore.ts)
-  const HINT: Record<string, string> = Object.fromEntries(
-    OBJ.map((o) => [o, PLANET_LORE[o]?.deity ?? 'божество'])
-  );
+  // В джйотише грах ДЕВЯТЬ: Урана и Нептуна среди них нет, и божества другие —
+  // наваграха, а не греческий пантеон. Хранятся под своими ключами (vedicKey),
+  // поэтому правки одной традиции не задевают другую.
+  const WEST = ['Солнце', 'Луна', 'Меркурий', 'Венера', 'Марс', 'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Раху', 'Кету'];
+  const GRAHAS = ['Солнце', 'Луна', 'Марс', 'Меркурий', 'Юпитер', 'Венера', 'Сатурн', 'Раху', 'Кету'];
+  const OBJ = $derived(vedic ? GRAHAS : WEST);
+  const key = (o: string) => (vedic ? vedicKey(o) : o);
+  const base = $derived(vedic ? GRAHA_LORE : PLANET_LORE);
+  const HINT: Record<string, string> = $derived(Object.fromEntries(
+    OBJ.map((o) => [o, base[o]?.deity ?? 'божество'])
+  ));
 
-  let items = $state(OBJ.map((o) => {
-    const a = db.archetypes.get(o);
-    return { object: o, deity: a?.deity ?? '', text: a?.text ?? '' };
-  }));
+  // буфер правки (bind:value) — пересобирается при смене школы; правки уходят
+  // в базу сразу по onchange, поэтому пересборка ничего не теряет
+  let items = $state<{ object: string; deity: string; text: string }[]>([]);
+  $effect(() => {
+    items = OBJ.map((o) => {
+      const a = db.archetypes.get(key(o));
+      return { object: o, deity: a?.deity ?? '', text: a?.text ?? '' };
+    });
+  });
 
   // Аккордеон: список компактный (глиф · планета · божество), редактирование
   // раскрывается по тапу — раньше 11 блоков с полями подряд перегружали экран.
@@ -35,14 +47,14 @@
 
   function saveItem(i: number) {
     const it = items[i];
-    db.archetypes.put({ object: it.object, deity: it.deity.trim(), text: it.text.trim(), updatedAt: new Date().toISOString() });
+    db.archetypes.put({ object: key(it.object), deity: it.deity.trim(), text: it.text.trim(), updatedAt: new Date().toISOString() });
   }
 
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Архетипы планет" use:bottomSheet={{ onclose }}>
-  <header><h2>Архетипы планет</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
+  <header><h2>{vedic ? 'Архетипы грах' : 'Архетипы планет'}</h2><button class="x" onclick={onclose} aria-label="Закрыть">✕</button></header>
   <div class="hint">Нажми планету, чтобы раскрыть архетип и отредактировать его.</div>
 
   {#each items as it, i (it.object)}

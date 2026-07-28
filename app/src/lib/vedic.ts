@@ -10,7 +10,7 @@
  * программой астролога на карте 12.03.1998 (см. app/test/vedic.mjs):
  * накшатры Луны/Асцендента/Солнца, пады и их управители, набор чара-карак.
  */
-import { ZODIAC } from '../engine/index.ts';
+import { ZODIAC, VEDIC_ORDER } from '../engine/index.ts';
 
 const norm = (d: number): number => ((d % 360) + 360) % 360;
 
@@ -120,6 +120,10 @@ export const SIGN_LORDS: string[] = [
 ];
 
 export const signIndexOf = (lon: number): number => Math.floor(norm(lon) / 30);
+
+/** Что вообще участвует в ведической карте: девять грах. Уран, Нептун и
+ *  астероиды в джйотише не читаются — их надо отсеивать при показе. */
+export const VEDIC_ORDER_SET = new Set<string>(VEDIC_ORDER);
 export const signLordOf = (lon: number): string => SIGN_LORDS[signIndexOf(lon)];
 /** Дома, которыми управляет планета (1..12) при данной лагне — «Солнце (11)». */
 export function ruledHouses(planet: string, lagnaSign: number): number[] {

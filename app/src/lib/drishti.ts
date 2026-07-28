@@ -51,6 +51,45 @@ export function drishtiSigns(
   return DRISHTI[planet].map((n) => (((signIndex + n - 1) % 12) + 12) % 12);
 }
 
+export interface SkyDrishti {
+  /** «Сатурн смотрит на Юпитер» — кто на кого сегодня */
+  from: string; to: string; fromSign: number; toSign: number;
+}
+export interface SkyYuti { sign: number; planets: string[]; }
+
+/**
+ * Дришти и юти МЕЖДУ ТРАНЗИТНЫМИ грахами — джйотиш-аналог «аспектов дня».
+ * Считается по целым знакам, поэтому картина держится сутками, а не минутами:
+ * это и есть тон дня в гочаре, в отличие от западных орбисных окон.
+ * Юти (соединение) — просто две и больше грах в одном знаке.
+ */
+export function skyDrishti(
+  positions: { name: string; signIndex: number }[],
+  includeNodes = false,
+): { drishti: SkyDrishti[]; yuti: SkyYuti[] } {
+  const list = positions.filter((p) => DRISHTI[p.name]);
+  const drishti: SkyDrishti[] = [];
+  for (const a of list) {
+    const targets = drishtiSigns(a.name, a.signIndex, includeNodes);
+    for (const b of list) {
+      if (b.name === a.name || b.signIndex === a.signIndex) continue;   // юти — отдельно
+      if (targets.includes(b.signIndex)) {
+        drishti.push({ from: a.name, to: b.name, fromSign: a.signIndex, toSign: b.signIndex });
+      }
+    }
+  }
+  const bySign = new Map<number, string[]>();
+  for (const p of list) {
+    const arr = bySign.get(p.signIndex) ?? [];
+    arr.push(p.name);
+    bySign.set(p.signIndex, arr);
+  }
+  const yuti: SkyYuti[] = [...bySign.entries()]
+    .filter(([, ps]) => ps.length > 1)
+    .map(([sign, planets]) => ({ sign, planets }));
+  return { drishti, yuti };
+}
+
 export interface DrishtiTarget {
   sign: number;      // знак-цель, 0..11
   house: number;     // дом-цель, 1..12 (whole sign от лагны)

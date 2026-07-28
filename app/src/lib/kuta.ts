@@ -66,6 +66,53 @@ const VASHYA: string[] = [
   'человек', 'кита', 'человек', 'водное', 'человек', 'водное',
 ];
 
+// ─── дополнительные проверки сверх 36 гун ──────────────────────────────────
+// Аштакута даёт очки, но классика смотрит и то, что очками не меряется. Эти
+// три проверяют почти везде (в южной традиции раджу — важнее суммы гун).
+
+/** Раджу — «части тела»: одна раджу у обоих считается неблагоприятной. */
+const RAJJU: Record<string, number[]> = {   // индексы накшатр 0..26
+  'стопы': [0, 8, 9, 17, 18, 26],
+  'бёдра': [1, 7, 10, 16, 19, 25],
+  'пупок': [2, 6, 11, 15, 20, 24],
+  'шея': [3, 5, 12, 14, 21, 23],
+  'голова': [4, 13, 22],
+};
+export const rajjuOf = (nak: number): string =>
+  Object.keys(RAJJU).find((k) => RAJJU[k].includes(nak)) ?? '';
+
+/** Счёт накшатр от A к B включительно (1..27). */
+const countNak = (from: number, to: number): number => ((to - from + 27) % 27) + 1;
+
+export interface ExtraChecks {
+  rajju: { same: boolean; name: string; note: string };
+  mahendra: { ok: boolean; count: number; note: string };
+  streeDirgha: { ok: boolean; count: number; note: string };
+}
+
+/**
+ * Раджу, махендра и стри-диргха. A — «невеста», B — «жених»: махендра и
+ * стри-диргха считаются НАПРАВЛЕННО, от накшатры невесты к накшатре жениха.
+ */
+export function extraChecks(nakA: number, nakB: number): ExtraChecks {
+  const ra = rajjuOf(nakA), rb = rajjuOf(nakB);
+  const same = ra === rb;
+  const n = countNak(nakA, nakB);
+  const mahOk = [4, 7, 10, 13, 16, 19, 22, 25].includes(n);
+  const sdOk = n > 9;
+  return {
+    rajju: { same, name: same ? ra : `${ra} × ${rb}`,
+      note: same ? 'одна раджу у обоих — классика считает это неблагоприятным'
+                 : 'раджу разные — благоприятно' },
+    mahendra: { ok: mahOk, count: n,
+      note: mahOk ? 'махендра есть — поддержка потомству и долголетию союза'
+                  : 'махендры нет' },
+    streeDirgha: { ok: sdOk, count: n,
+      note: sdOk ? 'стри-диргха соблюдена — благополучие жены'
+                 : 'стри-диргха не соблюдена (счёт девять и меньше)' },
+  };
+}
+
 export interface KutaScore { name: string; got: number; max: number; note?: string; }
 export interface KutaResult {
   scores: KutaScore[];

@@ -54,10 +54,10 @@
   import PeopleList from './charts/PeopleList.svelte';
   import VedicChart from './VedicChart.svelte';
   import { vedicNatal, chartCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
-  import { grahaDrishti } from '../lib/drishti.ts';
+  import { grahaDrishti, drishtiSigns } from '../lib/drishti.ts';
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
   import { kutaMatch, manglik } from '../lib/kuta.ts';
-  import { nakshatraOf, signIndexOf } from '../lib/vedic.ts';
+  import { nakshatraOf, signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
   import { antarWindows, sidIngresses, stationsInWindow, monthlyGochara } from '../lib/vedicForecast.ts';
   import { ZODIAC } from '../engine/index.ts';
 
@@ -159,14 +159,31 @@
   // запоминаем выбор для следующего открытия (память сессии, не диск)
   $effect(() => { lastMode = mode; lastPair = pair.slice(); lastView = view === 'chart' ? 'chart' : 'list'; });
 
-  const MODES: { id: Mode; label: string; need: number; hint: string }[] = [
+  // Западные режимы. В джйотише у них свои имена и свой состав: «натал» там
+  // кундали (раши), «транзит+натал» — гочара, «синастрия» — гуна-милан по
+  // накшатрам Лун. Композита в джйотише нет вовсе (изобретение западного XX
+  // века), «небо к двум наталам» тоже: гочару смотрят каждому отдельно —
+  // поэтому в ведическом режиме эти два режима не показываем.
+  const MODES_WEST: { id: Mode; label: string; need: number; hint: string }[] = [
     { id: 'natal', label: 'Натал', need: 1, hint: 'одна карта — её аспекты и положения' },
     { id: 'transitNatal', label: 'Транзит + натал', need: 1, hint: 'небо сейчас к карте человека' },
     { id: 'triple', label: 'Транзит + 2 натала', need: 2, hint: 'небо сейчас к двум людям' },
     { id: 'synastry', label: 'Синастрия', need: 2, hint: 'межаспекты карт двух людей' },
     { id: 'composite', label: 'Композит', need: 2, hint: 'общая карта пары — середины между вашими планетами' },
   ];
-  const needCount = $derived(MODES.find((m) => m.id === mode)!.need);
+  const MODES_VEDIC: { id: Mode; label: string; need: number; hint: string }[] = [
+    { id: 'natal', label: 'Кундали', need: 1, hint: 'карта рождения — раши (D1), дома, дришти' },
+    { id: 'transitNatal', label: 'Гочара', need: 1, hint: 'транзит грах по домам от твоей лагны' },
+    { id: 'synastry', label: 'Гуна-милан', need: 2, hint: 'совместимость по накшатрам Лун — куты и доши' },
+  ];
+  const MODES = $derived(vedic ? MODES_VEDIC : MODES_WEST);
+  const modeInfo = $derived(MODES.find((m) => m.id === mode) ?? MODES[0]);
+  const needCount = $derived(modeInfo.need);
+  // переключили школу, стоя в композите/тройной — в джйотише их нет, уводим
+  // на кундали, иначе экран остался бы на режиме, которого нет в списке
+  $effect(() => {
+    if (vedic && !MODES_VEDIC.some((m) => m.id === mode)) setMode('natal');
+  });
   // статья глоссария под каждый режим — «?» рядом с описанием выбранного
   const MODE_GLOSS: Record<Mode, string> = {
     natal: 'natal', transitNatal: 'transit', triple: 'transit',
@@ -175,7 +192,7 @@
 
   function setMode(m: Mode): void {
     mode = m;
-    const need = MODES.find((x) => x.id === m)!.need;
+    const need = (MODES.find((x) => x.id === m) ?? MODES_WEST.find((x) => x.id === m))!.need;
     if (pair.length > need) pair = pair.slice(0, need);
     selKey = null;
   }
@@ -202,6 +219,29 @@
 
   // дришти натальной карты — вместо западных списков аспектов в джйотише
   const drishtiA = $derived(vedicA ? grahaDrishti(vedicA.chart.planets, vedicA.chart.lagnaSign) : []);
+
+  // ГОЧАРА-ДРИШТИ: транзитная граха смотрит на натальную (по целым знакам).
+  // Джйотиш-замена «транзит аспектирует натал» — держится знаком, не орбисом.
+  const transitDrishti = $derived.by(() => {
+    if (!vedicA || mode !== 'transitNatal') return [];
+    const lagna = vedicA.chart.lagnaSign;
+    const house = (si: number) => ((si - lagna + 12) % 12) + 1;
+    const out: { from: string; to: string; fromSign: number; toSign: number;
+      fromHouse: number; toHouse: number }[] = [];
+    for (const t of transitPos) {
+      if (!VEDIC_ORDER_SET.has(t.name)) continue;
+      const tSign = signIndexOf(t.lon);
+      const targets = drishtiSigns(t.name, tSign);
+      if (!targets.length) continue;
+      for (const n of vedicA.chart.planets) {
+        if (targets.includes(n.signIndex)) {
+          out.push({ from: t.name, to: n.name, fromSign: tSign, toSign: n.signIndex,
+            fromHouse: house(tSign), toHouse: n.house });
+        }
+      }
+    }
+    return out;
+  });
 
   // КУТА (гуна-милан) — джйотиш-замена синастрии: считается от ЛУН двоих,
   // место рождения не обязательно (лагна не нужна). Манглик — только если у
@@ -729,7 +769,7 @@
     </div>
     <!-- «?» объясняет ВЫБРАННЫЙ режим (жалоба владелицы 2026-07-27: одна общая
          «?» в ряду всегда открывала «Транзит» — не к селу ни к городу) -->
-    <div class="hint">{MODES.find((m) => m.id === mode)!.hint} — выбери
+    <div class="hint">{modeInfo.hint} — выбери
       {needCount === 1 ? 'человека' : 'двух людей'}. <Hint k={MODE_GLOSS[mode]} /></div>
 
     <!-- «Открыть карту» НАД списком (просьба 2026-07-11): при длинном списке
@@ -958,6 +998,22 @@
           </div>
         {/each}
       </details>
+      {/if}
+
+      <!-- гочара-дришти: какие ТРАНЗИТНЫЕ грахи смотрят на натальные позиции.
+           В джйотише это и есть «транзит задел карту» — вместо орбисных окон -->
+      {#if vedicA && mode === 'transitNatal' && transitDrishti.length}
+        <details class="fold" open>
+          <summary class="grp">☍ Транзитные дришти · {transitDrishti.length}</summary>
+          <div class="hint small">Транзитная граха смотрит на натальную по целым знакам:
+            влияние держится, пока она идёт по этому знаку, а не минуты орбиса.</div>
+          {#each transitDrishti as d (d.from + d.to)}
+            <div class="drow glass">
+              <div class="drhead">транзитный <b>{d.from}</b> ({ZODIAC[d.fromSign]}, {d.fromHouse}-й дом)
+                смотрит на натального <b>{d.to}</b> ({ZODIAC[d.toSign]}, {d.toHouse}-й дом)</div>
+            </div>
+          {/each}
+        </details>
       {/if}
     {:else}
     {#if mode === 'natal'}
@@ -1193,7 +1249,7 @@
 {/if}
 
 {#if showPrompt}
-  <PromptSheet text={chartPromptText} onclose={() => (showPrompt = false)} />
+  <PromptSheet text={chartPromptText} vedic={!!vedicA || !!kutaData} onclose={() => (showPrompt = false)} />
 {/if}
 
 <style>

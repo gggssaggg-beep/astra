@@ -11,7 +11,10 @@
   import Wheel from './Wheel.svelte';
   import VedicChart from './VedicChart.svelte';
   import { gocharaCells } from '../lib/vedicChart.ts';
-  import { VEDIC_ORDER_SET } from '../lib/vedic.ts';
+  import { VEDIC_ORDER_SET, signIndexOf as sidSign, BHAVA_THEME } from '../lib/vedic.ts';
+  import { skyDrishti } from '../lib/drishti.ts';
+  import { ingressesOnDay } from '../lib/vedicForecast.ts';
+  import { ZODIAC as ZODIAC_RU, PLANET_GLYPH } from '../engine/index.ts';
   import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from '../lib/panchanga.ts';
   import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
@@ -61,6 +64,17 @@
   // идёт по 7-му дому». Нет своей карты (или места рождения) — показываем просто
   // знаки, честно об этом подписав.
   const skyCells = $derived(gocharaCells(positions, vedicLagna ?? 0));
+
+  // дришти и юти между транзитными грахами — джйотиш-«аспекты дня»
+  const skyAsp = $derived(vedic
+    ? skyDrishti(positions.filter((p) => VEDIC_ORDER_SET.has(p.name))
+        .map((p) => ({ name: p.name, signIndex: sidSign(p.lon) })))
+    : { drishti: [], yuti: [] });
+  // смены знака ИМЕННО в эти сутки (бинарный поиск — от якоря суток, не от тика)
+  const todayIngress = $derived.by(() => {
+    if (!vedic) return [];
+    try { return ingressesOnDay(engine, dayStart, vedicLagna); } catch { return []; }
+  });
   const vedicFrom = $derived(vedicLagna == null
     ? 'дома не показаны: задай свою карту с местом рождения — тогда транзит ляжет на твои дома'
     : 'дома — от лагны твоей карты (гочара)');
@@ -364,6 +378,50 @@
     </details>
   {/if}
 
+  <!-- Что МЕНЯЕТСЯ сегодня: смены знака грахами. По списку «планеты сейчас»
+       этого не видно, а для гочары переход — главное событие суток. -->
+  {#if vedic && todayIngress.length}
+    <h3 class="sec">Переходы сегодня</h3>
+    <div class="card glass vasp">
+      {#each todayIngress as g (g.name)}
+        <div class="ingr" class:passed={g.passed}>
+          <div class="ingrHead">
+            <span class="g glyph">{PLANET_GLYPH[g.name] ?? '•'}</span>
+            <b>{g.name}</b>{#if g.retro}<span class="rx">℞</span>{/if}
+            <span class="arrow">{ZODIAC_RU[g.fromSign]} → {ZODIAC_RU[g.toSign]}</span>
+            <span class="ingrTime">{fmtTime(g.at, tz)}</span>
+          </div>
+          {#if g.house}
+            <div class="ingrWhat">входит в {g.house}-й дом — {BHAVA_THEME[g.house]}.
+              {g.passed ? 'Уже перешла' : 'Перейдёт сегодня'}: тема дома включается
+              на весь срок, пока граха идёт по знаку.</div>
+          {:else}
+            <div class="ingrWhat">Дом не показан — задай свою карту с местом рождения.</div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
+  <!-- Джйотиш-аналог «аспектов дня»: дришти и юти МЕЖДУ транзитными грахами,
+       по целым знакам. Держится сутками, а не минутами — потому и без окон
+       «вход/точно/выход», которые есть у западных орбисных аспектов. -->
+  {#if vedic && (skyAsp.yuti.length || skyAsp.drishti.length)}
+    <h3 class="sec">Дришти и юти сегодня</h3>
+    <div class="card glass vasp">
+      {#each skyAsp.yuti as y (y.sign)}
+        <div class="vaspRow"><span class="vk">юти</span>
+          <span class="vv">{y.planets.join(' + ')} — вместе в {ZODIAC_RU[y.sign]}</span></div>
+      {/each}
+      {#each skyAsp.drishti as d (d.from + d.to)}
+        <div class="vaspRow"><span class="vk">дришти</span>
+          <span class="vv">{d.from} смотрит на {d.to} ({ZODIAC_RU[d.fromSign]} → {ZODIAC_RU[d.toSign]})</span></div>
+      {/each}
+    </div>
+    <div class="vhint" style="text-align:left">Все грахи смотрят в 7-й знак от себя; у Марса
+      это ещё 4-й и 8-й, у Юпитера 5-й и 9-й, у Сатурна 3-й и 10-й. Узлы по умолчанию не аспектируют.</div>
+  {/if}
+
   <!-- Аспектные секции — ЗАПАДНАЯ школа (орбисы). В джйотише их нет: аспекты
        (дришти) считаются по целым знакам, а «содержание дня» даёт панчанга
        выше. Ответ на вопрос владелицы «почему в джйотиш западные аспекты?» -->
@@ -414,6 +472,19 @@
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude; }
   /* подпись под квадратной картой: от чего считаются дома гочары */
+  .vasp { padding: 10px 14px; margin: 6px 0; }
+  .ingr { padding: 8px 0; }
+  .ingr + .ingr { border-top: 1px solid var(--glass-brd); }
+  .ingr.passed { opacity: 0.62; }
+  .ingrHead { display: flex; align-items: baseline; gap: 7px; font-size: 0.88rem; color: var(--ink); }
+  .ingrHead .arrow { color: var(--ink-dim); font-size: 0.82rem; }
+  .ingrHead .rx { color: var(--gold); font-size: 0.78rem; }
+  .ingrTime { margin-left: auto; color: var(--ink-faint); font-size: 0.78rem; }
+  .ingrWhat { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45; margin-top: 3px; }
+  .vaspRow { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 0.84rem; }
+  .vaspRow + .vaspRow { border-top: 1px solid var(--glass-brd); }
+  .vk { color: var(--ink-faint); font-size: 0.72rem; min-width: 3.4rem; }
+  .vv { color: var(--ink); }
   .vhint { text-align: center; color: var(--ink-faint); font-size: 0.74rem;
     line-height: 1.4; margin: 8px 10px 0; }
   .snaptime { display: flex; align-items: center; justify-content: center; gap: 8px;

@@ -20,6 +20,8 @@
   import { vedicNatal, vedicSky, vargaCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
   import { ashtakavarga } from '../lib/ashtakavarga.ts';
+  import { grahaHouseText } from '../lib/grahaHouseLore.ts';
+  import { grahaSignText } from '../lib/grahaSignLore.ts';
   import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
   import VedicChart from './VedicChart.svelte';
@@ -37,6 +39,7 @@
 
   let tab = $state<'chart' | 'sky'>('chart');
   let openDasha = $state<string | null>(null);
+  let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
 
   // Варги: три ходовые карты кнопками, остальные — в компактном «ещё», иначе
   // ряд из восьми кнопок на телефоне разъезжается.
@@ -225,6 +228,23 @@
           <!-- хозяин знака в именительном: склонять имена планет по суффиксам
                нельзя («Меркурийа»), а сокращать до «у друга» — терять, у кого -->
           {#if !simple}<div class="psub">навамша {ZODIAC[p.navamsha]}{#if p.hostRelation}&nbsp;· хозяин знака {p.host} — {RELATION_LABEL[p.hostRelation]}{/if}</div>{/if}
+          <!-- трактовки: граха в доме и в знаке. Раскрываются по тапу — иначе
+               девять карточек по два абзаца превращают экран в простыню -->
+          {#if !simple}
+            {@const hTxt = grahaHouseText(p.name, p.house)}
+            {@const sTxt = grahaSignText(p.name, p.sign)}
+            {#if hTxt || sTxt}
+              <button class="lorebtn" onclick={() => (openLore = openLore === p.name ? null : p.name)}>
+                {openLore === p.name ? 'Свернуть' : 'Что это значит'} {openLore === p.name ? '▴' : '▾'}
+              </button>
+              {#if openLore === p.name}
+                <div class="lorebox">
+                  {#if hTxt}<div class="loreone"><span class="lorelbl">в {ORD[p.house]} доме</span>{hTxt}</div>{/if}
+                  {#if sTxt}<div class="loreone"><span class="lorelbl">в знаке {p.sign}</span>{sTxt}</div>{/if}
+                </div>
+              {/if}
+            {/if}
+          {/if}
           <div class="tags">
             {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
             {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}
@@ -363,6 +383,12 @@
   .rul { color: var(--ink-faint); font-size: 0.78rem; }
   .ppos { font-size: 0.84rem; color: var(--ink-dim); }
   .psub { color: var(--ink-faint); font-size: 0.78rem; margin-top: 4px; line-height: 1.4; }
+  .lorebtn { background: transparent; border: none; padding: 6px 0 2px; text-align: left;
+    color: var(--ink-dim); font-size: 0.78rem; }
+  .lorebox { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 9px; }
+  .loreone { font-size: 0.84rem; line-height: 1.5; color: var(--ink-dim); }
+  .lorelbl { display: block; color: var(--ink-faint); font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
   .tag { font-size: 0.7rem; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--glass-brd);
     color: var(--ink-dim); white-space: nowrap; }

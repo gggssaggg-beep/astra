@@ -64,6 +64,45 @@ export function sidIngresses(E: Engine, from: Date, days: number): SidIngress[] 
   return out.sort((x, y) => +x.at - +y.at);
 }
 
+export interface TodayIngress {
+  name: string; at: Date; fromSign: number; toSign: number; retro: boolean;
+  /** дом от лагны, если она известна (иначе 0) */
+  house: number;
+  /** уже перешла или ещё перейдёт сегодня */
+  passed: boolean;
+}
+
+/**
+ * Смены знака ГРАХАМИ ИМЕННО В ЭТИ СУТКИ (замечание астролога 2026-07-29:
+ * «какая планета в каком знаке видно, а что переходит сегодня — нет»).
+ * Луна тоже включена: она меняет знак каждые ~2¼ суток, и для дня это событие.
+ */
+export function ingressesOnDay(
+  E: Engine, dayStart: Date, lagnaSign: number | null,
+): TodayIngress[] {
+  const out: TodayIngress[] = [];
+  const j0 = E.toJD(dayStart), j1 = j0 + 1;
+  const now = Date.now();
+  for (const name of ['Луна', ...FORECAST_GRAHAS]) {
+    const s0 = signIndexOf(E.lon(j0, name));
+    const s1 = signIndexOf(E.lon(j1, name));
+    if (s0 === s1) continue;
+    let a = j0, b = j1;
+    for (let i = 0; i < 14; i++) {
+      const m = (a + b) / 2;
+      if (signIndexOf(E.lon(m, name)) === s0) a = m; else b = m;
+    }
+    const at = E.fromJD(b);
+    out.push({
+      name, at, fromSign: s0, toSign: signIndexOf(E.lon(b, name)),
+      retro: E.lonSpeed(b, name)[1] < 0,
+      house: lagnaSign == null ? 0 : ((signIndexOf(E.lon(b, name)) - lagnaSign + 12) % 12) + 1,
+      passed: +at <= now,
+    });
+  }
+  return out.sort((x, y) => +x.at - +y.at);
+}
+
 export interface MonthGochara {
   /** первое число месяца (UTC) */
   at: Date;

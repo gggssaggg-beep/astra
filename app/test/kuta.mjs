@@ -78,6 +78,39 @@ console.log('=== направленность и максимумы ===');
     assert.deepEqual(VARNA_NAME, ['шудра', 'вайшья', 'кшатрий', 'брахман']));
 }
 
+console.log('=== раджу, махендра, стри-диргха ===');
+{
+  const { extraChecks, rajjuOf } = await import('../src/lib/kuta.ts');
+  ok('все 27 накшатр разложены по пяти раджу, пропусков нет', () => {
+    for (let i = 0; i < 27; i++) assert.ok(rajjuOf(i), `накшатра ${i} без раджу`);
+  });
+  ok('раджу «голова» — три накшатры, прочие по шесть', () => {
+    const cnt = {};
+    for (let i = 0; i < 27; i++) cnt[rajjuOf(i)] = (cnt[rajjuOf(i)] ?? 0) + 1;
+    assert.equal(cnt['голова'], 3);
+    assert.equal(cnt['стопы'], 6);
+    assert.equal(Object.values(cnt).reduce((a, b) => a + b, 0), 27);
+  });
+  ok('одна раджу у обоих — помечено как неблагоприятное', () => {
+    const e = extraChecks(0, 8);            // Ашвини и Ашлеша — обе «стопы»
+    assert.equal(e.rajju.same, true);
+    assert.equal(e.rajju.name, 'стопы');
+  });
+  ok('разные раджу — благоприятно', () =>
+    assert.equal(extraChecks(0, 4).rajju.same, false));   // стопы × голова
+  ok('махендра: счёт 4, 7, 10… от невесты к жениху', () => {
+    assert.equal(extraChecks(0, 3).mahendra.ok, true);    // счёт 4
+    assert.equal(extraChecks(0, 4).mahendra.ok, false);   // счёт 5
+    assert.equal(extraChecks(0, 3).mahendra.count, 4);
+  });
+  ok('стри-диргха: счёт больше девяти', () => {
+    assert.equal(extraChecks(0, 8).streeDirgha.ok, false);   // 9
+    assert.equal(extraChecks(0, 9).streeDirgha.ok, true);    // 10
+  });
+  ok('счёт направленный: от A к B и от B к A разный', () =>
+    assert.notEqual(extraChecks(0, 9).streeDirgha.count, extraChecks(9, 0).streeDirgha.count));
+}
+
 console.log('=== манглик (эталон А) ===');
 {
   const Z = ['Овен', 'Телец', 'Близнецы', 'Рак', 'Лев', 'Дева',

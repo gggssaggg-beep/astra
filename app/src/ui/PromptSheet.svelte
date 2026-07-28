@@ -7,13 +7,13 @@
   import { FOCUS_OPTIONS, focusBlock, type FocusId } from '../lib/aiPrompt.ts';
   import Hint from './Hint.svelte';
 
-  let { text, onclose }: { text: string; onclose: () => void } = $props();
+  let { text, vedic = false, onclose }: { text: string; vedic?: boolean; onclose: () => void } = $props();
 
   // Фокус вопроса (2026-07-26): расчёт тот же, меняется только задача разбора.
   // По умолчанию «Общий» — промпт ровно такой, каким был раньше.
   let focus = $state<FocusId>('general');
   let question = $state('');
-  const full = $derived(text + focusBlock(focus, question));
+  const full = $derived(text + focusBlock(focus, question, vedic));
   function pickFocus(id: FocusId): void { focus = id; tap(); }
 
   let copied = $state(false);

@@ -12,6 +12,7 @@
   import VedicChart from './VedicChart.svelte';
   import { SHORT } from '../lib/vedicChart.ts';
   import { signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
+  import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from '../lib/panchanga.ts';
   import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
@@ -80,6 +81,30 @@
     : 'дома — от лагны твоей карты (гочара)');
   const moon = $derived(positions.find((p) => p.name === 'Луна'));
   const sun = $derived(positions.find((p) => p.name === 'Солнце'));
+
+  // ── панчанга: пять членов дня (вара, титхи, накшатра, йога, карана) ────────
+  // В джйотише «содержание дня» — это она, а не список аспектов с орбисами.
+  // Долготы берём из уже посчитанных positions: в ведическом режиме движок
+  // сидерический, значит и накшатра, и йога считаются от правильного круга.
+  const WEEKDAYS_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // день недели в ПОЯСЕ ПОКАЗА, а не в UTC: после полуночи пояса вара уже другая
+  const civilWeekday = (d: Date) => WEEKDAYS_EN.indexOf(
+    new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(d));
+  const panchanga = $derived(vedic && sun && moon
+    ? panchangaOf(sun.lon, moon.lon, civilWeekday(snapshot)) : null);
+
+  // Моменты переходов ищутся двоичным поиском (десятки обращений к движку), а
+  // `snapshot` тикает раз в минуту — считаем от момента, огрублённого до 10 мин,
+  // иначе поиск гонялся бы на каждый тик часов. Отставание невидимо: строка
+  // «перейдёт в HH:MM» не меняется, пока переход не случится.
+  const coarseMs = $derived(Math.floor(snapshot.getTime() / 600_000) * 600_000);
+  const vedicNext = $derived.by(() => {
+    if (!vedic) return null;
+    const at = new Date(coarseMs);
+    try {
+      return { nak: nextNakshatraEnd(engine, at), tithi: nextTithiEnd(engine, at) };
+    } catch { return null; }   // сбой движка не должен уронить экран дня
+  });
 
   // фаза Луны — из уже посчитанных долгот (элонгация Луна−Солнце), без движка
   const PHASE_EM = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
@@ -253,6 +278,45 @@
     {/if}
   </div>
 
+  <!-- ПАНЧАНГА — пять членов дня джйотиша. Карточка идёт сразу под квадратной
+       картой (сестра блоку Луны, не вложена в карточку карты: стекло в стекле
+       даёт двойную кромку). Это ведическая замена западному «содержанию дня». -->
+  {#if vedic && panchanga}
+    <h3 class="sec">Панчанга</h3>
+    <div class="panch glass">
+      <div class="prow">
+        <span class="pk">Вара</span>
+        <span class="pv">{panchanga.vara.name} · {panchanga.vara.lord}</span>
+      </div>
+      <div class="prow">
+        <span class="pk">Титхи</span>
+        <span class="pv">{panchanga.tithi.index} · {panchanga.tithi.name} · {panchanga.tithi.paksha}
+          · прошло {Math.round(panchanga.tithi.fraction * 100)}%</span>
+      </div>
+      <div class="prow">
+        <span class="pk">Накшатра Луны</span>
+        <span class="pv">{panchanga.nakshatra.name} · пада {panchanga.nakshatra.pada}
+          · упр. {panchanga.nakshatra.lord}</span>
+      </div>
+      <div class="prow">
+        <span class="pk">Йога</span>
+        <span class="pv">{panchanga.yoga.index} · {panchanga.yoga.name}</span>
+      </div>
+      <div class="prow">
+        <span class="pk">Карана</span>
+        <span class="pv">{panchanga.karana.name}</span>
+      </div>
+      {#if vedicNext}
+        <!-- титхи и накшатра меняются посреди суток — без времени перехода
+             строка «сегодня Двадаши» вводит в заблуждение -->
+        <div class="pnext">
+          <div>Луна перейдёт в {vedicNext.nak.next} в {fmtTime(vedicNext.nak.at, tz)}</div>
+          <div>Титхи сменится в {fmtTime(vedicNext.tithi.at, tz)}</div>
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   {#if day.audit.length}
     <div class="audit glass">{#each day.audit as w}<div>{w}</div>{/each}</div>
   {/if}
@@ -415,6 +479,19 @@
   .pem { font-size: 1.35rem; line-height: 1; opacity: 0.9;
     filter: grayscale(1) brightness(1.35) contrast(0.95)
       drop-shadow(0 0 6px color-mix(in srgb, var(--silver) 45%, transparent)); }
+  /* ── Панчанга: список «член дня → значение», как «Планеты сейчас» ──────── */
+  .panch { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; margin: 8px 0; }
+  .prow { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  .pk { flex: none; color: var(--ink-faint); font-size: 0.8rem; }
+  /* значение прижато вправо и переносится (титхи — длинная строка) */
+  .pv { margin-left: auto; text-align: right; color: var(--ink); font-size: 0.9rem;
+    line-height: 1.35; min-width: 0; }
+  /* переходы — тише основного списка, отделены затухающим hairline */
+  .pnext { margin-top: 3px; padding-top: 9px; position: relative;
+    color: var(--ink-dim); font-size: 0.78rem; line-height: 1.6;
+    font-variant-numeric: tabular-nums; }
+  .pnext::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--glass-brd), transparent); }
   /* один пункт = одна строка (перенос каждому пункту — просьба владелицы) */
   .positions { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; margin: 8px 0; }
   .chip { display: flex; align-items: center; gap: 8px; min-width: 0; }

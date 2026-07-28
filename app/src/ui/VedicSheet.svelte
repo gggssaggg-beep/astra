@@ -20,6 +20,7 @@
   import { vedicNatal, vedicSky, chartCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL } from '../lib/vedic.ts';
   import VedicChart from './VedicChart.svelte';
+  import Hint from './Hint.svelte';
 
   let { engine, tz, selfId, onclose }:
     { engine: Engine; tz: string; selfId?: string; onclose: () => void } = $props();
@@ -50,7 +51,7 @@
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
 <section class="sheet glass sheet-base" aria-label="Ведическая карта" use:bottomSheet={{ onclose }}>
   <header>
-    <h2>Ведическая карта</h2>
+    <h2>Ведическая карта <Hint k="vedic" /></h2>
     <button class="x" onclick={onclose} aria-label="Закрыть">✕</button>
   </header>
 
@@ -78,28 +79,28 @@
 
       <div class="card glass reveal" use:reveal>
         <div class="grid">
-          <div><span class="k">Лагна</span><span class="v">{degMin(c.lagnaLon % 30)} {ZODIAC[c.lagnaSign]}</span></div>
+          <div><span class="k">Лагна <Hint k="lagna" /></span><span class="v">{degMin(c.lagnaLon % 30)} {ZODIAC[c.lagnaSign]}</span></div>
           <div><span class="k">Лагнеш</span><span class="v">{c.houses[0].lord}
             {#if c.houses[0].lordHouse}· в {ORD[c.houses[0].lordHouse]} доме{/if}</span></div>
           <div><span class="k">Лунный знак</span><span class="v">{ZODIAC[c.moonSign]}</span></div>
-          <div><span class="k">Накшатра Луны</span><span class="v">{c.moonNakshatra.name}
+          <div><span class="k">Накшатра Луны <Hint k="nakshatra" /></span><span class="v">{c.moonNakshatra.name}
             · пада {c.moonNakshatra.pada} · упр. {c.moonNakshatra.lord}</span></div>
-          <div><span class="k">Лунный день</span><span class="v">{c.tithi.index} · {c.tithi.name}
+          <div><span class="k">Лунный день <Hint k="tithi" /></span><span class="v">{c.tithi.index} · {c.tithi.name}
             ({c.tithi.paksha})</span></div>
           {#each c.planets.filter((p) => p.karaka === 'АК') as ak}
-            <div><span class="k">Атмакарака</span><span class="v">{ak.name}</span></div>
+            <div><span class="k">Атмакарака <Hint k="karaka" /></span><span class="v">{ak.name}</span></div>
           {/each}
           {#if natal.now.maha}
-            <div><span class="k">Текущий период</span><span class="v">{natal.now.maha.lord}
+            <div><span class="k">Текущий период <Hint k="dasha" /></span><span class="v">{natal.now.maha.lord}
               {#if natal.now.antar}— {natal.now.antar.lord}{/if}
               {#if natal.now.pratyantar}— {natal.now.pratyantar.lord}{/if}</span></div>
           {/if}
         </div>
       </div>
 
-      <div class="hdr">Дома</div>
+      <div class="hdr">Дома <Hint k="wholeSign" /></div>
       <div class="card glass table reveal" use:reveal>
-        <div class="row th"><span>Дом</span><span>Знак</span><span>Планеты</span><span>Упр. в</span></div>
+        <div class="row th"><span>Дом</span><span>Знак <Hint k="rashi" /></span><span>Планеты</span><span>Упр. в</span></div>
         {#each c.houses as h}
           <div class="row">
             <span class="hn">{h.house}-й</span>
@@ -113,7 +114,7 @@
       <div class="note">«Упр. в» — где стоит управитель знака этого дома: связь домов, с которой
         начинается чтение карты.</div>
 
-      <div class="hdr">Планеты</div>
+      <div class="hdr">Планеты <Hint k="dignity" /></div>
       {#each c.planets as p}
         <div class="card glass pcard reveal" use:reveal>
           <div class="pline">
@@ -162,7 +163,7 @@
         до рождения.</div>
     {/if}
   {:else}
-    <div class="hint">Небо сейчас, в сидерических знаках — карта для этого не нужна.</div>
+    <div class="hint">Небо сейчас, в сидерических знаках <Hint k="sidereal" /> — карта для этого не нужна.</div>
     <div class="card glass table sky reveal" use:reveal>
       <div class="row th"><span>Планета</span><span>Знак</span><span>Накшатра</span></div>
       {#each sky.planets as p}

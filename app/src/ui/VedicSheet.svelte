@@ -19,6 +19,7 @@
   import type { Person } from '../lib/models.ts';
   import { vedicNatal, vedicSky, vargaCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
+  import { ashtakavarga } from '../lib/ashtakavarga.ts';
   import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
   import VedicChart from './VedicChart.svelte';
@@ -48,9 +49,16 @@
   const natal = $derived.by(() => (person ? untrack(() => vedicNatal(engine, person)) : null));
   const sky = untrack(() => vedicSky(engine));
 
+  // аштакаварга: бинду по домам от лагны (узлы в системе не участвуют)
+  const av = $derived.by(() => {
+    if (!natal) return null;
+    const signs: Record<string, number> = {};
+    for (const p of natal.chart.planets) signs[p.name] = p.signIndex;
+    return ashtakavarga(signs, natal.chart.lagnaSign);
+  });
+
   // Саде Сати: транзитный Сатурн относительно НАТАЛЬНОЙ Луны (12/1/2-й знак =
-  // фазы; 4-й — кантака, 8-й — аштама). Показываем и «неактивна» не пишем:
-  // строка есть только когда Сатурн в одной из станций
+  // фазы; 4-й — кантака, 8-й — аштама). Строка есть только когда Сатурн в станции
   const sadeSatiNow = $derived.by(() => {
     if (!natal) return null;
     const sat = sky.planets.find((p) => p.name === 'Сатурн');
@@ -185,6 +193,25 @@
           целиком, вместе со всеми, кто там стоит, — градусы и орбисы здесь не участвуют.</div>
       {/if}
 
+      {#if !simple && av}
+        <div class="hdr">Аштакаварга</div>
+        <div class="card glass table reveal" use:reveal>
+          <div class="row th av"><span>Дом</span><span>Знак</span><span>Бинду</span><span></span></div>
+          {#each c.houses as h, i}
+            {@const v = av.savByHouse[i]}
+            <div class="row av">
+              <span class="hn">{h.house}-й</span>
+              <span>{SIGN_GLYPH[h.signIndex]} {h.sign}</span>
+              <span class="bindu" class:strong={v >= 30} class:weak={v < 25}>{v}</span>
+              <span class="bar"><span class="fill" style="width:{Math.min(100, v / 45 * 100)}%"></span></span>
+            </div>
+          {/each}
+        </div>
+        <div class="note">Сарва-аштакаварга: сколько бинду набрал каждый дом (всего 337,
+          в среднем 28 на знак). Больше — дела дома идут легче, меньше — территория,
+          где приходится добирать усилием.</div>
+      {/if}
+
       <div class="hdr">Планеты <Hint k="dignity" /></div>
       {#each c.planets as p}
         <div class="card glass pcard reveal" use:reveal>
@@ -309,6 +336,13 @@
   .row + .row { border-top: 1px solid var(--glass-brd); }
   .row.th { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
   .sky .row { grid-template-columns: 1fr 1fr 1fr; }
+  /* аштакаварга: число бинду + полоска-индикатор */
+  .row.av { grid-template-columns: 3.2rem 1fr 2.4rem 3.4rem; }
+  .bindu { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-dim); }
+  .bindu.strong { color: var(--gold); }
+  .bindu.weak { color: var(--rose); }
+  .bar { height: 5px; border-radius: 3px; background: var(--glass-brd); overflow: hidden; }
+  .bar .fill { display: block; height: 100%; background: color-mix(in srgb, var(--gold) 55%, transparent); }
   .hn { color: var(--ink-dim); }
   .pls { display: flex; flex-wrap: wrap; gap: 4px; }
   .pl { font-size: 0.9rem; color: var(--ink); }

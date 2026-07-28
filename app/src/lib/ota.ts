@@ -146,7 +146,8 @@ export async function checkOtaUpdate(onProgress?: (msg: string) => void): Promis
     }
     if (!isNewer(m.version, status.applied)) {
       status = { ...status, state: 'uptodate',
-        message: `Актуально: установлен ${status.applied}, в манифесте ${m.version}.` };
+        // версии печатает строка ниже (Установлено · в манифесте) — здесь только вердикт
+        message: 'Актуально — установлена последняя версия.' };
       return getOtaStatus();
     }
 

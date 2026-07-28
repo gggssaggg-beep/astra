@@ -157,7 +157,7 @@
         <div class="note reveal" class:picked={cmp.has(n.id)} use:reveal>
           <div class="nhead">
             <b title={dmy(n.date)}>{rel(n.date)}</b>
-            <!-- ОТКУДА заметка: «Я+Саша 13.06.25» / «Небо 13.06.25» (у старых нет) -->
+            <!-- ОТКУДА заметка: «Я+Пётр 13.06.25» / «Небо 13.06.25» (у старых нет) -->
             {#if n.source}<span class="src" title="откуда сделана заметка">{n.source}</span>{/if}
             {#if n.objects.length && editId !== n.id}<span class="tags">{n.objects.join(' · ')}</span>{/if}
             <span class="spacer"></span>

@@ -29,14 +29,17 @@
   import VedicChart from './VedicChart.svelte';
   import Hint from './Hint.svelte';
 
-  let { engine, tz, selfId, simple = false, onclose }:
-    { engine: Engine; tz: string; selfId?: string; simple?: boolean;
+  let { engine, tz, selfId, pinnedId, simple = false, onclose }:
+    { engine: Engine; tz: string; selfId?: string;
+      /** человек, выбранный в «Картах»: тогда экран показывает ЕГО разбор
+       *  и своего селектора не рисует — карту выбирают в самих Картах */
+      pinnedId?: string; simple?: boolean;
       onclose: () => void } = $props();
 
   const people = db.people.all().slice();
   // выбор пользователя перекрывает «мою карту» из настроек, но не затирает её
   let picked = $state<string | null>(null);
-  const personId = $derived(picked ?? selfId ?? people[0]?.id ?? '');
+  const personId = $derived(pinnedId ?? picked ?? selfId ?? people[0]?.id ?? '');
   const person = $derived<Person | null>(people.find((p) => p.id === personId) ?? null);
 
   let tab = $state<'chart' | 'sky'>('chart');
@@ -111,7 +114,7 @@
   </div>
 
   {#if tab === 'chart'}
-    {#if people.length > 1}
+    {#if people.length > 1 && !pinnedId}
       <select class="select" value={personId} onchange={(e) => (picked = (e.target as HTMLSelectElement).value)}>
         {#each people as p}<option value={p.id}>{p.name}</option>{/each}
       </select>

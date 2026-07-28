@@ -53,6 +53,7 @@
   import TransitControls from './charts/TransitControls.svelte';
   import PeopleList from './charts/PeopleList.svelte';
   import VedicChart from './VedicChart.svelte';
+  import VedicSheet from './VedicSheet.svelte';
   import { vedicNatal, chartCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
   import { grahaDrishti, drishtiSigns } from '../lib/drishti.ts';
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
@@ -351,7 +352,7 @@
 
   // В тройной карте (2 натала + транзит) прогноз показывает ТОЛЬКО «двойные»
   // моменты: одна НЕБЕСНАЯ планета касается ОБЕИХ карт в близкие дни (±5 сут).
-  // Спаренный вид «♀ Венера (небо): □ Луна (я) · △ Марс (Саша)» — иначе
+  // Спаренный вид «♀ Венера (небо): □ Луна (я) · △ Марс (Пётр)» — иначе
   // подпись «(транзит)» читалась как «чья-то» Венера (вопрос владелицы).
   interface ForecastPair { tName: string; tGlyph: string; a: TransitHit; b: TransitHit }
   const forecastPairs = $derived.by((): ForecastPair[] => {
@@ -388,7 +389,7 @@
     finally { if (gen === forecastGen) { forecastBusy = false; forecastRan = true; } }
   }
   // Тап по строке прогноза: перейти к моменту, выделить аспект И открыть его
-  // ОПИСАНИЕ с владельцем — «Уран (Саша) ⚹ Раху (транзит)», а не «просто
+  // ОПИСАНИЕ с владельцем — «Уран (Пётр) ⚹ Раху (транзит)», а не «просто
   // транзит» (правки владелицы, работает во всех режимах вкл. синастрию).
   const hitKey = (h: TransitHit): string => `${h.nName}|${h.tName}|${h.aspect}`;
   function gotoHit(h: TransitHit): void {
@@ -749,9 +750,11 @@
     });
   });
 
-  let showPrompt = $state(false);   // окно «Промпт для любой ИИ»
+  let showPrompt = $state(false);      // окно «Промпт для любой ИИ»
+  // полный ведический разбор выбранного человека (шторка поверх карт)
+  let showVedicFull = $state(false);
 
-  // «Откуда» заметка: «Я+Саша 13.06.25» / «Я 20.06.2006» (просьба владелицы
+  // «Откуда» заметка: «Я+Пётр 13.06.25» / «Я 20.06.2006» (просьба владелицы
   // 2026-07-25). «Я» — карта, выбранная как своя в Настройках (transitSelfId).
   const noteSource = $derived(chartSource(mode, personA, personB, transitAt,
     db.settings.get().transitSelfId));
@@ -806,8 +809,11 @@
         <VedicChart cells={chartCells(vedicA.chart)} />
         <div class="legend">D1 · раши {personA?.name} · лагна
           {degMin(vedicA.chart.lagnaLon % 30)} {ZODIAC[vedicA.chart.lagnaSign]}</div>
-        <div class="vnote">Полный разбор — дома, накшатры, караки, даши — в
-          Библиотеке → «Ведическая карта».</div>
+        <button class="btn full" onclick={() => (showVedicFull = true)}>
+          Полный разбор карты →
+        </button>
+        <div class="vnote">Дома с планетами, накшатры, караки, дришти, аштакаварга,
+          периоды и важные даты.</div>
       {:else}
         <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
           selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
@@ -1018,8 +1024,8 @@
     {:else}
     {#if mode === 'natal'}
       {#if natalAsp.length === 0}<div class="empty">В карте нет мажорных аспектов в орбисе.</div>{/if}
-      <!-- в одиночном натале владелец не подписывается: «Луна (Саша) ☌ Венера
-           (Саша)» было избыточно — чей натал, видно в заголовке карты -->
+      <!-- в одиночном натале владелец не подписывается: «Луна (Пётр) ☌ Венера
+           (Пётр)» было избыточно — чей натал, видно в заголовке карты -->
       {#each natalAsp as a (staticKey(a))}
         <GlowCard radius={12} selected={staticKey(a) === selKey}
           onactivate={() => toggleDetail(a, null, null)}>
@@ -1248,6 +1254,10 @@
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
 {/if}
 
+{#if showVedicFull && personA}
+  <VedicSheet {engine} {tz} pinnedId={personA.id} onclose={() => (showVedicFull = false)} />
+{/if}
+
 {#if showPrompt}
   <PromptSheet text={chartPromptText} vedic={!!vedicA || !!kutaData} onclose={() => (showPrompt = false)} />
 {/if}
@@ -1305,6 +1315,7 @@
   /* пояснение ведического режима: что здесь джйотиш, а что — западная школа */
   .vnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45;
     text-align: center; margin: -6px 8px 12px; }
+  .btn.full { width: 100%; margin: 2px 0 4px; }
   /* строки дришти (джйотиш-аспекты по знакам) */
   .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }

@@ -30,7 +30,6 @@
   import PlanetCuspsSheet from './ui/PlanetCuspsSheet.svelte';
   import DegreeSearchSheet from './ui/DegreeSearchSheet.svelte';
   import RetroSheet from './ui/RetroSheet.svelte';
-  import VedicSheet from './ui/VedicSheet.svelte';
   import UpayaSheet from './ui/UpayaSheet.svelte';
   import FiguresSheet from './ui/FiguresSheet.svelte';
   import CommunitySheet from './ui/CommunitySheet.svelte';
@@ -68,7 +67,7 @@
   // БИБЛИОТЕКУ (пункт выше). Открыта может быть только одна — как и раньше.
   type LibKey = 'journal' | 'arch' | 'houses' | 'planetSigns' | 'planetHouses'
     | 'dispositors' | 'planetCusps' | 'degree' | 'retro' | 'figures'
-    | 'tracked' | 'signMyths' | 'interp' | 'vedic' | 'upaya';
+    | 'tracked' | 'signMyths' | 'interp' | 'upaya';
   let libSheet = $state<LibKey | null>(null);
   const openLib = (k: LibKey) => { showLibrary = false; libSheet = k; };
   const closeLib = () => { libSheet = null; showLibrary = true; };
@@ -668,7 +667,7 @@
     onDispositors={() => openLib('dispositors')}
     onPlanetCusps={() => openLib('planetCusps')}
     onDegree={() => openLib('degree')}
-    onVedic={() => openLib('vedic')} onUpaya={() => openLib('upaya')}
+    onUpaya={() => openLib('upaya')}
     vedic={settings.zodiac === 'sidereal'}
     onRetro={() => openLib('retro')}
     onFigures={() => openLib('figures')} />
@@ -712,11 +711,6 @@
 
 {#if libSheet === 'retro' && engine}
   <RetroSheet {engine} onclose={closeLib} />
-{/if}
-
-{#if libSheet === 'vedic' && engine}
-  <VedicSheet {engine} tz={settings.tz} selfId={settings.transitSelfId}
-    simple={!!settings.vedicSimple} onclose={closeLib} />
 {/if}
 
 {#if libSheet === 'upaya'}

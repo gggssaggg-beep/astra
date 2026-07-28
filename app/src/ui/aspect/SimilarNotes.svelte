@@ -114,7 +114,7 @@
   .phead { display: flex; align-items: center; gap: 8px; margin-bottom: 2px; }
   .spacer { flex: 1; }
   .ptext { white-space: pre-wrap; }
-  /* «откуда» заметка: «Я+Саша 13.06.25» — чтобы прошлые записи не путались */
+  /* «откуда» заметка: «Я+Пётр 13.06.25» — чтобы прошлые записи не путались */
   .src { color: var(--accent); font-size: 0.72rem; background: #ffffff10;
     border: 1px solid var(--glass-brd); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
   /* направление транзита: «Солнце → мой Марс» — кто двигался */

@@ -6,12 +6,12 @@
 
   let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths,
         onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures,
-        onVedic, onUpaya, vedic = false }:
+        onUpaya, vedic = false }:
     { onclose: () => void; onCourse: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onPlanetSigns: () => void; onPlanetHouses: () => void;
       onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void;
-      onFigures: () => void; onVedic: () => void; onUpaya: () => void; vedic?: boolean } = $props();
+      onFigures: () => void; onUpaya: () => void; vedic?: boolean } = $props();
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
@@ -30,13 +30,8 @@
        школа, о чём честно сказано строкой ниже -->
   {#if vedic}
     <div class="grp">Джйотиш</div>
-    <GlowCard radius={14} onactivate={onVedic}>
-      <button class="row reveal" use:reveal>
-        <span class="ic"><Icon name="star" /></span>
-        <div class="txt"><b>Ведическая карта</b><small>D1/D9, накшатры, караки, дришти, периоды Вимшоттари</small></div>
-        <span class="arr">→</span>
-      </button>
-    </GlowCard>
+    <div class="libnote">Разбор своей карты — во вкладке «Карты»: там кундали, дома,
+      периоды и важные даты. Здесь — общий справочник.</div>
     <GlowCard radius={14} onactivate={onUpaya}>
       <button class="row reveal" use:reveal>
         <span class="ic"><Icon name="diamond" /></span>
@@ -183,6 +178,7 @@
   h2 { margin: 0; font-size: 1.1rem; }
   .x { background: transparent; border: none; font-size: 1.1rem; color: var(--ink-dim); }
   .hint { color: var(--ink-faint); font-size: 0.84rem; margin: 4px 0 12px; }
+  .libnote { color: var(--ink-faint); font-size: 0.76rem; line-height: 1.45; margin: 2px 4px 8px; }
   .grp { color: var(--accent); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px;
     font-weight: 600; margin: 12px 2px 6px; }
   .row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;

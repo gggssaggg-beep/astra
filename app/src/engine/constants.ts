@@ -19,7 +19,7 @@ export const PLANET_GLYPH: Record<string, string> = {
 // Коды Swiss Ephemeris.
 export const SWE_CODE = {
   SUN: 0, MOON: 1, MERCURY: 2, VENUS: 3, MARS: 4, JUPITER: 5,
-  SATURN: 6, URANUS: 7, NEPTUNE: 8, TRUE_NODE: 11,
+  SATURN: 6, URANUS: 7, NEPTUNE: 8, MEAN_NODE: 10, TRUE_NODE: 11,
   CHIRON: 15, CERES: 17, PALLAS: 18, JUNO: 19, VESTA: 20, LILITH: 12,
 } as const;
 
@@ -85,3 +85,31 @@ export const sunRank = (name: string): number => SUN_RANK[name] ?? 99;
 // с питон-эталоном, у которого нет файлов). +FLG_SPEED.
 export const FLAG_SWIEPH = 2 | 256;
 export const FLAG_MOSEPH = 4 | 256;
+
+// SEFLG_SIDEREAL — сидерический зодиак (ведический режим, джйотиш). Долгота
+// отсчитывается не от точки весны, а от начала сидерического круга: результат =
+// тропическая долгота − аянамша. Аянамшу задаёт swe_set_sid_mode (см. AYANAMSAS).
+export const FLAG_SIDEREAL = 64 * 1024;
+
+// Аянамши (режимы SE_SIDM_*). Лахири — государственный стандарт Индии и выбор
+// подавляющего большинства джйотиш-программ, поэтому он по умолчанию.
+export const AYANAMSAS: { id: string; label: string; mode: number }[] = [
+  { id: 'lahiri', label: 'Лахири (Читрапакша)', mode: 1 },
+  { id: 'raman', label: 'Раман', mode: 3 },
+  { id: 'krishnamurti', label: 'Кришнамурти (КП)', mode: 5 },
+  { id: 'yukteshwar', label: 'Юктешвар', mode: 7 },
+  { id: 'fagan', label: 'Фаган — Аллен', mode: 0 },
+  { id: 'trueChitra', label: 'Истинная Читра', mode: 27 },
+];
+
+export const ayanamsaMode = (id?: string): number =>
+  AYANAMSAS.find((a) => a.id === id)?.mode ?? 1;
+
+// Семь классических планет джйотиша: Уран/Нептун и астероиды в ведической карте
+// не участвуют (управление знаками, караки, даши — только эти + узлы).
+export const VEDIC_BODIES = ['Солнце', 'Луна', 'Марс', 'Меркурий', 'Юпитер',
+  'Венера', 'Сатурн'] as const;
+
+// Порядок объектов в ведической таблице планет (как в джйотиш-программах:
+// светила, затем по убыванию скорости, узлы в конце).
+export const VEDIC_ORDER = [...VEDIC_BODIES, 'Раху', 'Кету'] as const;

@@ -1,15 +1,29 @@
-/** Синглтон движка: инициализируем swisseph-wasm один раз. */
+/** Синглтон движка: инициализируем swisseph-wasm один раз на профиль расчёта.
+ *
+ * Профилей может быть два — тропический (западная часть) и сидерический
+ * (ведический режим). Оба живут параллельно: зодиак задаётся ФЛАГОМ расчёта,
+ * поэтому один инстанс WASM не мешает другому. Кэш — по ключу профиля. */
 import { createEngine } from '../engine/index.ts';
-import type { Engine, EphemerisMode } from '../engine/index.ts';
+import type { Engine, EphemerisMode, EngineOptions } from '../engine/index.ts';
 
-let promise: Promise<Engine> | null = null;
+const cache = new Map<string, Promise<Engine>>();
 
-export function getEngine(mode: EphemerisMode = 'swieph'): Promise<Engine> {
-  if (!promise) {
-    promise = createEngine(mode);
+const keyOf = (mode: EphemerisMode, o: EngineOptions): string =>
+  `${mode}|${o.zodiac ?? 'tropical'}|${o.ayanamsa ?? 'lahiri'}|${o.nodes ?? 'auto'}`;
+
+export function getEngine(mode: EphemerisMode = 'swieph', opts: EngineOptions = {}): Promise<Engine> {
+  const key = keyOf(mode, opts);
+  let p = cache.get(key);
+  if (!p) {
+    p = createEngine(mode, opts);
     // неудачу не кэшируем: разовый сбой WASM (память WebView и т.п.) не должен
     // навсегда оставлять «Ошибка движка» — следующий вызов попробует заново
-    promise.catch(() => { promise = null; });
+    p.catch(() => { cache.delete(key); });
+    cache.set(key, p);
   }
-  return promise;
+  return p;
 }
+
+/** Сидерический движок для ведического режима (аянамша из настроек). */
+export const getVedicEngine = (ayanamsa?: string): Promise<Engine> =>
+  getEngine('swieph', { zodiac: 'sidereal', ayanamsa });

@@ -17,8 +17,9 @@
   import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH } from '../engine/index.ts';
   import { db } from '../lib/db.ts';
   import type { Person } from '../lib/models.ts';
-  import { vedicNatal, vedicSky, chartCells, navamshaCells, degMin } from '../lib/vedicChart.ts';
+  import { vedicNatal, vedicSky, vargaCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
+  import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
   import VedicChart from './VedicChart.svelte';
   import Hint from './Hint.svelte';
@@ -34,8 +35,14 @@
   const person = $derived<Person | null>(people.find((p) => p.id === personId) ?? null);
 
   let tab = $state<'chart' | 'sky'>('chart');
-  let varga = $state<'d1' | 'd9'>('d1');
   let openDasha = $state<string | null>(null);
+
+  // Варги: три ходовые карты кнопками, остальные — в компактном «ещё», иначе
+  // ряд из восьми кнопок на телефоне разъезжается.
+  const VARGA_MAIN: VargaId[] = ['d1', 'd9', 'd10'];
+  const VARGA_MORE = VARGA_LIST.filter((v) => !VARGA_MAIN.includes(v.id));
+  let varga = $state<VargaId>('d1');
+  const inMore = $derived(VARGA_MORE.some((v) => v.id === varga));
 
   // расчёт карты — на смену человека; движок стабилен (создан в App один раз)
   const natal = $derived.by(() => (person ? untrack(() => vedicNatal(engine, person)) : null));
@@ -95,14 +102,27 @@
       <!-- «я не астролог»: варги и отношения планет — специальные слои, их прячем -->
       {#if !simple}
         <div class="vargas">
-          <button class:on={varga === 'd1'} onclick={() => (varga = 'd1')}>D1 · раши</button>
-          <button class:on={varga === 'd9'} onclick={() => (varga = 'd9')}>D9 · навамша</button>
+          {#each VARGA_MAIN as id}
+            <button class:on={varga === id} onclick={() => (varga = id)}>{id.toUpperCase()}</button>
+          {/each}
+          <!-- редкие варги — списком: восемь кнопок в ряд на телефоне не влезают -->
+          <select class="more" class:on={inMore} aria-label="Другие варги"
+            value={inMore ? varga : ''}
+            onchange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value;
+              if (v) varga = v as VargaId;
+            }}>
+            <option value="">ещё…</option>
+            {#each VARGA_MORE as v}<option value={v.id}>{v.label}</option>{/each}
+          </select>
         </div>
       {/if}
-      <VedicChart cells={!simple && varga === 'd9' ? navamshaCells(c) : chartCells(c)} />
-      {#if !simple && varga === 'd9'}
-        <div class="note">Навамша — «вторая карта»: по ней смотрят, дотягивает ли планета то,
-          что обещает в раши. Градусы здесь не пишут — в варге своя, растянутая шкала.</div>
+      <VedicChart cells={vargaCells(c, simple ? 'd1' : varga)} />
+      {#if !simple && varga !== 'd1'}
+        {@const info = vargaInfo(varga)}
+        <div class="note"><b>{info.label} — {info.theme}.</b> Варга берёт одну тему крупным планом:
+          по ней смотрят, дотягивает ли планета то, что обещает в раши. Градусы здесь не пишут —
+          в варге своя, растянутая шкала.</div>
       {/if}
 
       <div class="card glass reveal" use:reveal>
@@ -265,6 +285,13 @@
   .vargas button { flex: 1; padding: 6px 8px; border-radius: 10px; font-size: 0.78rem;
     background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-faint); }
   .vargas button.on { color: var(--ink-dim); border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
+  /* «ещё…» — редкие варги списком; шире кнопок, чтобы влезла подпись выбранной */
+  .vargas .more { flex: 1.7; min-width: 0; padding: 6px 8px; border-radius: 10px;
+    font-size: 0.78rem; background: transparent; border: 1px solid var(--glass-brd);
+    color: var(--ink-faint); }
+  .vargas .more.on { color: var(--ink-dim);
+    border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
+  .note b { color: var(--ink-dim); font-weight: 500; }
   .card { padding: 10px 12px; margin: 8px 0; }
   .hdr { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 1px; margin: 16px 4px 4px; }

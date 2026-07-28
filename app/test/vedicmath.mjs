@@ -1,0 +1,203 @@
+/**
+ * Ведическая математика (lib/vedic.ts) — БЕЗ WASM: всё считается от долгот.
+ *
+ * Эталон — карта 12.03.1998 18:10 (+2) с экрана джйотиш-программы астролога:
+ * там видны накшатры с падами и владыками, чара-караки и достоинства. Долготы
+ * взяты оттуда же (движок сходится с ними до 1.5″ — см. test/vedic.mjs).
+ *
+ * Запуск:  node test/vedicmath.mjs
+ */
+import assert from 'node:assert/strict';
+import {
+  nakshatraOf, tithiOf, dignityOf, charaKarakas, ruledHouses, wholeSignHouse,
+  vimshottari, currentDasha, buildVedicChart, SIGN_LORDS,
+} from '../src/lib/vedic.ts';
+
+let n = 0;
+const ok = (name, fn) => { fn(); n++; console.log(`  ✓ ${name}`); };
+const Z = ['Овен', 'Телец', 'Близнецы', 'Рак', 'Лев', 'Дева',
+  'Весы', 'Скорпион', 'Стрелец', 'Козерог', 'Водолей', 'Рыбы'];
+/** «28°03′02″ Водолей» → долгота */
+const at = (sign, d, m, s) => Z.indexOf(sign) * 30 + d + m / 60 + s / 3600;
+
+const CHART = {
+  'Солнце': at('Водолей', 28, 3, 2),
+  'Луна': at('Лев', 22, 25, 21),
+  'Марс': at('Рыбы', 12, 20, 55),
+  'Меркурий': at('Рыбы', 13, 47, 59),
+  'Юпитер': at('Водолей', 14, 51, 13),
+  'Венера': at('Козерог', 12, 34, 46),
+  'Сатурн': at('Рыбы', 25, 35, 6),
+  'Раху': at('Лев', 16, 45, 21),
+  'Кету': at('Водолей', 16, 45, 21),
+};
+const ASC = at('Дева', 0, 6, 57);
+
+console.log('=== накшатры и пады (эталон — экран программы) ===');
+{
+  const cases = [
+    ['Луна', CHART['Луна'], 'Пурвапхалгуни', 3, 'Венера'],
+    ['Асцендент', ASC, 'Уттарапхалгуни', 2, 'Солнце'],
+    ['Солнце', CHART['Солнце'], 'Пурвабхадра', 3, 'Юпитер'],
+    ['Меркурий', CHART['Меркурий'], 'Уттарабхадра', 4, 'Сатурн'],
+    ['Юпитер', CHART['Юпитер'], 'Шатабхиша', 3, 'Раху'],
+    ['Сатурн', CHART['Сатурн'], 'Ревати', 3, 'Меркурий'],
+  ];
+  for (const [who, lon, name, pada, lord] of cases) {
+    const g = nakshatraOf(lon);
+    ok(`${who}: ${g.name} (пада ${g.pada}, упр. ${g.lord})`, () => {
+      assert.equal(g.name, name);
+      assert.equal(g.pada, pada);
+      assert.equal(g.lord, lord);
+    });
+  }
+  ok('границы: 0° Овна — Ашвини пада 1, 359°59′ — Ревати пада 4', () => {
+    assert.deepEqual([nakshatraOf(0).name, nakshatraOf(0).pada], ['Ашвини', 1]);
+    const last = nakshatraOf(359.99);
+    assert.deepEqual([last.name, last.pada, last.index], ['Ревати', 4, 27]);
+  });
+}
+
+console.log('=== чара-караки Джаймини (7 планет по градусу в знаке) ===');
+{
+  const k = charaKarakas(CHART);
+  ok('АК Солнце (28°03′ — старший градус), АмК Сатурн, БК Луна', () => {
+    assert.equal(k['Солнце'], 'АК');
+    assert.equal(k['Сатурн'], 'АмК');
+    assert.equal(k['Луна'], 'БК');
+  });
+  ok('МК Юпитер, ПиК Меркурий, ГК Венера, ДК Марс (младший градус)', () => {
+    assert.equal(k['Юпитер'], 'МК');
+    assert.equal(k['Меркурий'], 'ПиК');
+    assert.equal(k['Венера'], 'ГК');
+    assert.equal(k['Марс'], 'ДК');
+  });
+  ok('узлы в семикаракной схеме не участвуют', () => {
+    assert.equal(k['Раху'], undefined);
+    assert.equal(k['Кету'], undefined);
+  });
+}
+
+console.log('=== достоинства ===');
+{
+  ok('Марс в Козероге 28° — экзальтация', () =>
+    assert.equal(dignityOf('Марс', at('Козерог', 28, 0, 0)).kind, 'exalted'));
+  ok('Марс в Раке — падение', () =>
+    assert.equal(dignityOf('Марс', at('Рак', 5, 0, 0)).kind, 'debilitated'));
+  ok('Солнце во Льве 5° — мулатрикона (0–20°)', () =>
+    assert.equal(dignityOf('Солнце', at('Лев', 5, 0, 0)).kind, 'moolatrikona'));
+  ok('Солнце во Льве 25° — уже просто своя обитель', () =>
+    assert.equal(dignityOf('Солнце', at('Лев', 25, 0, 0)).kind, 'own'));
+  ok('Сатурн в Рыбах — без достоинства', () =>
+    assert.equal(dignityOf('Сатурн', CHART['Сатурн']).kind, null));
+  ok('управители знаков — классические (Скорпион Марс, Водолей Сатурн)', () => {
+    assert.equal(SIGN_LORDS[7], 'Марс');
+    assert.equal(SIGN_LORDS[10], 'Сатурн');
+    assert.equal(SIGN_LORDS[11], 'Юпитер');
+  });
+}
+
+console.log('=== целознаковые дома и управление ===');
+{
+  const lagna = 5;   // Дева
+  ok('Солнце в Водолее при лагне Дева → 6-й дом', () =>
+    assert.equal(wholeSignHouse(CHART['Солнце'], lagna), 6));
+  ok('Луна во Льве → 12-й дом', () =>
+    assert.equal(wholeSignHouse(CHART['Луна'], lagna), 12));
+  ok('при лагне Дева Меркурий управляет 1-м и 10-м домами', () =>
+    assert.deepEqual(ruledHouses('Меркурий', lagna), [1, 10]));
+  ok('Сатурн — 5-м и 6-м', () =>
+    assert.deepEqual(ruledHouses('Сатурн', lagna), [5, 6]));
+}
+
+console.log('=== титхи ===');
+{
+  ok('Луна впереди Солнца на 0.5° — 1-й лунный день, шукла Пратипада', () => {
+    const t = tithiOf(10, 10.5);
+    assert.equal(t.index, 1);
+    assert.equal(t.paksha, 'шукла');
+    assert.equal(t.name, 'Пратипада');
+  });
+  ok('оппозиция (180°) — 16-й день, кришна Пратипада (сразу за полнолунием)', () => {
+    const t = tithiOf(0, 180);
+    assert.equal(t.index, 16);
+    assert.equal(t.paksha, 'кришна');
+  });
+  ok('179° — Пурнима (15), 359° — Амавасья (30)', () => {
+    assert.equal(tithiOf(0, 179).name, 'Пурнима');
+    assert.equal(tithiOf(0, 359).name, 'Амавасья');
+  });
+}
+
+console.log('=== Вимшоттари ===');
+{
+  const birth = new Date(Date.UTC(1998, 2, 12, 16, 10));
+  const d = vimshottari(CHART['Луна'], birth);
+  ok('первая махадаша — владыка накшатры Луны (Венера)', () =>
+    assert.equal(d[0].lord, 'Венера'));
+  ok('порядок дальше канонический: Солнце → Луна → Марс → Раху', () =>
+    assert.deepEqual(d.slice(1, 5).map((p) => p.lord),
+      ['Солнце', 'Луна', 'Марс', 'Раху']));
+  ok('цикл — 9 махадаш, вместе 120 лет', () => {
+    assert.equal(d.length, 9);
+    const years = (d[8].to - d[0].from) / 86400000 / 365.25;
+    assert.ok(Math.abs(years - 120) < 1e-6, `вышло ${years}`);
+  });
+  ok('первая даша НЕПОЛНАЯ: началась до рождения, остаток ≈ 6,37 года', () => {
+    assert.ok(d[0].from < birth, 'старт первой махадаши должен быть в прошлом');
+    const rest = (d[0].to - birth) / 86400000 / 365.25;
+    assert.ok(Math.abs(rest - 6.366) < 0.01, `остаток ${rest.toFixed(3)} года`);
+  });
+  ok('махадаша Венеры длится ровно 20 лет', () => {
+    const y = (d[0].to - d[0].from) / 86400000 / 365.25;
+    assert.ok(Math.abs(y - 20) < 1e-9, `вышло ${y}`);
+  });
+  ok('антардаши: 9 штук, первая — того же владыки, сумма = махадаша', () => {
+    assert.equal(d[0].sub.length, 9);
+    assert.equal(d[0].sub[0].lord, 'Венера');
+    assert.equal(+d[0].sub[8].to, +d[0].to);
+  });
+  ok('текущий период на 28.07.2026 определяется и лежит внутри своей махадаши', () => {
+    const cur = currentDasha(d, new Date(Date.UTC(2026, 6, 28)));
+    assert.ok(cur.maha && cur.antar && cur.pratyantar, 'не найден один из уровней');
+    assert.ok(cur.antar.from >= cur.maha.from && cur.antar.to <= cur.maha.to);
+    assert.ok(cur.pratyantar.from >= cur.antar.from && cur.pratyantar.to <= cur.antar.to);
+  });
+}
+
+console.log('=== сборка карты D1 ===');
+{
+  const retro = { 'Раху': true, 'Кету': true };
+  const c = buildVedicChart(CHART, retro, ASC);
+  ok('лагна — Дева, её накшатра Уттарапхалгуни', () => {
+    assert.equal(c.lagnaSign, 5);
+    assert.equal(c.lagnaNakshatra.name, 'Уттарапхалгуни');
+  });
+  ok('12 домов, дом 1 = знак лагны, дальше знаки подряд', () => {
+    assert.equal(c.houses.length, 12);
+    assert.equal(c.houses[0].sign, 'Дева');
+    assert.equal(c.houses[3].sign, 'Стрелец');
+  });
+  ok('дом 7 (Рыбы) собрал Марс, Меркурий и Сатурн', () => {
+    const h7 = c.houses[6];
+    assert.equal(h7.sign, 'Рыбы');
+    assert.deepEqual(h7.planets.map((p) => p.name).sort(),
+      ['Марс', 'Меркурий', 'Сатурн']);
+  });
+  ok('у дома 1 (Дева) управитель Меркурий — и он стоит в 7-м доме', () => {
+    assert.equal(c.houses[0].lord, 'Меркурий');
+    assert.equal(c.houses[0].lordHouse, 7);
+  });
+  ok('лунный знак — Лев; титхи считается от Солнца и Луны', () => {
+    assert.equal(c.moonSign, 4);
+    assert.ok(c.tithi.index >= 1 && c.tithi.index <= 30);
+  });
+  ok('у каждой планеты есть дом, накшатра и достоинство', () =>
+    c.planets.forEach((p) => {
+      assert.ok(p.house >= 1 && p.house <= 12, p.name);
+      assert.ok(p.nakshatra.name, p.name);
+      assert.ok(p.dignity, p.name);
+    }));
+}
+
+console.log(`\n✅ ведическая математика: ${n} проверок пройдено`);

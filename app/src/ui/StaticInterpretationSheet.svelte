@@ -103,9 +103,12 @@
   // непокрытые пары) — показываем смысл пары, иначе смысл аспекта.
   const mainText = $derived(selfText ?? unique ?? pair ?? lore?.text ?? '');
 
-  // подпись блока и placeholder заметки — по контексту, без слова «пара» в транзите
-  const blockLbl = $derived(isTransit ? 'Что происходит' : 'Взаимодействие');
+  // подпись блока и placeholder заметки — по контексту: в транзите без слова
+  // «пара», в композите речь про сам союз (карта отношений, не два человека)
+  const blockLbl = $derived(isTransit ? 'Что происходит'
+    : isComposite ? 'У ваших отношений' : 'Взаимодействие');
   const notePlaceholder = $derived(isTransit ? 'Как проявился этот транзит…'
+    : isComposite ? 'Как проявилось в союзе…'
     : twoPeople ? 'Как проявилось в этой паре…' : 'Как проявилось…');
 
   let tracked = $state(!!db.tracked.all().find((t) => t.signature === sig));
@@ -169,7 +172,9 @@
     <div class="winrow">Окно аспекта: {fmtWin(win.begin)} → <b>точно {fmtWin(win.exact)}</b> → {fmtWin(win.end)}</div>
   {:else}
     <div class="exact">Орбис {a.orb.toFixed(2)}° ·
-      {isTransit ? 'транзит к твоей карте' : ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}
+      {isTransit ? 'транзит к твоей карте'
+        : isComposite ? 'аспект композита (вне времени)'
+        : ownerA === ownerB ? 'натальный аспект' : 'межаспект карт (вне времени)'}
       {#if ASPECT_GLOSS[a.aspect]}<Hint k={ASPECT_GLOSS[a.aspect]} />{/if}</div>
   {/if}
 

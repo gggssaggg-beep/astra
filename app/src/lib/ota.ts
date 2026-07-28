@@ -24,7 +24,27 @@ import { flushNow } from './db.ts';
 const REPO = 'gggssaggg-beep/astra';
 const MANIFEST_URL = `https://raw.githubusercontent.com/${REPO}/main/apk/latest.json`;
 
-interface Manifest { version: string; url: string; notes?: string; }
+/** Пофайловый манифест бандла (SR-2). Capgo умеет ДЕЛЬТА-обновления: получив
+ *  список файлов с хэшами, он берёт неизменившиеся из ВСТРОЕННОГО бандла APK и
+ *  качает только новые. Так эфемериды (swisseph.data, 11,5 МБ) не едут по сети
+ *  на каждое обновление — их и так привёз APK. Бандл: 7,5 → ~2 МБ.
+ *  Хэш — SHA-256 в hex (см. DownloadService.calculateFileHash в плагине). */
+interface FileEntry { file_name: string; file_hash: string; download_url: string; }
+interface Manifest { version: string; url: string; notes?: string; files?: FileEntry[]; }
+
+/** Сколько файлов реально поедет по сети: плагин сам сверяет хэши со встроенным
+ *  бандлом и локальным кэшем. Чисто информационно — если метода нет, молчим. */
+async function deltaHint(files: FileEntry[]): Promise<string> {
+  try {
+    const api = CapacitorUpdater as unknown as {
+      getMissingBundleFiles?: (o: { manifest: FileEntry[] }) => Promise<{ missing?: FileEntry[] }>;
+    };
+    const r = await api.getMissingBundleFiles?.({ manifest: files });
+    const n = r?.missing?.length;
+    if (n != null) return `Скачиваю обновление: ${n} из ${files.length} файлов…`;
+  } catch { /* метод недоступен — просто без цифры */ }
+  return 'Скачиваю обновление…';
+}
 
 /** Итог последней проверки OTA — для показа в настройках (диагностика). */
 export interface OtaStatus {
@@ -159,6 +179,22 @@ export async function checkOtaUpdate(onProgress?: (msg: string) => void): Promis
         onProgress?.(`Скачиваю… ${Math.round(e.percent ?? 0)}%`);
       })) ?? null; } catch { /* старый плагин без события — просто без процентов */ }
       try {
+        // SR-2: с пофайловым манифестом плагин качает ТОЛЬКО изменившееся,
+        // переиспользуя совпавшие по хэшу файлы из встроенного бандла APK
+        // (эфемериды 11,5 МБ туда и входят). Нет манифеста — как раньше, зипом.
+        const opts: { url: string; version: string; manifest?: FileEntry[] } =
+          { url: m.url, version: m.version };
+        if (m.files?.length) {
+          opts.manifest = m.files;
+          onProgress?.(await deltaHint(m.files));
+        }
+        const bundle = await CapacitorUpdater.download(opts);
+        id = bundle.id;
+      } catch (e) {
+        // дельта не поехала (старый плагин / битый манифест) — честно падаем
+        // на полный зип, чтобы обновление не встало совсем
+        if (!m.files?.length) throw e;
+        onProgress?.('Дельта не прошла — качаю целиком…');
         const bundle = await CapacitorUpdater.download({ url: m.url, version: m.version });
         id = bundle.id;
       } finally { try { sub?.remove(); } catch { /* уже снят */ } }

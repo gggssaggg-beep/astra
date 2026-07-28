@@ -92,10 +92,35 @@ jobs:
           (cd app/dist && zip -r -q ../../apk/bundle.zip .)
           # version.ts уже проштампован полной версией на шаге выше
           VER=$(grep -oP "APP_VERSION = '\K[0-9.]+" app/src/lib/version.ts)
-          URL="https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/bundle.zip"
-          printf '{\n  "version": "%s",\n  "url": "%s",\n  "notes": "build %s (%s)"\n}\n' \
-            "$VER" "$URL" "$VER" "${GITHUB_SHA::7}" > apk/latest.json
-          echo "OTA версия: $VER"
+          RAW="https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk"
+          # SR-2: ПОФАЙЛОВАЯ раскладка + хэши. Capgo с таким манифестом качает
+          # только изменившееся, а совпавшее по хэшу берёт из встроенного бандла
+          # APK — эфемериды (11,5 МБ) перестают ездить по сети каждое обновление.
+          # apk/files чистим целиком: иначе хэшированные index-*.js копятся вечно
+          # (тот же урок, что с зипом — SYSTEM_REVIEW SR-1).
+          rm -rf apk/files
+          mkdir -p apk/files
+          cp -r app/dist/. apk/files/
+          python3 - "$VER" "$RAW" "${GITHUB_SHA::7}" <<'PY' > apk/latest.json
+          import hashlib, json, os, sys, urllib.parse
+          ver, raw, sha = sys.argv[1], sys.argv[2], sys.argv[3]
+          root = 'apk/files'
+          files = []
+          for dirpath, _, names in os.walk(root):
+              for n in sorted(names):
+                  full = os.path.join(dirpath, n)
+                  rel = os.path.relpath(full, root).replace(os.sep, '/')
+                  h = hashlib.sha256(open(full, 'rb').read()).hexdigest()
+                  files.append({
+                      'file_name': rel, 'file_hash': h,
+                      'download_url': f'{raw}/files/' + urllib.parse.quote(rel),
+                  })
+          print(json.dumps({
+              'version': ver, 'url': f'{raw}/bundle.zip',
+              'notes': f'build {ver} ({sha})', 'files': files,
+          }, ensure_ascii=False, indent=2))
+          PY
+          echo "OTA версия: $VER; файлов в манифесте: $(grep -c file_name apk/latest.json)"
 
       - name: Обновить APK + OTA-бандл в репо (та же ссылка для скачивания)
         run: |
@@ -105,6 +130,7 @@ jobs:
           cp app/android/app/build/outputs/apk/debug/app-debug.apk /tmp/Astra.apk
           cp apk/bundle.zip /tmp/bundle.zip
           cp apk/latest.json /tmp/latest.json
+          rm -rf /tmp/otafiles && cp -r apk/files /tmp/otafiles
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           for i in 1 2 3; do
@@ -114,8 +140,12 @@ jobs:
             cp /tmp/Astra.apk apk/Astra.apk
             cp /tmp/bundle.zip apk/bundle.zip
             cp /tmp/latest.json apk/latest.json
+            # старую раскладку сносим ПОЛНОСТЬЮ (хэшированные имена не переживают
+            # сборку) — иначе apk/files растёт бесконечно, как когда-то зип
+            rm -rf apk/files && cp -r /tmp/otafiles apk/files
             # -f: keystore под *.keystore в .gitignore, но фиксированный ключ нужен в репо
             git add -f app/android/app/astra-debug.keystore
+            git add -A apk/files
             git add apk/Astra.apk apk/bundle.zip apk/latest.json
             git commit -m "APK + OTA авто-сборка [skip ci]" || { echo "без изменений"; exit 0; }
             git push && exit 0

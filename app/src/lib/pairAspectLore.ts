@@ -584,18 +584,28 @@ export const ASPECT_ORDER = ['соединение', 'оппозиция', 'тр
 
 export interface PairAspectEntry { p1: string; p2: string; aspect: string; text: string; }
 
+// Доп. объекты, у которых корпус написан ПОЛНОСТЬЮ (пары со всеми базовыми ×
+// 5 аспектов). В перебор базовых их включать нельзя — вышли бы пустые пары
+// вроде Хирон×Церера; поэтому они идут отдельным хвостом, после базовых.
+export const EXTRA_LEADS = ['Хирон'];
+
 /** Полная база трактовок пар планет в порядке астролога — для просмотра в
- *  Библиотеке. Разноимённые пары (не синастрийные одноимённые). */
+ *  Библиотеке. Разноимённые пары (не синастрийные одноимённые).
+ *  Тексты без входа в этот список недостижимы для читателя — тот же урок, что
+ *  с осиротевшими статьями глоссария. */
 export function orderedPairAspects(): PairAspectEntry[] {
   const out: PairAspectEntry[] = [];
-  for (let i = 0; i < LEAD_ORDER.length; i++) {
-    for (let j = i + 1; j < LEAD_ORDER.length; j++) {
-      const p1 = LEAD_ORDER[i], p2 = LEAD_ORDER[j];
-      for (const aspect of ASPECT_ORDER) {
-        const text = pairAspectLore(p1, p2, aspect);
-        if (text) out.push({ p1, p2, aspect, text });
-      }
+  const push = (p1: string, p2: string) => {
+    for (const aspect of ASPECT_ORDER) {
+      const text = pairAspectLore(p1, p2, aspect);
+      if (text) out.push({ p1, p2, aspect, text });
     }
+  };
+  for (let i = 0; i < LEAD_ORDER.length; i++) {
+    for (let j = i + 1; j < LEAD_ORDER.length; j++) push(LEAD_ORDER[i], LEAD_ORDER[j]);
+  }
+  for (const extra of EXTRA_LEADS) {
+    for (const base of LEAD_ORDER) push(base, extra);
   }
   return out;
 }

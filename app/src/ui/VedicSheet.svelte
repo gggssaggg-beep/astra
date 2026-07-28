@@ -20,6 +20,7 @@
   import { vedicNatal, vedicSky, vargaCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
   import { ashtakavarga } from '../lib/ashtakavarga.ts';
+  import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { grahaSignText } from '../lib/grahaSignLore.ts';
   import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
@@ -40,6 +41,7 @@
   let tab = $state<'chart' | 'sky'>('chart');
   let openDasha = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
+  let tlAll = $state(false);                    // лента дат раскрыта целиком
 
   // Варги: три ходовые карты кнопками, остальные — в компактном «ещё», иначе
   // ряд из восьми кнопок на телефоне разъезжается.
@@ -58,6 +60,18 @@
     const signs: Record<string, number> = {};
     for (const p of natal.chart.planets) signs[p.name] = p.signIndex;
     return ashtakavarga(signs, natal.chart.lagnaSign);
+  });
+
+  // важные даты на три года вперёд (движок, без ИИ)
+  const timeline = $derived.by(() => {
+    if (!natal) return [];
+    const rahu = natal.chart.planets.find((p) => p.name === 'Раху');
+    try {
+      return vedicTimeline(engine, natal.dashas, {
+        lagnaSign: natal.chart.lagnaSign, moonSign: natal.chart.moonSign,
+        rahuSign: rahu?.signIndex ?? 0,
+      }, new Date(), 3);
+    } catch { return []; }
   });
 
   // Саде Сати: транзитный Сатурн относительно НАТАЛЬНОЙ Луны (12/1/2-й знак =
@@ -253,6 +267,28 @@
         </div>
       {/each}
 
+      <!-- Что и когда — без похода к ИИ: смены даш, заходы медленных грах,
+           Саде Сати, узловые возвращения. Ближайшее сверху. -->
+      {#if timeline.length}
+        <div class="hdr">Важные даты</div>
+        <div class="card glass reveal" use:reveal>
+          {#each timeline.slice(0, tlAll ? timeline.length : 8) as e (e.at.getTime() + e.title)}
+            <div class="tl w{e.weight}">
+              <div class="tlhead"><span class="tldate">{dt(e.at)}</span><b>{e.title}</b></div>
+              <div class="tldetail">{e.detail}</div>
+            </div>
+          {/each}
+          {#if timeline.length > 8}
+            <button class="lorebtn" onclick={() => (tlAll = !tlAll)}>
+              {tlAll ? 'Свернуть' : `Ещё ${timeline.length - 8}`} {tlAll ? '▴' : '▾'}
+            </button>
+          {/if}
+        </div>
+        <div class="note">Даты рассчитаны движком: смены периодов, заходы Юпитера и Сатурна
+          в новый знак, фазы Саде Сати, узловые возвращения. Быстрые грахи сюда не идут —
+          они на экране дня.</div>
+      {/if}
+
       <div class="hdr">Периоды Вимшоттари</div>
       {#each natal.dashas as d}
         {@const cur = natal.now.maha?.from.getTime() === d.from.getTime()}
@@ -383,6 +419,15 @@
   .rul { color: var(--ink-faint); font-size: 0.78rem; }
   .ppos { font-size: 0.84rem; color: var(--ink-dim); }
   .psub { color: var(--ink-faint); font-size: 0.78rem; margin-top: 4px; line-height: 1.4; }
+  .tl { padding: 8px 0; }
+  .tl + .tl { border-top: 1px solid var(--glass-brd); }
+  .tl.w0 { opacity: 0.66; }
+  .tlhead { display: flex; gap: 9px; align-items: baseline; font-size: 0.86rem; color: var(--ink); }
+  .tldate { color: var(--ink-faint); font-size: 0.76rem; font-variant-numeric: tabular-nums;
+    min-width: 5.3rem; }
+  .tl.w2 .tlhead b { color: var(--gold); }
+  .tldetail { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45;
+    margin: 3px 0 0 5.3rem; }
   .lorebtn { background: transparent; border: none; padding: 6px 0 2px; text-align: left;
     color: var(--ink-dim); font-size: 0.78rem; }
   .lorebox { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 9px; }

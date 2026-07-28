@@ -3,10 +3,10 @@
   import { Capacitor, registerPlugin } from '@capacitor/core';
   import { App as CapApp } from '@capacitor/app';
   import type { Engine, AspectRecord } from './engine/index.ts';
-  import { getEngine } from './lib/engineStore.ts';
+  import { getEngine, setEngineProfile } from './lib/engineStore.ts';
   import { db, file as dataFile, hydrate } from './lib/db.ts';
   import { todayCivil, zonedDayStartUTC, civilOf } from './lib/format.ts';
-  import { orbResolver } from './lib/models.ts';
+  import { orbResolver, zodiacOptions, houseSystemOf } from './lib/models.ts';
   import { aspectSignature } from './lib/signature.ts';
   import { aspectsOnCached } from './lib/dayCache.ts';
   import { recoverNoteDirections } from './lib/notesMigrate.ts';
@@ -30,6 +30,7 @@
   import PlanetCuspsSheet from './ui/PlanetCuspsSheet.svelte';
   import DegreeSearchSheet from './ui/DegreeSearchSheet.svelte';
   import RetroSheet from './ui/RetroSheet.svelte';
+  import VedicSheet from './ui/VedicSheet.svelte';
   import FiguresSheet from './ui/FiguresSheet.svelte';
   import CommunitySheet from './ui/CommunitySheet.svelte';
   import Welcome from './ui/Welcome.svelte';
@@ -66,7 +67,7 @@
   // БИБЛИОТЕКУ (пункт выше). Открыта может быть только одна — как и раньше.
   type LibKey = 'journal' | 'arch' | 'houses' | 'planetSigns' | 'planetHouses'
     | 'dispositors' | 'planetCusps' | 'degree' | 'retro' | 'figures'
-    | 'tracked' | 'signMyths' | 'interp';
+    | 'tracked' | 'signMyths' | 'interp' | 'vedic';
   let libSheet = $state<LibKey | null>(null);
   const openLib = (k: LibKey) => { showLibrary = false; libSheet = k; };
   const closeLib = () => { libSheet = null; showLibrary = true; };
@@ -414,6 +415,9 @@
       showWelcome = !settings.seenWelcome;
     } catch { /* стартуем с дефолтов */ }
 
+    // профиль зодиака — ДО создания движка: тумблер «Ведический режим» меняет
+    // весь расчёт (сидерические долготы, целознаковые дома), а не отдельный экран
+    setEngineProfile(zodiacOptions(settings));
     try { engine = await getEngine('swieph'); reschedule(); migrateNoteDirections(); }
     catch (e) { error = e instanceof Error ? e.message : String(e); }
     // подхватить файл данных с диска (если доступ уже разрешён — тихо; только веб)
@@ -454,7 +458,14 @@
   }
   function onPanelChanged() {
     const wasToday = isToday;
+    const prevZodiac = `${settings.zodiac ?? 'tropical'}|${settings.ayanamsa ?? 'lahiri'}`;
     settings = { ...db.settings.get() };
+    // переключили зодиак (или аянамшу) — движок другой, старый пересчитывать нечем
+    if (`${settings.zodiac ?? 'tropical'}|${settings.ayanamsa ?? 'lahiri'}` !== prevZodiac) {
+      setEngineProfile(zodiacOptions(settings));
+      getEngine('swieph').then((e) => { engine = e; reschedule(); })
+        .catch((e) => (error = e instanceof Error ? e.message : String(e)));
+    }
     // сменили пояс, стоя на «сегодня» — «сегодня» пересчитываем в новом поясе
     if (wasToday) { resetScrub(); date = todayCivil(settings.tz); }
     reschedule();
@@ -607,7 +618,7 @@
 {/if}
 
 {#if showAstrologer && engine}
-  <AstrologerSheet {engine} {orbOf} objects={settings.objects} houseSystem={settings.houseSystem}
+  <AstrologerSheet {engine} {orbOf} objects={settings.objects} houseSystem={houseSystemOf(settings)}
     tz={settings.tz} onclose={() => { showAstrologer = false; void refreshClientCharts(); }} />
 {/if}
 
@@ -625,6 +636,7 @@
     onDispositors={() => openLib('dispositors')}
     onPlanetCusps={() => openLib('planetCusps')}
     onDegree={() => openLib('degree')}
+    onVedic={() => openLib('vedic')} vedic={settings.zodiac === 'sidereal'}
     onRetro={() => openLib('retro')}
     onFigures={() => openLib('figures')} />
 {/if}
@@ -669,6 +681,11 @@
   <RetroSheet {engine} onclose={closeLib} />
 {/if}
 
+{#if libSheet === 'vedic' && engine}
+  <VedicSheet {engine} tz={settings.tz} selfId={settings.transitSelfId}
+    simple={!!settings.vedicSimple} onclose={closeLib} />
+{/if}
+
 {#if libSheet === 'figures'}
   <FiguresSheet onclose={closeLib} />
 {/if}
@@ -687,7 +704,7 @@
        Если шторка карт уже открыта, смена select обязана её пересоздать. -->
   {#key showCharts.select}
   <ChartsSheet bind:this={chartsRef} {engine} {orbOf} signStyle={effSignStyle} defaultTz={settings.tz}
-    tz={settings.tz} objects={settings.objects} houseSystem={settings.houseSystem}
+    tz={settings.tz} objects={settings.objects} houseSystem={houseSystemOf(settings)}
     nodalAxisFigures={settings.nodalAxisFigures ?? false}
     initialMode={showCharts.mode ?? 'transitNatal'}
     initialSelect={showCharts.select ?? null}

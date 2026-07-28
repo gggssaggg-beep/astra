@@ -8,12 +8,16 @@
 import SwissEph from 'swisseph-wasm';
 import {
   BODIES, MOON, bodyCode, SWE_CODE, ZODIAC, SIGN_GLYPH, PLANET_GLYPH,
-  FLAG_SWIEPH, FLAG_MOSEPH,
+  FLAG_SWIEPH, FLAG_MOSEPH, FLAG_SIDEREAL, ayanamsaMode,
 } from './constants.ts';
-import type { BodyPosition, EphemerisMode } from './types.ts';
+import type { BodyPosition, EphemerisMode, EngineOptions, ZodiacMode } from './types.ts';
 
 export interface Engine {
   readonly mode: EphemerisMode;
+  /** Зодиак этого движка: тропический или сидерический (ведический). */
+  readonly zodiac: ZodiacMode;
+  /** Аянамша (°) на момент jd — сдвиг сидерического круга. 0 в тропическом режиме. */
+  ayanamsa(jd: number): number;
   toJD(utc: Date): number;
   fromJD(jd: number): Date;
   /** Долгота объекта (°), с учётом Кету = узел + 180. */
@@ -42,6 +46,7 @@ export interface HousesInfo { cusps: number[]; asc: number; mc: number; }
 export const HOUSE_SYS: Record<string, string> = {
   horizontal: 'H', placidus: 'P', koch: 'K', porphyry: 'O', regiomontanus: 'R',
   campanus: 'C', equalAsc: 'A', morinus: 'M', alcabitus: 'B',
+  wholeSign: 'W',   // целознаковые дома — стандарт джйотиша (дом = знак целиком)
 };
 
 export interface EclipseInfo {
@@ -57,11 +62,27 @@ export function signOf(lon: number): { sign: string; glyph: string; deg: number 
   return { sign: ZODIAC[i], glyph: SIGN_GLYPH[i], deg: ((lon % 30) + 30) % 30 };
 }
 
-export async function createEngine(mode: EphemerisMode = 'swieph'): Promise<Engine> {
+export async function createEngine(
+  mode: EphemerisMode = 'swieph',
+  opts: EngineOptions = {},
+): Promise<Engine> {
   const swe: any = new SwissEph();
   await swe.initSwissEph();
   const m: any = swe.SweModule;   // emscripten Module (нет в .d.ts пакета)
-  const flag = mode === 'moshier' ? FLAG_MOSEPH : FLAG_SWIEPH;
+  const zodiac: ZodiacMode = opts.zodiac ?? 'tropical';
+  const base = mode === 'moshier' ? FLAG_MOSEPH : FLAG_SWIEPH;
+  // В сидерическом режиме аянамшу выбирает swe_set_sid_mode, а сам сдвиг долгот
+  // включается флагом расчёта. Тропический движок флага не ставит, поэтому общий
+  // на инстанс sid_mode ему безразличен — режимы не мешают друг другу.
+  const flag = zodiac === 'sidereal' ? base | FLAG_SIDEREAL : base;
+  if (zodiac === 'sidereal') {
+    m.ccall('swe_set_sid_mode', null, ['number', 'number', 'number'],
+      [ayanamsaMode(opts.ayanamsa), 0, 0]);
+  }
+  // Узлы по умолчанию ИСТИННЫЕ — и по правилу ТЗ, и потому что джйотиш-сервис,
+  // по которому сверялись (карта 12.03.1998, сходится до 1.5″), считает их же.
+  // Средний узел — опция: часть классической школы читает Раху только средним.
+  const nodeCode = opts.nodes === 'mean' ? SWE_CODE.MEAN_NODE : SWE_CODE.TRUE_NODE;
 
   const toJD = (utc: Date): number => {
     const h = utc.getUTCHours() + utc.getUTCMinutes() / 60
@@ -88,13 +109,17 @@ export async function createEngine(mode: EphemerisMode = 'swieph'): Promise<Engi
     return { lon: xx[0], speed: xx[3] };
   };
 
+  // Узлы считаем выбранным кодом (mean/true), остальные объекты — как обычно.
+  const codeOf = (name: string): number =>
+    (name === 'Раху' || name === 'Кету') ? nodeCode : bodyCode(name);
+
   const lon = (jd: number, name: string): number => {
-    if (name === 'Кету') return (calc(jd, SWE_CODE.TRUE_NODE).lon + 180) % 360;
-    return calc(jd, bodyCode(name)).lon;
+    if (name === 'Кету') return (calc(jd, nodeCode).lon + 180) % 360;
+    return calc(jd, codeOf(name)).lon;
   };
 
   const lonSpeed = (jd: number, name: string): [number, number] => {
-    const r = calc(jd, bodyCode(name));
+    const r = calc(jd, codeOf(name));
     const l = name === 'Кету' ? (r.lon + 180) % 360 : r.lon;
     return [l, r.speed];
   };
@@ -160,15 +185,29 @@ export async function createEngine(mode: EphemerisMode = 'swieph'): Promise<Engi
     return out;
   };
 
+  // Аянамша на момент jd (0 в тропическом режиме — сдвига нет).
+  const ayanamsa = (jd: number): number => {
+    if (zodiac !== 'sidereal') return 0;
+    return m.ccall('swe_get_ayanamsa_ut', 'number', ['number'], [jd]);
+  };
+
   // --- дома (swe_houses через ccall; equalMC — вручную от MC) ---
   const norm360 = (x: number): number => ((x % 360) + 360) % 360;
   const houses = (jd: number, lat: number, lon: number, system: string): HousesInfo | null => {
     try {
       const char = HOUSE_SYS[system] ?? 'P';
       const cuspsP = dblArr(13), ascmcP = dblArr(10);
-      m.ccall('swe_houses', 'number',
-        ['number', 'number', 'number', 'number', 'number', 'number'],
-        [jd, lat, lon, char.charCodeAt(0), cuspsP, ascmcP]);
+      // В сидерическом режиме нужен swe_houses_ex с флагом: он сам вычитает
+      // аянамшу из куспидов и Asc/MC (иначе лагна уехала бы на ~24°).
+      if (zodiac === 'sidereal') {
+        m.ccall('swe_houses_ex', 'number',
+          ['number', 'number', 'number', 'number', 'number', 'number', 'number'],
+          [jd, flag, lat, lon, char.charCodeAt(0), cuspsP, ascmcP]);
+      } else {
+        m.ccall('swe_houses', 'number',
+          ['number', 'number', 'number', 'number', 'number', 'number'],
+          [jd, lat, lon, char.charCodeAt(0), cuspsP, ascmcP]);
+      }
       const asc = rd(ascmcP, 0), mc = rd(ascmcP, 1);
       let cusps = Array.from({ length: 12 }, (_, i) => rd(cuspsP, i + 1));
       if (system === 'equalMC') cusps = Array.from({ length: 12 }, (_, i) => norm360(mc + (i + 1 - 10) * 30));
@@ -178,5 +217,6 @@ export async function createEngine(mode: EphemerisMode = 'swieph'): Promise<Engi
     } catch { return null; }   // swe_houses не экспортирована в этой сборке — без домов
   };
 
-  return { mode, toJD, fromJD, lon, lonSpeed, positions, audit, solEclipse, lunEclipse, houses, flag, raw: swe };
+  return { mode, zodiac, ayanamsa, toJD, fromJD, lon, lonSpeed, positions, audit,
+    solEclipse, lunEclipse, houses, flag, raw: swe };
 }

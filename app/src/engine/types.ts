@@ -2,6 +2,17 @@
 
 export type EphemerisMode = 'swieph' | 'moshier';
 
+/** Зодиак: тропический (западная астрология) или сидерический (джйотиш). */
+export type ZodiacMode = 'tropical' | 'sidereal';
+
+/** Настройки движка сверх режима эфемерид. */
+export interface EngineOptions {
+  zodiac?: ZodiacMode;   // 'tropical' по умолчанию
+  ayanamsa?: string;     // id из AYANAMSAS ('lahiri' по умолчанию)
+  /** Узлы: истинные (западная традиция, наш дефолт) или средние (джйотиш). */
+  nodes?: 'true' | 'mean';
+}
+
 export interface BodyPosition {
   name: string;
   glyph: string;

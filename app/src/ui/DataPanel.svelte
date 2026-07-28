@@ -5,7 +5,7 @@
   import { SIGN_STYLES, DEFAULT_ORBS, HOUSE_SYSTEMS, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
   import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
-  import { PLANET_GLYPH } from '../engine/index.ts';
+  import { PLANET_GLYPH, AYANAMSAS } from '../engine/index.ts';
   import { getOtaStatus, checkOtaUpdate, applyQueuedNow } from '../lib/ota.ts';
   import { tgHref } from '../lib/telegram.ts';
   import Hint from './Hint.svelte';
@@ -27,6 +27,7 @@
     db.settings.set(cfg);
     onchanged();
   }
+  const vedic = $derived((cfg.zodiac ?? 'tropical') === 'sidereal');
   const setSign = (id: SignStyle) => save({ signStyle: id });
   const setTheme = (t: ThemeMode) => save({ theme: t });
 
@@ -314,13 +315,46 @@
   </div>
 
   <div class="block">
+    <div class="lbl">Зодиак</div>
+    <select class="select" value={cfg.zodiac ?? 'tropical'}
+      onchange={(e) => save({ zodiac: (e.target as HTMLSelectElement).value as 'tropical' | 'sidereal' })}>
+      <option value="tropical">Западный · тропический</option>
+      <option value="sidereal">Ведический · джйотиш</option>
+    </select>
+    {#if vedic}
+      <div class="lbl" style="margin-top:10px">Аянамша</div>
+      <select class="select" value={cfg.ayanamsa ?? 'lahiri'}
+        onchange={(e) => save({ ayanamsa: (e.target as HTMLSelectElement).value })}>
+        {#each AYANAMSAS as a}<option value={a.id}>{a.label}</option>{/each}
+      </select>
+      <div class="hint small" style="margin-top:8px">Ведический режим меняет весь расчёт: знаки и
+        градусы сдвигаются на аянамшу (сейчас около 24°), дома становятся целознаковыми.
+        Аспекты между планетами остаются те же — сдвиг одинаков для всех.</div>
+      <!-- по умолчанию вид ПОЛНЫЙ (приложение делалось для астролога); тумблер
+           убирает специальные слои для того, кто джйотиш только смотрит -->
+      <label class="toggle" style="margin-top:12px">
+        <input type="checkbox" checked={!!cfg.vedicSimple}
+          onchange={(e) => save({ vedicSimple: (e.target as HTMLInputElement).checked })} />
+        Я не астролог — упрощённый вид
+      </label>
+      <div class="hint small">Скрывает навамшу, отношения планет и прочие специальные слои —
+        остаются дома, знаки, планеты с градусами, караки и периоды.</div>
+    {:else}
+      <div class="hint small" style="margin-top:8px">Западный зодиак отсчитывается от точки весеннего
+        равноденствия, ведический — от неподвижных звёзд. Одна и та же планета попадает в разные знаки.</div>
+    {/if}
+  </div>
+
+  <div class="block">
     <div class="lbl">Дома <Hint k="house-system" /></div>
-    <select class="select" value={cfg.houseSystem ?? 'horizontal'}
+    <select class="select" value={vedic ? 'wholeSign' : (cfg.houseSystem ?? 'horizontal')}
+      disabled={vedic}
       onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
       {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
     </select>
-    <div class="hint small" style="margin-top:8px">Дома рисуются в натальных картах, где задано место
-      рождения (координаты). Без места — колесо без домов.</div>
+    <div class="hint small" style="margin-top:8px">{#if vedic}В ведическом режиме дома всегда
+      целознаковые: дом = знак целиком, первый дом начинается со знака лагны.{:else}Дома рисуются
+      в натальных картах, где задано место рождения (координаты). Без места — колесо без домов.{/if}</div>
   </div>
 
   </details>

@@ -35,13 +35,13 @@ export function aspectsOnCached(
   const orbOf = typeof orb === 'function' ? orb : () => orb;
   const orbKey = ORB_KEY_ORDER.map((n) => orbOf(n)).join(',');
   const objKey = objects ? objects.join(',') : 'all';
-  return cached(aspCache, `${E.mode}|${dayStart.getTime()}|${orbKey}|${objKey}`,
+  return cached(aspCache, `${E.mode}:${E.zodiac}|${dayStart.getTime()}|${orbKey}|${objKey}`,
     () => aspectsOn(E, dayStart, orb, true, objects ?? undefined));
 }
 
 /** События суток (ингрессии/станции/лунации/затмения) с кэшем. */
 export function eventsOnCached(E: Engine, dayStart: Date): DayEvent[] {
-  return cached(evCache, `${E.mode}|${dayStart.getTime()}`, () => eventsOn(E, dayStart));
+  return cached(evCache, `${E.mode}:${E.zodiac}|${dayStart.getTime()}`, () => eventsOn(E, dayStart));
 }
 
 /** «Фигура дня» — детектированная фигура + окно её сборки-распада (пересечение
@@ -65,7 +65,7 @@ export function figuresOnCached(
   const orbOf = typeof orb === 'function' ? orb : () => orb;
   const orbKey = ORB_KEY_ORDER.map((n) => orbOf(n)).join(',');
   const objKey = objects ? objects.join(',') : 'all';
-  return cached(figCache, `${E.mode}|${dayStart.getTime()}|${orbKey}|${objKey}|${nodalAxis}`, () => {
+  return cached(figCache, `${E.mode}:${E.zodiac}|${dayStart.getTime()}|${orbKey}|${objKey}|${nodalAxis}`, () => {
     const day = aspectsOnCached(E, dayStart, orb, objects);
     let edges: AspectRecord[] = [...day.slow, ...day.fast, ...day.moon];
     // ось узлов всегда 180° — не считаем её ребром фигуры (иначе постоянный шум)

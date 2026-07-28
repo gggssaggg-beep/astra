@@ -53,6 +53,12 @@ export interface Settings {
   seenTour?: boolean;         // тур по интерфейсу пройден/закрыт хотя бы раз
   tourOfferOff?: boolean;     // «не предлагать обучение» (✕ на плашке)
   studyDone?: string[];       // id пройденных уроков курса «с нуля» (слой 2); нет = пусто
+  zodiac?: 'tropical' | 'sidereal';  // зодиак: западный (по умолч.) или ведический
+  ayanamsa?: string;          // id аянамши для ведического режима (нет = Лахири)
+  // «я не астролог»: убрать специальные слои джйотиша (навамша, отношения планет
+  // и всё, что добавится дальше). По умолчанию ВЫКЛ — вид полный, приложение
+  // делалось для астролога; упрощение включает тот, кто джйотиш только смотрит.
+  vedicSimple?: boolean;
   houseSystem?: string;       // система домов (id из HOUSE_SYSTEMS; нет = горизонтальная)
   houseSysV2?: boolean;       // разовая миграция дефолта на горизонтальную (2026-07-06)
   themeV2?: boolean;          // разовая миграция темы на «Аврору» (2026-07-06)
@@ -77,7 +83,16 @@ export const HOUSE_SYSTEMS: { id: string; label: string }[] = [
   { id: 'equalMC', label: 'Равнодомная от MC' },
   { id: 'morinus', label: 'Моринус' },
   { id: 'alcabitus', label: 'Алькабитус' },
+  { id: 'wholeSign', label: 'Целознаковые (джйотиш)' },
 ];
+
+/** Настройки движка из настроек приложения (профиль зодиака). */
+export const zodiacOptions = (s: Settings): { zodiac: 'tropical' | 'sidereal'; ayanamsa?: string } =>
+  s.zodiac === 'sidereal' ? { zodiac: 'sidereal', ayanamsa: s.ayanamsa ?? 'lahiri' } : { zodiac: 'tropical' };
+
+/** В ведическом режиме дома всегда целознаковые: так читает джйотиш. */
+export const houseSystemOf = (s: Settings): string =>
+  s.zodiac === 'sidereal' ? 'wholeSign' : (s.houseSystem ?? 'horizontal');
 
 /** Запись бортового журнала = наблюдение (§3.5 + раунд 3). */
 export interface JournalNote {

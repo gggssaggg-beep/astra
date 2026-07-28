@@ -5,7 +5,7 @@
  */
 import type { Engine } from '../engine/index.ts';
 import { stationsBetween } from '../engine/index.ts';
-import { signIndexOf } from './vedic.ts';
+import { signIndexOf, gocharaGood, sadeSati } from './vedic.ts';
 import type { DashaPeriod } from './vedic.ts';
 
 export interface AntarWindow {
@@ -62,6 +62,48 @@ export function sidIngresses(E: Engine, from: Date, days: number): SidIngress[] 
     }
   }
   return out.sort((x, y) => +x.at - +y.at);
+}
+
+export interface MonthGochara {
+  /** первое число месяца (UTC) */
+  at: Date;
+  good: string[];        // грахи в благоприятных домах от Луны
+  bad: string[];         // в неблагоприятных
+  /** ПОДСКАЗКА-СЧЁТЧИК, не канон: +1/−1 по гочаре от Луны, Юпитер и Сатурн ×2
+   *  (медленные держат тон месяца). Итоговый вывод — за толкователем. */
+  score: number;
+  sadeSati: string | null;
+}
+
+// месяц характеризуют медленные и Солнце; Луна и Меркурий меняют дома по
+// нескольку раз за месяц — в помесячной сводке они были бы шумом
+const MONTH_GRAHAS = ['Солнце', 'Марс', 'Юпитер', 'Венера', 'Сатурн', 'Раху', 'Кету'];
+const HEAVY = new Set(['Юпитер', 'Сатурн']);
+
+/**
+ * Помесячная гочара от натальной Луны на months месяцев вперёд — «график
+ * напряжения и возможностей» (запрос астролога 2026-07-29). Оценка на середину
+ * месяца: положение медленных внутри месяца почти не меняется.
+ */
+export function monthlyGochara(E: Engine, moonSign: number, from: Date, months: number): MonthGochara[] {
+  const out: MonthGochara[] = [];
+  for (let m = 0; m < months; m++) {
+    const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + m, 1));
+    const mid = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 15));
+    const jd = E.toJD(mid);
+    const good: string[] = [], bad: string[] = [];
+    let score = 0;
+    for (const g of MONTH_GRAHAS) {
+      const sign = signIndexOf(E.lon(jd, g));
+      const ok = gocharaGood(g, sign, moonSign);
+      if (ok === null) continue;
+      const w = HEAVY.has(g) ? 2 : 1;
+      if (ok) { good.push(g); score += w; } else { bad.push(g); score -= w; }
+    }
+    const sat = signIndexOf(E.lon(jd, 'Сатурн'));
+    out.push({ at: d, good, bad, score, sadeSati: sadeSati(moonSign, sat)?.label ?? null });
+  }
+  return out;
 }
 
 export interface StationInWindow { planet: string; at: Date; toRetro: boolean; sign: number; }

@@ -16,8 +16,9 @@ import { degMin, SHORT } from './vedicChart.ts';
 import { GRAHA_NAMES } from './vedicLore.ts';
 import {
   sadeSati, signIndexOf, RELATION_LABEL, CHARA_KARAKAS, VEDIC_ORDER_SET,
+  houseFromMoon, gocharaGood,
 } from './vedic.ts';
-import type { AntarWindow, SidIngress, StationInWindow } from './vedicForecast.ts';
+import type { AntarWindow, SidIngress, StationInWindow, MonthGochara } from './vedicForecast.ts';
 
 const DD = (d: Date): string => {
   const p = (n: number) => String(n).padStart(2, '0');
@@ -52,6 +53,8 @@ export interface VedicPromptInput {
     antars: AntarWindow[];
     ingresses: SidIngress[];
     stations: StationInWindow[];
+    /** помесячный «график напряжения и возможностей» (гочара от Луны) */
+    months12?: MonthGochara[];
   } | null;
   tz: string;
 }
@@ -95,6 +98,19 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
   L.push('\n### Лорды домов (дом · знак · лорд · где стоит)');
   L.push(c.houses.map((h) => `${h.house}: ${h.sign}, ${h.lord} → ${h.lordHouse ? `${h.lordHouse}-й` : '—'}`).join(' · '));
 
+  // ── ось Раху–Кету: что развивать, на что опираться ──
+  const rahu = c.planets.find((p) => p.name === 'Раху');
+  const ketu = c.planets.find((p) => p.name === 'Кету');
+  if (rahu && ketu) {
+    const disp = (p: typeof rahu) => {
+      const d = c.planets.find((x) => x.name === p.host);
+      return d ? `${p.host} в ${d.house}-м доме (${d.sign}, ${stateOf(d)})` : p.host;
+    };
+    L.push('\n### Ось Раху–Кету (что осваивать / на что опираться)');
+    L.push(`Раху: ${rahu.house}-й дом, ${D(rahu.degInSign)} ${rahu.sign}, накшатра ${rahu.nakshatra.name} ${rahu.nakshatra.pada}; хозяин знака — ${disp(rahu)}.`);
+    L.push(`Кету: ${ketu.house}-й дом, ${D(ketu.degInSign)} ${ketu.sign}, накшатра ${ketu.nakshatra.name} ${ketu.nakshatra.pada}; хозяин знака — ${disp(ketu)}.`);
+  }
+
   // ── караки ──
   L.push('\n### Чара-караки (Джаймини, 7 планет по градусу в знаке)');
   for (const k of CHARA_KARAKAS) {
@@ -135,10 +151,35 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
     L.push('Антардаши: ' + f.antars.map((a) =>
       `${a.maha}–${a.antar} с ${DD(a.from)} до ${DD(a.to)}${a.current ? ' (ТЕКУЩАЯ)' : ''}`).join('; ') + '.');
     if (f.ingresses.length) {
-      L.push('Переходы транзитов (дома от лагны):');
+      // Каждая ингрессия — с КОНТЕКСТОМ (образец астролога: «Марс переходит в
+      // Близнецы, это ваш 10-й дом карьеры, и он хозяин текущей махадаши…»).
+      // Дом, управление, роль в даше и дом от Луны считает приложение — ИИ
+      // остаётся толкование, а не поиск связей.
+      L.push('Переходы транзитов (дом от лагны · что граха значит в этой карте):');
+      const mahaLord = f.antars.find((a) => a.current)?.maha;
+      const antarLord = f.antars.find((a) => a.current)?.antar;
       for (const g of f.ingresses) {
         const house = ((g.toSign - c.lagnaSign + 12) % 12) + 1;
-        L.push(`  ${DD(g.at)} — ${g.name}${g.retro ? ' (ретро)' : ''} → ${ZODIAC[g.toSign]} (${house}-й дом)`);
+        const nat = c.planets.find((p) => p.name === g.name);
+        const roles: string[] = [];
+        if (g.name === mahaLord) roles.push('ХОЗЯИН ТЕКУЩЕЙ МАХАДАШИ');
+        if (g.name === antarLord) roles.push('хозяин текущей антардаши');
+        if (nat?.rules.length) roles.push(`управляет домами ${nat.rules.join(', ')}`);
+        if (nat) roles.push(`в натале — ${nat.house}-й дом, ${nat.sign}`);
+        const fromMoon = houseFromMoon(g.toSign, c.moonSign);
+        const gc = gocharaGood(g.name, g.toSign, c.moonSign);
+        roles.push(`${fromMoon}-й от Луны${gc === null ? '' : gc ? ' (гочара благоприятна)' : ' (гочара неблагоприятна)'}`);
+        L.push(`  ${DD(g.at)} — ${g.name}${g.retro ? ' (ретро)' : ''} → ${ZODIAC[g.toSign]}, `
+          + `${house}-й дом. ${roles.join('; ')}.`);
+      }
+    }
+    if (f.months12?.length) {
+      L.push('\nПомесячная гочара от Луны (счётчик — подсказка, не канон: +1/−1 по классической'
+        + ' таблице благоприятных домов от Луны, Юпитер и Сатурн ×2):');
+      for (const m of f.months12) {
+        L.push(`  ${String(m.at.getUTCMonth() + 1).padStart(2, '0')}.${m.at.getUTCFullYear()}: `
+          + `${m.score > 0 ? '+' : ''}${m.score} · хорошо — ${m.good.join(', ') || '—'} · трудно — ${m.bad.join(', ') || '—'}`
+          + (m.sadeSati ? ` · ${m.sadeSati}` : ''));
       }
     }
     if (f.stations.length) {
@@ -165,7 +206,25 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
    прогнозного горизонта ПО МЕСЯЦАМ, связывая каждую с переходами транзитов и
    станциями из расписания выше (антардаша + транзит = влияние); Саде Сати
    учитывай отдельно. Что поддержано сейчас, что подождёт — с датами.
-9. Итог: кто этот человек, главная тема жизни — 5–7 фраз без воды.
+9. Ось Раху–Кету: что осваивать в этой жизни (Раху) и на что опираться как на
+   готовый прошлый опыт (Кету) — по домам, знакам и хозяевам оси.
+10. График напряжения и возможностей: назови 2–3 самых трудных, требующих
+   осознанности месяца и 2–3 месяца роста — опираясь на помесячную гочару выше,
+   даши и станции, а не на счётчик в одиночку.
+11. Итог: каким человеком он выйдет из этого периода, если проживёт его осознанно.
+
+### КАК ПИСАТЬ ПРО ИНГРЕССИИ
+Не «Марс перешёл в Близнецы», а связно: дата, знак, КАКОЙ ЭТО ДОМ карты, чем
+граха занята в этой карте (хозяин даши? какими домами управляет?), что это даёт
+и о чём предупреждает. Все эти связи уже посчитаны в списке выше — используй их.
+
+### ОГРАНИЧЕНИЯ
+- Без эзотерических клише («вибрации Вселенной», «космические потоки»).
+- Никаких медицинских диагнозов.
+- Никаких фатальных прогнозов (смерть, катастрофы). Тяжёлый транзит — соединение
+  Марс–Кету, Сатурн по лагнешу и подобное — описывай как период интенсивной
+  трансформации, требующий осознанности, сброса старых схем или осторожности.
+- Бытовой человеческий язык, конкретика вместо общих слов.
 Если данных не хватает — скажи, каких именно.`);
 
   return L.join('\n');

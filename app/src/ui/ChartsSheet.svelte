@@ -58,7 +58,7 @@
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
   import { kutaMatch, manglik } from '../lib/kuta.ts';
   import { nakshatraOf, signIndexOf } from '../lib/vedic.ts';
-  import { antarWindows, sidIngresses, stationsInWindow } from '../lib/vedicForecast.ts';
+  import { antarWindows, sidIngresses, stationsInWindow, monthlyGochara } from '../lib/vedicForecast.ts';
   import { ZODIAC } from '../engine/index.ts';
 
   let { engine, orbOf, signStyle, defaultTz, tz, objects = null, houseSystem = 'horizontal',
@@ -623,6 +623,7 @@
           antars: antarWindows(vedicA.dashas, transitAt, to),
           ingresses: sidIngresses(engine, transitAt, days),
           stations: stationsInWindow(engine, transitAt, to),
+          months12: monthlyGochara(engine, vedicA.chart.moonSign, transitAt, months),
         };
       } catch { /* прогноз опционален — карта важнее */ }
       return buildVedicPrompt({

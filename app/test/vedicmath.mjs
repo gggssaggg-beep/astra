@@ -262,6 +262,27 @@ console.log('=== Саде Сати ===');
     assert.equal(sadeSati(4, 11)?.kind, 'ashtama'));
 }
 
+console.log('=== гочара от Луны ===');
+{
+  const { gocharaGood, houseFromMoon, GOCHARA_GOOD } = await import('../src/lib/vedic.ts');
+  ok('дом от Луны считается включительно: Луна Лев, транзит Лев → 1-й', () =>
+    assert.equal(houseFromMoon(4, 4), 1));
+  ok('Луна Лев, транзит Рыбы → 8-й', () => assert.equal(houseFromMoon(11, 4), 8));
+  ok('Сатурн благоприятен в 3, 6, 11 от Луны и нигде больше', () => {
+    assert.deepEqual(GOCHARA_GOOD['Сатурн'], [3, 6, 11]);
+    assert.equal(gocharaGood('Сатурн', (4 + 2) % 12, 4), true);    // 3-й от Луны
+    assert.equal(gocharaGood('Сатурн', (4 + 7) % 12, 4), false);   // 8-й
+  });
+  ok('Юпитер благоприятен во 2, 5, 7, 9, 11 от Луны', () => {
+    assert.equal(gocharaGood('Юпитер', (4 + 4) % 12, 4), true);    // 5-й
+    assert.equal(gocharaGood('Юпитер', (4 + 5) % 12, 4), false);   // 6-й
+  });
+  ok('карта 12.03.1998 (Луна Лев): Сатурн 2026 в Рыбах — 8-й от Луны, неблагоприятен', () =>
+    assert.equal(gocharaGood('Сатурн', 11, 4), false));
+  ok('у объекта вне таблицы результат null', () =>
+    assert.equal(gocharaGood('Уран', 0, 4), null));
+}
+
 console.log('=== сборка карты D1 ===');
 {
   const retro = { 'Раху': true, 'Кету': true };

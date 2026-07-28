@@ -367,6 +367,33 @@ export function compoundRelation(
   return tmp === 'friend' ? 'friend' : 'enemy';
 }
 
+// ─── гочара-пхала: благоприятные дома транзита ОТ ЛУНЫ ─────────────────────
+// Классические таблицы (Пхаладипика/Брихат-самхита): в каких домах ОТ ЛУНЫ
+// граха при транзите даёт хороший результат. Всё остальное — неблагоприятно.
+// Веддха (взаимное перекрытие домов) НЕ учитывается — это отдельный слой.
+export const GOCHARA_GOOD: Record<string, number[]> = {
+  'Солнце': [3, 6, 10, 11],
+  'Луна': [1, 3, 6, 7, 10, 11],
+  'Марс': [3, 6, 11],
+  'Меркурий': [2, 4, 6, 8, 10, 11],
+  'Юпитер': [2, 5, 7, 9, 11],
+  'Венера': [1, 2, 3, 4, 5, 8, 9, 11, 12],
+  'Сатурн': [3, 6, 11],
+  'Раху': [3, 6, 10, 11],
+  'Кету': [3, 6, 11],
+};
+
+/** Дом транзитной грахи ОТ натальной Луны (1..12) — база гочары. */
+export const houseFromMoon = (transitSign: number, moonSign: number): number =>
+  ((transitSign - moonSign + 12) % 12) + 1;
+
+/** Благоприятен ли транзит грахи по гочаре от Луны. null — грахи нет в таблице. */
+export function gocharaGood(planet: string, transitSign: number, moonSign: number): boolean | null {
+  const good = GOCHARA_GOOD[planet];
+  if (!good) return null;
+  return good.includes(houseFromMoon(transitSign, moonSign));
+}
+
 // ─── Саде Сати и станции Сатурна от Луны ───────────────────────────────────
 export interface SadeSati {
   kind: 'sadesati' | 'kantaka' | 'ashtama';

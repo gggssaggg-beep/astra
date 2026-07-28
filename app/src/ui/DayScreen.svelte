@@ -104,10 +104,14 @@
     'Юпитер', 'Сатурн', 'Уран', 'Нептун', 'Кету'];
   // Доп. объекты (астероиды/Лилит), если включены тумблером, — хвостом списка:
   // порядок ORDER задан астрологом только для базовых.
-  const planets = $derived([
-    ...ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p),
-    ...positions.filter((p) => p.name !== 'Луна' && !ORDER.includes(p.name)),
-  ]);
+  const planets = $derived.by(() => {
+    const list = [
+      ...ORDER.map((n) => positions.find((p) => p.name === n)).filter((p): p is BodyPosition => !!p),
+      ...positions.filter((p) => p.name !== 'Луна' && !ORDER.includes(p.name)),
+    ];
+    // в джйотише грах девять: Уран/Нептун/астероиды в ведическом списке не место
+    return vedic ? list.filter((p) => VEDIC_ORDER_SET.has(p.name)) : list;
+  });
   const day = $derived(aspectsOnCached(engine, dayStart, orbOf, objects));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
   // КОЛЕСО ЧЕСТНОЕ К МОМЕНТУ: линии = РЕАЛЬНЫЕ углы между показанными планетами

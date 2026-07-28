@@ -19,6 +19,7 @@
   import type { Person } from '../lib/models.ts';
   import { vedicNatal, vedicSky, chartCells, navamshaCells, degMin } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL } from '../lib/vedic.ts';
+  import { grahaDrishti } from '../lib/drishti.ts';
   import VedicChart from './VedicChart.svelte';
   import Hint from './Hint.svelte';
 
@@ -48,6 +49,11 @@
   /** «Солнце (1, 11)» — в скобках дома, которыми планета управляет. */
   const rules = (r: number[]) => (r.length ? ` (${r.join(', ')})` : '');
   const ORD = ['', '1-м', '2-м', '3-м', '4-м', '5-м', '6-м', '7-м', '8-м', '9-м', '10-м', '11-м', '12-м'];
+
+  // дришти: узлы не аспектируют (школа по умолчанию, см. lib/drishti.ts)
+  const drishti = $derived(natal
+    ? grahaDrishti(natal.chart.planets, natal.chart.lagnaSign)
+    : []);
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
@@ -126,6 +132,26 @@
       </div>
       <div class="note">«Упр. в» — где стоит управитель знака этого дома: связь домов, с которой
         начинается чтение карты.</div>
+
+      <!-- дришти — специальный слой джйотиша, в упрощённом виде его не показываем -->
+      {#if !simple && drishti.length}
+        <div class="hdr">Дришти</div>
+        <div class="card glass table drishti reveal" use:reveal>
+          <div class="row th"><span>Граха</span><span>Куда смотрит</span></div>
+          {#each drishti as d}
+            {@const under = d.targets.flatMap((t) => t.hits)}
+            <div class="row">
+              <span class="pn"><span class="g glyph">{PLANET_GLYPH[d.from] ?? '•'}</span> {d.from}</span>
+              <span class="tg">
+                <span>из {d.fromHouse}-го дома смотрит в {d.targets.map((t) => `${t.house}-й`).join(', ')}</span>
+                {#if under.length}<span class="under">под аспектом: {under.join(', ')}</span>{/if}
+              </span>
+            </div>
+          {/each}
+        </div>
+        <div class="note">Дришти считаются по целым знакам: граха смотрит из своего знака в знак
+          целиком, вместе со всеми, кто там стоит, — градусы и орбисы здесь не участвуют.</div>
+      {/if}
 
       <div class="hdr">Планеты <Hint k="dignity" /></div>
       {#each c.planets as p}
@@ -248,6 +274,12 @@
   .pl.rx { color: var(--gold); }
   .dash, .lord { color: var(--ink-faint); }
   .nak { color: var(--ink-dim); font-size: 0.78rem; }
+
+  /* дришти: две колонки — кто смотрит и куда, цели с переносом по ширине */
+  .drishti .row { grid-template-columns: 6rem 1fr; align-items: start; }
+  .drishti .pn { display: flex; align-items: baseline; gap: 6px; color: var(--ink-dim); }
+  .drishti .tg { display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
+  .drishti .under { color: var(--ink-faint); font-size: 0.76rem; }
 
   .pcard { padding: 10px 12px; }
   .pline { display: flex; align-items: baseline; gap: 8px; }

@@ -39,20 +39,31 @@
   const onFrame = (v: number) => v === 0 || v === 100;
 
   /**
-   * Внешний якорь ячейки — точка на рамке квадрата, «к которой смотрит» дом:
-   * у треугольников это середина их стороны, лежащей на рамке, у центральных
-   * ромбов — единственная вершина, касающаяся рамки. От него отсчитываются и
-   * номер знака (у самого края), и сдвиг подписей планет внутрь (чтобы текст
-   * не липнул к рамке).
+   * Внешние якоря ячейки — точки на рамке квадрата, «к которым смотрит» дом.
+   *  · base — от него отсчитывается направление ВНУТРЬ (к центроиду): у
+   *    треугольника это середина стороны, лежащей на рамке, у центрального
+   *    ромба — единственная вершина, касающаяся рамки.
+   *  · sign — где подписан номер знака. У треугольника середина стороны занята:
+   *    там же по высоте идут подписи планет (боковые дома 3/5/9/11 накладывались
+   *    цифрой на метку). Поэтому номер уезжает к УГЛУ квадрата — как и просит
+   *    канон («у внешнего угла ячейки»). Соседние треугольники делят угол, но
+   *    подходят к нему по разным сторонам, так что цифры расходятся.
    */
-  const anchor = (pts: P[]): P => {
+  const CORNER_BIAS = 0.55;
+  const anchors = (pts: P[]): { base: P; sign: P } => {
     for (let i = 0; i < pts.length; i++) {
       const a = pts[i], b = pts[(i + 1) % pts.length];
-      if (a[0] === b[0] && onFrame(a[0])) return [a[0], (a[1] + b[1]) / 2];
-      if (a[1] === b[1] && onFrame(a[1])) return [(a[0] + b[0]) / 2, a[1]];
+      const flat = (a[0] === b[0] && onFrame(a[0])) || (a[1] === b[1] && onFrame(a[1]));
+      if (!flat) continue;
+      const mid: P = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      // угол квадрата — тот конец стороны, у которого ОБЕ координаты на рамке
+      const corner = onFrame(a[0]) && onFrame(a[1]) ? a : b;
+      return { base: mid, sign: [mid[0] + (corner[0] - mid[0]) * CORNER_BIAS,
+        mid[1] + (corner[1] - mid[1]) * CORNER_BIAS] };
     }
-    // ромбы: сторон на рамке нет, берём вершину на рамке
-    return pts.find((p) => onFrame(p[0]) || onFrame(p[1])) ?? centroid(pts);
+    // ромбы: сторон на рамке нет, берём вершину на рамке — она и есть их угол
+    const v = pts.find((p) => onFrame(p[0]) || onFrame(p[1])) ?? centroid(pts);
+    return { base: v, sign: v };
   };
 
   const SIGN_INSET = 5.5;   // насколько номер знака отступает от рамки внутрь
@@ -62,8 +73,8 @@
   // столбика планет. Считается один раз на модуль — она константна.
   export const VEDIC_CELLS = HOUSE_POLY.map((pts, i) => {
     const c = centroid(pts);
-    const a = anchor(pts);
-    const dx = c[0] - a[0], dy = c[1] - a[1];
+    const a = anchors(pts);
+    const dx = c[0] - a.base[0], dy = c[1] - a.base[1];
     const len = Math.hypot(dx, dy) || 1;
     const ux = dx / len, uy = dy / len;              // единичный вектор «внутрь»
     const rhomb = pts.length === 4;
@@ -71,7 +82,7 @@
       house: i + 1,
       rhomb,
       points: pts.map((p) => p.join(',')).join(' '),
-      sx: a[0] + ux * SIGN_INSET, sy: a[1] + uy * SIGN_INSET,
+      sx: a.sign[0] + ux * SIGN_INSET, sy: a.sign[1] + uy * SIGN_INSET,
       // у ромбов центроид уже в середине ячейки; треугольник сдвигаем от рамки
       tx: c[0] + (rhomb ? 0 : ux * TEXT_INSET),
       ty: c[1] + (rhomb ? 0 : uy * TEXT_INSET),
@@ -144,8 +155,15 @@
 
 <style>
   .vchart { width: 100%; height: auto; display: block; margin: 0 auto; }
-  .frame { fill: none; stroke: var(--glass-brd); stroke-width: 0.8; }
-  .grid { fill: none; stroke: var(--glass-brd); stroke-width: 0.6; opacity: 0.85; }
+  /* Штрихи тонкие: viewBox 100 единиц растягивается до ~320 px, т.е. каждая
+     единица ≈ 3 px — «единичная» линия смотрелась бы жирнее колеса.
+     Рамка чуть подсвечена фиолетом — та же кромка, что у зодиакального
+     кольца в ui/Wheel.svelte (без drop-shadow: глоу-фильтры дороги для WebView). */
+  .frame {
+    fill: none; stroke-width: 0.45;
+    stroke: color-mix(in srgb, var(--neon-violet) 40%, var(--glass-brd));
+  }
+  .grid { fill: none; stroke: var(--glass-brd); stroke-width: 0.35; opacity: 0.9; }
   .cell { fill: transparent; stroke: none; }
   .cell.tappable { pointer-events: all; cursor: pointer; outline: none; }
   .signnum {

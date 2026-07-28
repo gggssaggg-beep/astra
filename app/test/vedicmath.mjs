@@ -262,6 +262,21 @@ console.log('=== Саде Сати ===');
     assert.equal(sadeSati(4, 11)?.kind, 'ashtama'));
 }
 
+console.log('=== чувствительность даш ко времени рождения ===');
+{
+  const { dashaSensitivity } = await import('../src/lib/vedic.ts');
+  // карта 12.03.1998: Луна ~13,2°/сут, первая махадаша Венеры 20 лет
+  const s = dashaSensitivity(13.2, 20);
+  ok(`минута времени = ${s.toFixed(2)} сут сдвига даш (эмпирически ~4,7)`, () =>
+    assert.ok(s > 4 && s < 6, `вышло ${s}`));
+  ok('короткая первая даша сдвигает меньше: Солнце 6 лет — втрое слабее', () =>
+    assert.ok(Math.abs(dashaSensitivity(13.2, 6) - s * 6 / 20) < 1e-9));
+  ok('медленная Луна (12°/сут) двигает границы слабее быстрой (15°/сут)', () =>
+    assert.ok(dashaSensitivity(12, 20) < dashaSensitivity(15, 20)));
+  ok('знак скорости не важен (модуль)', () =>
+    assert.equal(dashaSensitivity(-13.2, 20), s));
+}
+
 console.log('=== гочара от Луны ===');
 {
   const { gocharaGood, houseFromMoon, GOCHARA_GOOD } = await import('../src/lib/vedic.ts');

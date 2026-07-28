@@ -267,6 +267,21 @@ export function vimshottari(moonLon: number, birthUTC: Date): DashaPeriod[] {
   return out;
 }
 
+/**
+ * Насколько сдвинутся ВСЕ границы даш, если время рождения изменить на минуту
+ * (суток на минуту). Баланс первой махадаши — это доля пройденной накшатры, а
+ * накшатра всего 800′: минута времени двигает Луну примерно на 0,55′, и при
+ * 20-летней первой даше это уже пять суток.
+ *
+ * Поймано на живом расхождении с астрологом (2026-07-29): её даты даш
+ * отличались на 10 суток, и причиной оказались 2–3 минуты времени рождения —
+ * не ошибка расчёта. Поэтому цифру показываем рядом с дашами.
+ */
+export function dashaSensitivity(moonSpeedPerDay: number, firstDashaYears: number): number {
+  const arcminPerMinute = Math.abs(moonSpeedPerDay) * 60 / (24 * 60);   // ′ Луны за минуту времени
+  return (arcminPerMinute / (NAK_SPAN * 60)) * firstDashaYears * DASHA_YEAR_DAYS;
+}
+
 /** Действующие маха/антар/пратьянтар на момент. Пратьянтар считаем на лету —
  *  третий уровень нужен только «сейчас», хранить весь его незачем. */
 export function currentDasha(periods: DashaPeriod[], at: Date): {

@@ -11,7 +11,7 @@ import { VEDIC_ORDER } from '../engine/index.ts';
 import type { Person } from './models.ts';
 import { birthInstantUTC } from './charts.ts';
 import { buildVedicChart, vimshottari, currentDasha,
-  signIndexOf, VEDIC_ORDER_SET,
+  signIndexOf, VEDIC_ORDER_SET, dashaSensitivity, VIMSHOTTARI,
   type VedicChart, type DashaPeriod } from './vedic.ts';
 import { vargaSignAt, type VargaId } from './vargas.ts';
 
@@ -25,6 +25,8 @@ export interface VedicNatal {
   chart: VedicChart;
   dashas: DashaPeriod[];
   now: ReturnType<typeof currentDasha>;
+  /** на сколько суток уедут границы даш, если время рождения сдвинуть на минуту */
+  dashaDaysPerMinute: number;
 }
 
 const lonMap = (pos: BodyPosition[]) => {
@@ -43,7 +45,10 @@ export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNa
   const { lons, retro } = lonMap(E.positions(when, [...VEDIC_ORDER]));
   const chart = buildVedicChart(lons, retro, h.asc);
   const dashas = vimshottari(lons['Луна'], when);
-  return { chart, dashas, now: currentDasha(dashas, at) };
+  const first = VIMSHOTTARI.find((v) => v.lord === dashas[0]?.lord)?.years ?? 20;
+  const moonSpeed = E.lonSpeed(jd, 'Луна')[1];
+  return { chart, dashas, now: currentDasha(dashas, at),
+    dashaDaysPerMinute: dashaSensitivity(moonSpeed, first) };
 }
 
 /** «Сейчас на небе» в сидерических знаках — карта без домов и без лагны:

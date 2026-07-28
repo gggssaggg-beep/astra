@@ -6,12 +6,12 @@
 
   let { onclose, onCourse, onInterpretations, onArchetypes, onHouses, onTracked, onJournal, onSignMyths,
         onPlanetSigns, onPlanetHouses, onDispositors, onPlanetCusps, onDegree, onRetro, onFigures,
-        onVedic, vedic = false }:
+        onVedic, onUpaya, vedic = false }:
     { onclose: () => void; onCourse: () => void; onInterpretations: () => void; onArchetypes: () => void;
       onHouses: () => void; onTracked: () => void; onJournal: () => void; onSignMyths: () => void;
       onPlanetSigns: () => void; onPlanetHouses: () => void;
       onDispositors: () => void; onPlanetCusps: () => void; onDegree: () => void; onRetro: () => void;
-      onFigures: () => void; onVedic: () => void; vedic?: boolean } = $props();
+      onFigures: () => void; onVedic: () => void; onUpaya: () => void; vedic?: boolean } = $props();
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={onclose} role="presentation"></div>
@@ -34,6 +34,13 @@
       <button class="row reveal" use:reveal>
         <span class="ic"><Icon name="star" /></span>
         <div class="txt"><b>Ведическая карта</b><small>D1/D9, накшатры, караки, дришти, периоды Вимшоттари</small></div>
+        <span class="arr">→</span>
+      </button>
+    </GlowCard>
+    <GlowCard radius={14} onactivate={onUpaya}>
+      <button class="row reveal" use:reveal>
+        <span class="ic"><Icon name="diamond" /></span>
+        <div class="txt"><b>Мантры и камни</b><small>упайи девяти грах — справочник</small></div>
         <span class="arr">→</span>
       </button>
     </GlowCard>

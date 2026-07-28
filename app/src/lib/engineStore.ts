@@ -22,6 +22,12 @@ export function getEngine(mode: EphemerisMode = 'swieph', opts: EngineOptions = 
   const key = keyOf(mode, opts);
   let p = cache.get(key);
   if (!p) {
+    // Каждый профиль = свой WASM-инстанс с ~12 МБ эфемерид в памяти. Держать
+    // оба зодиака разом WebView может не потянуть — вытесняем прочие профили:
+    // кэш их больше не держит, и как только UI отпустит старую ссылку (App
+    // заменяет engine при смене школы), память заберёт GC. Обратное
+    // переключение просто пересоздаст движок — редкая операция, секунды.
+    for (const k of [...cache.keys()]) if (k !== key) cache.delete(k);
     p = createEngine(mode, opts);
     // неудачу не кэшируем: разовый сбой WASM (память WebView и т.п.) не должен
     // навсегда оставлять «Ошибка движка» — следующий вызов попробует заново

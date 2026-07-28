@@ -15,7 +15,7 @@
   import { ASPECT_GLOSS } from '../lib/glossary.ts';
   import Hint from './Hint.svelte';
   import { pairLore } from '../lib/pairLore.ts';
-  import { pairAspectLore, SYNASTRY_FEEL } from '../lib/pairAspectLore.ts';
+  import { pairAspectLore, SYNASTRY_FEEL, COMPOSITE_FEEL } from '../lib/pairAspectLore.ts';
   import { transitSelfLore, transitFrameText, transitRhythm } from '../lib/transitSelfLore.ts';
   import { buildAstroPrompt } from '../lib/aiPrompt.ts';
   import PromptSheet from './PromptSheet.svelte';
@@ -31,9 +31,13 @@
   import SignContext from './aspect/SignContext.svelte';
 
   let { a, ownerA = null, ownerB = null, tz, win = null, engine = null, orbOf = null,
-        lon1 = null, lon2 = null,
+        lon1 = null, lon2 = null, composite = false,
         anchor = null, source = null, ongoto = null, onclose, oncommunity }:
     { a: StaticAspect; ownerA?: string | null; ownerB?: string | null; tz: string;
+      // карта КОМПОЗИТА (середины планет двоих): у аспекта нет владельцев —
+      // обе точки принадлежат самой связи. Транзит К композиту сюда не входит
+      // (там ownerB = 'транзит'), см. isComposite ниже.
+      composite?: boolean;
       win?: { begin: Date; exact: Date; end: Date } | null;
       engine?: Engine | null; orbOf?: ((name: string) => number) | null;
       lon1?: number | null; lon2?: number | null;
@@ -75,6 +79,11 @@
   // это взаимодействие ДВУХ людей (синастрия/двойные карты)? → добавка «в паре»
   const twoPeople = $derived(!!ownerA && !!ownerB && ownerA !== ownerB && !isTransit);
   const feel = $derived(twoPeople ? SYNASTRY_FEEL[a.aspect] ?? null : null);
+  // аспект ВНУТРИ карты середин → рамка «в композите» (характер союза, а не
+  // двоих по отдельности). Транзит к композиту — это период, не устройство
+  // связи: там рамку не показываем.
+  const isComposite = $derived(composite && !isTransit);
+  const compFeel = $derived(isComposite ? COMPOSITE_FEEL[a.aspect] ?? null : null);
   // Блок «В транзите» (transitFeel) УБРАН 2026-07-27: он пересказывал общий
   // характер аспекта в третий раз. Сама функция в transitSelfLore.ts осталась —
   // пригодится, если корпус переработают.
@@ -123,7 +132,9 @@
     title: `аспект ${title}`,
     aspects: [`${n1} ${a.aspect} ${n2}, орбис ${a.orb.toFixed(2)}°`],
     focus: `${title}${pair ? ` — смысл пары: ${pair}` : ''}${unique ? `. Трактовка: ${unique}` : ''}`,
-    extra: twoPeople
+    extra: isComposite
+      ? 'Это аспект КОМПОЗИТА — карты самих отношений (каждая точка: середина между одноимёнными планетами двоих). Разбери, как устроен САМ СОЮЗ, а не характеры партнёров по отдельности. Домов и скоростей у композита нет.'
+      : twoPeople
       ? 'Это межаспект двух людей (синастрия). Разбери, как он ощущается ВНУТРИ взаимодействия пары.'
       : selfTransit
       ? `Это транзит планеты к СВОЕМУ ЖЕ натальному положению (${a.p1}) — фаза цикла этой планеты у одного человека, НЕ пара людей. Разбери, что за период сейчас идёт и что с ним делать.`
@@ -175,6 +186,12 @@
            и это единственная добавка про взаимодействие двоих -->
       <div class="lbl xlbl">В паре</div>
       <div class="ptext">{feel}</div>
+    {/if}
+    {#if compFeel}
+      <!-- «В композите» — то же место, что «В паре» в синастрии: одна короткая
+           рамка про устройство самого союза (корпус пары написан про людей) -->
+      <div class="lbl xlbl">В композите</div>
+      <div class="ptext">{compFeel}</div>
     {/if}
     {#if rhythm}
       <div class="lbl xlbl">Ритм этого транзита</div>

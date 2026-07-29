@@ -3,14 +3,16 @@
    *  (раскрыть готовый текст lore-модуля ЛИБО перейти в существующую шторку).
    *  z-index 32/33 — ВЫШЕ InfoSheet (26/27) и шторок Библиотеки (20/21):
    *  «?» открывается поверх любой шторки. Паттерн — как InfoSheet. */
-  import { gloss, type GlossSheet } from '../lib/glossary.ts';
+  import { glossFor, type GlossSheet } from '../lib/glossary.ts';
+  import { db } from '../lib/db.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { tick } from '../lib/haptics.ts';
 
   let { k, onclose, onnavigate }:
     { k: string; onclose: () => void; onnavigate?: (target: GlossSheet) => void } = $props();
 
-  const entry = $derived(gloss(k));
+  // статья — под активную школу: в джйотише «?» говорит своим словарём
+  const entry = $derived(glossFor(k, (db.settings.get().zodiac ?? 'tropical') === 'sidereal'));
   let showText = $state(false);
   // смена термина (тап по другой «?» пока шторка открыта) — свернуть аккордеон
   $effect(() => { void k; showText = false; });

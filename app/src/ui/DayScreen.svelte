@@ -17,6 +17,9 @@
   import { gocharaText } from '../lib/gocharaLore.ts';
   import { ZODIAC as ZODIAC_RU, PLANET_GLYPH } from '../engine/index.ts';
   import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from '../lib/panchanga.ts';
+  import { dayHeadline, VARA_LORE, TITHI_LORE, PAKSHA_LORE, tithiGroup, KARANA_LORE,
+    NAKSHATRA_LORE, YOGA_LORE, taraOf, chandraHouse, CHANDRA_LORE, CHANDRA_GOOD } from '../lib/panchangaLore.ts';
+  import { nakshatraOf } from '../lib/vedic.ts';
   import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
@@ -30,7 +33,7 @@
   // колеса/планет/Луны) и `scrubbed`/`scrubScale`; жест колеса и «↺ сейчас»/
   // смена масштаба — коллбэки наверх.
   let { engine, date, snapshot, scrubbed = false, scrubScale = 'day',
-        vedic = false, vedicLagna = null,
+        vedic = false, vedicLagna = null, vedicMoon = null,
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
         selectedSignature = null, selectedInfo = null,
         onAspect, oninfo, onscrub, onresetnow, onscale }:
@@ -40,6 +43,10 @@
       /** знак лагны «моей карты» (0..11) — от него нумеруются дома гочары;
        *  null = своей карты нет, показываем просто знаки */
       vedicLagna?: number | null;
+      /** Луна «моей карты»: от неё считаются тарабала и чандра-гочара — то, что
+       *  джйотиш и называет «какой сегодня день ДЛЯ МЕНЯ». Место рождения тут
+       *  не нужно, а вот время важно (Луна проходит накшатру за сутки). */
+      vedicMoon?: { lon: number; unknownTime: boolean; name: string } | null;
       orbOf: (name: string) => number; tz: string;
       objects?: string[] | null; signStyle?: SignStyle; nodalAxisFigures?: boolean;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
@@ -105,6 +112,46 @@
       return { nak: nextNakshatraEnd(engine, at), tithi: nextTithiEnd(engine, at) };
     } catch { return null; }   // сбой движка не должен уронить экран дня
   });
+
+  // ── трактовка дня (джйотиш) ───────────────────────────────────────────────
+  // Ведический ответ на «что сегодня»: смысл панчанги + два ЛИЧНЫХ слоя от
+  // Луны своей карты — тарабала (счёт накшатр) и чандра-гочара (дом Луны от
+  // натальной). Правка владелицы 2026-07-29: экран дня в джйотише был пустым.
+  const dayText = $derived(panchanga
+    ? dayHeadline({
+        varaDay: panchanga.vara.day, varaLord: panchanga.vara.lord,
+        tithiName: panchanga.tithi.name, tithiIndex: panchanga.tithi.index,
+        paksha: panchanga.tithi.paksha,
+        nakshatra: panchanga.nakshatra.name, yoga: panchanga.yoga.name,
+      })
+    : null);
+  const personalDay = $derived.by(() => {
+    if (!panchanga || !vedicMoon || !moon) return null;
+    const natal = nakshatraOf(vedicMoon.lon);
+    const tara = taraOf(natal.index, panchanga.nakshatra.index);
+    const house = chandraHouse(Math.floor(((vedicMoon.lon % 360) + 360) % 360 / 30), sidSign(moon.lon));
+    return { tara, house, text: CHANDRA_LORE[house - 1], good: CHANDRA_GOOD.has(house),
+      natalNak: natal.name, who: vedicMoon.name, unknownTime: vedicMoon.unknownTime };
+  });
+  // раскрытая строка панчанги (одна за раз — иначе экран превращается в простыню)
+  let openPan = $state<string | null>(null);
+  const panRows = $derived(panchanga ? [
+    { k: 'вара', label: 'Вара', value: `${panchanga.vara.name} · ${panchanga.vara.lord}`,
+      text: VARA_LORE[panchanga.vara.day] ?? '' },
+    { k: 'титхи', label: 'Титхи', value: `${panchanga.tithi.index} · ${panchanga.tithi.name} · ${panchanga.tithi.paksha}`
+        + ` · прошло ${Math.round(panchanga.tithi.fraction * 100)}%`,
+      text: `${TITHI_LORE[panchanga.tithi.name] ?? ''} ${PAKSHA_LORE[panchanga.tithi.paksha]}`
+        + ` Группа: ${tithiGroup(panchanga.tithi.index).name} — ${tithiGroup(panchanga.tithi.index).text}.` },
+    { k: 'накшатра', label: 'Накшатра Луны', value: `${panchanga.nakshatra.name} · пада ${panchanga.nakshatra.pada}`
+        + ` · упр. ${panchanga.nakshatra.lord}`,
+      text: NAKSHATRA_LORE[panchanga.nakshatra.name] ?? '' },
+    { k: 'йога', label: 'Йога', value: `${panchanga.yoga.index} · ${panchanga.yoga.name}`,
+      text: YOGA_LORE[panchanga.yoga.name]
+        ? `${YOGA_LORE[panchanga.yoga.name].good ? 'Благоприятная' : 'Трудная'} — `
+          + `${YOGA_LORE[panchanga.yoga.name].text}.` : '' },
+    { k: 'карана', label: 'Карана', value: panchanga.karana.name,
+      text: KARANA_LORE[panchanga.karana.name] ?? '' },
+  ] : []);
 
   // фаза Луны — из уже посчитанных долгот (элонгация Луна−Солнце), без движка
   const PHASE_EM = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
@@ -282,30 +329,51 @@
        картой (сестра блоку Луны, не вложена в карточку карты: стекло в стекле
        даёт двойную кромку). Это ведическая замена западному «содержанию дня». -->
   {#if vedic && panchanga}
+    <!-- ТРАКТОВКА ДНЯ. Панчанга давала одни факты — «на главном экране ничего
+         не написано» (владелица 2026-07-29). Теперь сверху главный текст дня
+         (накшатра ведёт, вара и титхи уточняют, трудная йога добавляет
+         оговорку), под ним — личный слой от Луны своей карты, и только потом
+         сами пять членов, каждый со своей трактовкой по тапу. -->
+    <h3 class="sec">Что сегодня</h3>
+    <div class="daytext glass reveal" use:reveal>
+      <p>{dayText}</p>
+    </div>
+
+    {#if personalDay}
+      <h3 class="sec">День для тебя <Hint k="tarabala" /></h3>
+      <div class="pers glass reveal" use:reveal>
+        <div class="prow2">
+          <span class="ptara" class:good={personalDay.tara.good}>{personalDay.tara.index}. {personalDay.tara.name}</span>
+          <span class="pverdict">{personalDay.tara.good ? 'благоприятная тара' : 'тара осторожности'}</span>
+        </div>
+        <p>{personalDay.tara.text}</p>
+        <div class="prow2">
+          <span class="ptara" class:good={personalDay.good}>Луна в {personalDay.house}-м от твоей</span>
+          <span class="pverdict">{personalDay.good ? 'удачный ход' : 'слабый ход'}</span>
+        </div>
+        <p>{personalDay.text}</p>
+        <div class="pfrom">Считается от Луны карты «{personalDay.who}» — накшатра {personalDay.natalNak}.
+          {#if personalDay.unknownTime}⚠ Время рождения не задано: Луна проходит накшатру примерно
+            за сутки, поэтому тара может оказаться соседней.{/if}</div>
+      </div>
+    {:else}
+      <div class="vhint" style="text-align:left">Выбери свою карту в настройках («Гочара к моей карте»)
+        — и здесь появится тарабала: какой сегодня день лично для тебя, от накшатры твоей Луны.</div>
+    {/if}
+
     <h3 class="sec">Панчанга</h3>
     <div class="panch glass">
-      <div class="prow">
-        <span class="pk">Вара</span>
-        <span class="pv">{panchanga.vara.name} · {panchanga.vara.lord}</span>
-      </div>
-      <div class="prow">
-        <span class="pk">Титхи</span>
-        <span class="pv">{panchanga.tithi.index} · {panchanga.tithi.name} · {panchanga.tithi.paksha}
-          · прошло {Math.round(panchanga.tithi.fraction * 100)}%</span>
-      </div>
-      <div class="prow">
-        <span class="pk">Накшатра Луны</span>
-        <span class="pv">{panchanga.nakshatra.name} · пада {panchanga.nakshatra.pada}
-          · упр. {panchanga.nakshatra.lord}</span>
-      </div>
-      <div class="prow">
-        <span class="pk">Йога</span>
-        <span class="pv">{panchanga.yoga.index} · {panchanga.yoga.name}</span>
-      </div>
-      <div class="prow">
-        <span class="pk">Карана</span>
-        <span class="pv">{panchanga.karana.name}</span>
-      </div>
+      {#each panRows as r (r.k)}
+        <button class="prow tap" class:open={openPan === r.k}
+          onclick={() => (openPan = openPan === r.k ? null : r.k)}>
+          <span class="pk">{r.label}</span>
+          <span class="pv">{r.value}</span>
+          {#if r.text}<span class="parr">{openPan === r.k ? '▾' : '▸'}</span>{/if}
+        </button>
+        {#if openPan === r.k && r.text}
+          <div class="plore">{r.text}</div>
+        {/if}
+      {/each}
       {#if vedicNext}
         <!-- титхи и накшатра меняются посреди суток — без времени перехода
              строка «сегодня Двадаши» вводит в заблуждение -->
@@ -547,9 +615,26 @@
   .pem { font-size: 1.35rem; line-height: 1; opacity: 0.9;
     filter: grayscale(1) brightness(1.35) contrast(0.95)
       drop-shadow(0 0 6px color-mix(in srgb, var(--silver) 45%, transparent)); }
+  /* ── Трактовка дня (джйотиш): главный текст + личный слой ─────────────── */
+  .daytext { padding: 14px 16px; margin: 8px 0; }
+  .daytext p { margin: 0; font-size: 0.92rem; line-height: 1.6; color: var(--ink); }
+  .pers { padding: 12px 16px 14px; margin: 8px 0; }
+  .pers p { margin: 4px 0 10px; font-size: 0.88rem; line-height: 1.55; color: var(--ink-dim); }
+  .prow2 { display: flex; align-items: baseline; gap: 10px; }
+  .ptara { font-size: 0.92rem; color: var(--rose); }
+  .ptara.good { color: var(--gold); }
+  .pverdict { margin-left: auto; color: var(--ink-faint); font-size: 0.74rem;
+    text-transform: uppercase; letter-spacing: 0.6px; }
+  .pfrom { color: var(--ink-faint); font-size: 0.76rem; line-height: 1.5; margin-top: 2px; }
   /* ── Панчанга: список «член дня → значение», как «Планеты сейчас» ──────── */
   .panch { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; margin: 8px 0; }
   .prow { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+  /* строка-кнопка: тап раскрывает трактовку члена дня */
+  .prow.tap { width: 100%; background: transparent; border: none; padding: 0; text-align: left; }
+  .prow.tap.open .pk { color: var(--ink-dim); }
+  .parr { flex: none; color: var(--ink-faint); font-size: 0.7rem; margin-left: 6px; }
+  .plore { color: var(--ink-dim); font-size: 0.84rem; line-height: 1.55;
+    margin: -2px 0 4px; padding-left: 2px; }
   .pk { flex: none; color: var(--ink-faint); font-size: 0.8rem; }
   /* значение прижато вправо и переносится (титхи — длинная строка) */
   .pv { margin-left: auto; text-align: right; color: var(--ink); font-size: 0.9rem;

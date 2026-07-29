@@ -470,6 +470,20 @@
     } catch { return null; }
   });
 
+  /** Луна «моей карты»: от неё считаются тарабала и чандра-гочара на экране
+   *  дня («какой сегодня день ДЛЯ МЕНЯ» — так спрашивает джйотиш). Место
+   *  рождения не нужно — только дата и время; при неизвестном времени экран
+   *  честно предупреждает (Луна проходит накшатру примерно за сутки). */
+  const myMoon = $derived.by(() => {
+    if (!isVedic || !engine || !settings.transitSelfId) return null;
+    const me = db.people.get(settings.transitSelfId);
+    if (!me) return null;
+    try {
+      const moon = engine.positions(birthInstantUTC(me), ['Луна']).find((p) => p.name === 'Луна');
+      return moon ? { lon: moon.lon, unknownTime: !!me.unknownTime, name: me.name } : null;
+    } catch { return null; }
+  });
+
   /** Смена школы: сохраняем и пересобираем движок (зодиак — его свойство). */
   function setZodiac(z: 'tropical' | 'sidereal') {
     if ((settings.zodiac ?? 'tropical') === z) return;
@@ -619,7 +633,7 @@
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
-          vedic={isVedic} vedicLagna={myLagna}
+          vedic={isVedic} vedicLagna={myLagna} vedicMoon={myMoon}
           {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}

@@ -659,6 +659,7 @@
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
           vedic={isVedic} vedicLagna={myLagna} vedicMoon={myMoon} vedicDashas={myDashas}
+          chartStyle={settings.chartStyle ?? 'north'}
           {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}

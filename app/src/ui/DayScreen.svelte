@@ -34,6 +34,7 @@
   // смена масштаба — коллбэки наверх.
   let { engine, date, snapshot, scrubbed = false, scrubScale = 'day',
         vedic = false, vedicLagna = null, vedicMoon = null, vedicDashas = null,
+        chartStyle = 'north',
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
         selectedSignature = null, selectedInfo = null,
         onAspect, oninfo, onscrub, onresetnow, onscale, ongraha }:
@@ -49,6 +50,8 @@
       vedicMoon?: { lon: number; unknownTime: boolean; name: string } | null;
       /** периоды Вимшоттари «моей карты»: смены даш попадают в события дня */
       vedicDashas?: DashaPeriod[] | null;
+      /** стиль чертежа кундали: 'north' — ромб, 'south' — квадратная сетка */
+      chartStyle?: 'north' | 'south';
       orbOf: (name: string) => number; tz: string;
       objects?: string[] | null; signStyle?: SignStyle; nodalAxisFigures?: boolean;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
@@ -294,7 +297,7 @@
          Круг с линиями аспектов — западная форма, и линии там строятся по
          орбисам, которых в джйотише тоже нет (дришти считаются по знакам). -->
     {#if vedic}
-      <VedicChart cells={skyCells} />
+      <VedicChart cells={skyCells} layout={chartStyle} />
       <div class="vhint">{vedicFrom}</div>
     {:else}
       <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}

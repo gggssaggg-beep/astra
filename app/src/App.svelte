@@ -495,6 +495,16 @@
     try { return vedicNatal(engine, me)?.dashas ?? null; } catch { return null; }
   });
 
+  /** Грахи рождения «моей карты» — их экран дня может наложить на гочару одним
+   *  чертежом («где транзит идёт по моей кундали»). Нужны место и время
+   *  рождения: без лагны карта не строится. */
+  const myNatalGrahas = $derived.by(() => {
+    if (!isVedic || !engine || !settings.transitSelfId) return null;
+    const me = db.people.get(settings.transitSelfId);
+    if (!me?.place) return null;
+    try { return vedicNatal(engine, me)?.chart.planets ?? null; } catch { return null; }
+  });
+
   /** открытая страница грахи (джйотиш): имя грахи или null */
   let showGraha = $state<string | null>(null);
   const mySelfName = $derived(
@@ -659,7 +669,7 @@
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
           vedic={isVedic} vedicLagna={myLagna} vedicMoon={myMoon} vedicDashas={myDashas}
-          chartStyle={settings.chartStyle ?? 'north'}
+          vedicNatalGrahas={myNatalGrahas} chartStyle={settings.chartStyle ?? 'north'}
           {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}

@@ -10,7 +10,7 @@
   import GlowCard from './GlowCard.svelte';
   import Wheel from './Wheel.svelte';
   import VedicChart from './VedicChart.svelte';
-  import { gocharaCells } from '../lib/vedicChart.ts';
+  import { gocharaCells, type NatalGraha } from '../lib/vedicChart.ts';
   import { VEDIC_ORDER_SET, signIndexOf as sidSign, BHAVA_THEME } from '../lib/vedic.ts';
   import { vedicDayEvents } from '../lib/vedicEvents.ts';
   import { gocharaTeaser } from '../lib/gocharaTeaser.ts';
@@ -34,7 +34,7 @@
   // смена масштаба — коллбэки наверх.
   let { engine, date, snapshot, scrubbed = false, scrubScale = 'day',
         vedic = false, vedicLagna = null, vedicMoon = null, vedicDashas = null,
-        chartStyle = 'north',
+        vedicNatalGrahas = null, chartStyle = 'north',
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
         selectedSignature = null, selectedInfo = null,
         onAspect, oninfo, onscrub, onresetnow, onscale, ongraha }:
@@ -50,6 +50,9 @@
       vedicMoon?: { lon: number; unknownTime: boolean; name: string } | null;
       /** периоды Вимшоттари «моей карты»: смены даш попадают в события дня */
       vedicDashas?: DashaPeriod[] | null;
+      /** грахи рождения «моей карты» — их можно наложить на гочару одним чертежом;
+       *  null = своей карты (или места рождения) нет, показываем только гочару */
+      vedicNatalGrahas?: NatalGraha[] | null;
       /** стиль чертежа кундали: 'north' — ромб, 'south' — квадратная сетка */
       chartStyle?: 'north' | 'south';
       orbOf: (name: string) => number; tz: string;
@@ -78,7 +81,12 @@
   // Транзиты в джйотише читают от ЛАГНЫ натальной карты, а не от Овна: «Сатурн
   // идёт по 7-му дому». Нет своей карты (или места рождения) — показываем просто
   // знаки, честно об этом подписав.
-  const skyCells = $derived(gocharaCells(positions, vedicLagna ?? 0));
+  // Грахи рождения можно наложить на гочару одним чертежом (просьба астролога):
+  // видно сразу, куда транзит пришёл в карте. По умолчанию — вместе.
+  let withNatal = $state(true);
+  const canPairNatal = $derived(!!vedicNatalGrahas?.length);
+  const skyCells = $derived(gocharaCells(positions, vedicLagna ?? 0,
+    withNatal && vedicNatalGrahas?.length ? vedicNatalGrahas : undefined));
 
   // Дришти и юти с главного экрана УБРАНЫ (правка астролога 2026-07-29): их
   // место — в карте человека, а не в ленте дней. Переходы грах перестали быть
@@ -298,6 +306,17 @@
          орбисам, которых в джйотише тоже нет (дришти считаются по знакам). -->
     {#if vedic}
       <VedicChart cells={skyCells} layout={chartStyle} />
+      {#if canPairNatal}
+        <!-- один чертёж вместо двух: гочара и грахи рождения рядом -->
+        <div class="vpair" role="group" aria-label="Что показывать на чертеже">
+          <button class="vp" class:on={withNatal} onclick={() => (withNatal = true)}>гочара + кундали</button>
+          <button class="vp" class:on={!withNatal} onclick={() => (withNatal = false)}>только гочара</button>
+        </div>
+        {#if withNatal}
+          <div class="vhint"><span class="lgt">грахи гочары</span> — идут по небу сейчас;
+            <span class="lgn">грахи рождения</span> — из твоей кундали</div>
+        {/if}
+      {/if}
       <div class="vhint">{vedicFrom}</div>
     {:else}
       <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
@@ -527,6 +546,15 @@
   .vevnote { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45; margin: 3px 0 0 1.9rem; }
   .vhint { text-align: center; color: var(--ink-faint); font-size: 0.74rem;
     line-height: 1.4; margin: 8px 10px 0; }
+  /* «гочара + кундали» / «только гочара» — тем же сегментом, что масштаб прокрутки */
+  .vpair { display: flex; justify-content: center; gap: 4px; margin-top: 8px; }
+  .vp { background: #ffffff14; border: 1px solid var(--glass-brd); color: var(--ink-dim);
+    border-radius: 999px; padding: 5px 12px; font-size: 0.74rem; }
+  .vp.on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, var(--glass-brd));
+    background: color-mix(in srgb, var(--accent) 14%, transparent); }
+  /* легенда совмещённого чертежа — теми же цветами, что метки в клетках */
+  .lgt { color: var(--neon-cyan); }
+  .lgn { color: var(--ink-dim); }
   .snaptime { display: flex; align-items: center; justify-content: center; gap: 8px;
     text-align: center; color: var(--ink-faint); font-size: 0.72rem; margin-top: 6px; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
   .resetnow { background: #ffffff12; border: 1px solid var(--glass-brd); color: var(--accent);

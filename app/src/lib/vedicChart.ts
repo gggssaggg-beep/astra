@@ -100,16 +100,28 @@ export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
   ],
 }));
 
+/** Граха рождения для совмещённого чертежа (то, что даёт VedicChart.planets). */
+export interface NatalGraha {
+  name: string; signIndex: number; degInSign: number; retro: boolean;
+}
+
 /**
  * Клетки ГОЧАРЫ: транзитные грахи, разложенные по домам от заданной лагны
  * (натальной). Так джйотиш читает транзит: «Сатурн идёт по 7-му дому».
  * Неведические объекты (Уран/Нептун/астероиды) отсеиваются здесь же.
  * Используется экраном дня (лагна «моей карты») и «Картами» (лагна выбранного
  * человека) — одна реализация, чтобы не разъезжались.
+ *
+ * `natal` — грахи рождения (кундали) того же человека. Передан → в клетке идут
+ * обе группы: сперва грахи гочары (kind 'transit'), затем грахи рождения
+ * (kind 'natal'), и компонент красит их разным цветом. Не передан → всё как
+ * было: один список без пометок и один цвет.
  */
-export const gocharaCells = (positions: BodyPosition[], lagnaSign: number) =>
+export const gocharaCells = (positions: BodyPosition[], lagnaSign: number,
+  natal?: NatalGraha[]) =>
   Array.from({ length: 12 }, (_, i) => {
     const si = (lagnaSign + i) % 12;
+    const kind = natal ? ('transit' as const) : undefined;
     return {
       house: i + 1,
       signIndex: si,
@@ -119,7 +131,13 @@ export const gocharaCells = (positions: BodyPosition[], lagnaSign: number) =>
           .filter((p) => VEDIC_ORDER_SET.has(p.name) && signIndexOf(p.lon) === si)
           .map((p) => ({
             short: SHORT[p.name] ?? p.name.slice(0, 2),
-            deg: Math.floor(p.degInSign), retro: p.retro,
+            deg: Math.floor(p.degInSign), retro: p.retro, kind,
+          })),
+        ...(natal ?? [])
+          .filter((p) => VEDIC_ORDER_SET.has(p.name) && p.signIndex === si)
+          .map((p) => ({
+            short: SHORT[p.name] ?? p.name.slice(0, 2),
+            deg: Math.floor(p.degInSign), retro: p.retro, kind: 'natal' as const,
           })),
       ],
     };

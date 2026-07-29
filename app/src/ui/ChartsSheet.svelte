@@ -243,6 +243,10 @@
     db.settings.set({ ...db.settings.get(), chartStyle: s });
   }
 
+  // Гочара: показывать ли вместе с транзитными грахами ещё и грахи рождения
+  // (одна карта вместо двух — просьба астролога). По умолчанию — вместе.
+  let withNatal = $state(true);
+
   // варга (D1/D9/D10…) — переключатель над ромбом кундали. Ходовые три кнопками,
   // остальные списком: восемь кнопок в ряд на телефоне не влезают.
   const VARGA_MAIN: VargaId[] = ['d1', 'd9', 'd10'];
@@ -955,8 +959,19 @@
              и читает транзит («Сатурн идёт по 7-му дому»). Скраб работает:
              transitPos пересчитывается, клетки следуют -->
         <VedicChart layout={chartStyle}
-          cells={gocharaCells(transitPos, vedicA.chart.lagnaSign)} />
+          cells={gocharaCells(transitPos, vedicA.chart.lagnaSign,
+            withNatal ? vedicA.chart.planets : undefined)} />
         <div class="legend">гочара — небо на {transitLabel} в домах {personA?.name}</div>
+        <!-- один чертёж вместо двух: грахи гочары и грахи рождения рядом -->
+        <div class="vargas">
+          <button class:on={withNatal} onclick={() => (withNatal = true)}>гочара + кундали</button>
+          <button class:on={!withNatal} onclick={() => (withNatal = false)}>только гочара</button>
+        </div>
+        {#if withNatal}
+          <div class="vnote"><span class="lgt">грахи гочары</span> — те, что идут по небу сейчас;
+            <span class="lgn">грахи рождения</span> — из кундали {personA?.name}. Обе группы в одной
+            клетке стоят в одном знаке.</div>
+        {/if}
         <div class="vnote">Дома — от лагны рождения ({ZODIAC[vedicA.chart.lagnaSign]}).
           Сама кундали тем же чертежом — режим «Кундали».</div>
         {@render transitCtl()}
@@ -1443,6 +1458,9 @@
   .vargas .more.on { color: var(--ink-dim);
     border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
   .vnote b { color: var(--ink-dim); font-weight: 500; }
+  /* легенда совмещённого чертежа — теми же цветами, что и метки в клетках */
+  .lgt { color: var(--neon-cyan); }
+  .lgn { color: var(--ink-dim); }
   /* строки дришти (джйотиш-аспекты по знакам) */
   .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }

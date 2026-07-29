@@ -15,7 +15,10 @@
   export interface VedicChartCell {
     house: number;      // 1..12 — номер дома (фиксированная позиция в North Indian)
     signIndex: number;  // 0..11 — знак в этом доме (0=Овен … 11=Рыбы)
-    planets: { short: string; deg: number; retro: boolean }[];  // short — краткая метка
+    // short — краткая метка; kind — чья это граха: транзитная (гочара) или
+    // рождения (кундали). Нет поля = один общий цвет, как было до совмещения.
+    planets: { short: string; deg: number; retro: boolean;
+      kind?: 'natal' | 'transit' }[];
   }
 
   type P = [number, number];
@@ -165,12 +168,16 @@
   const bySign = $derived(new Map(cells.map((c) => [c.signIndex, c])));
 
   /**
-   * Кегль столбика планет. Чем больше планет в доме, тем мельче — иначе стеллиум
-   * вылезает за полигон. Треугольники теснее центральных ромбов (вписанный круг
-   * вдвое меньше), поэтому от трёх планет им дополнительная скидка.
+   * Кегль столбика планет. Чем больше СТРОК в клетке, тем мельче — иначе
+   * стеллиум вылезает за полигон. Треугольники теснее центральных ромбов
+   * (вписанный круг вдвое меньше), поэтому от трёх планет им дополнительная
+   * скидка. Считается ОБЩЕЕ число строк: на совмещённом чертеже в одной клетке
+   * стоят и грахи гочары, и грахи рождения — от шести строк кегль убывает
+   * обратно пропорционально их числу, чтобы столбик всегда влезал по высоте.
    */
   const metrics = (n: number, rhomb: boolean) => {
-    const base = n <= 1 ? 5.2 : n === 2 ? 4.8 : n === 3 ? 4.2 : n === 4 ? 3.6 : 3.1;
+    const base = n <= 1 ? 5.2 : n === 2 ? 4.8 : n === 3 ? 4.2 : n === 4 ? 3.6
+      : n <= 5 ? 3.1 : 3.1 * (5 / n);
     const fs = rhomb || n < 3 ? base : base * 0.88;
     return { fs, lh: fs * 1.15, sup: fs * 0.62, rise: fs * 0.4 };
   };
@@ -191,7 +198,7 @@
       // тогда надстрочника нет вовсе, и точку вверх никто не уводит
       const deg = p.deg < 0 ? null : String(Math.max(0, Math.floor(p.deg)));
       debt = deg !== null && !p.retro ? m.rise : 0;
-      return { dy, short: p.short, deg, retro: p.retro };
+      return { dy, short: p.short, deg, retro: p.retro, kind: p.kind };
     });
     return {
       key: g.key, points: g.points, sx: g.sx, sy: g.sy, tx: g.tx, ty: g.ty,
@@ -239,7 +246,7 @@
       <!-- tspan'ы держим В ОДНУ строку без пробелов: перевод строки в разметке
            SVG превратился бы в реальный пробел между меткой и градусом -->
       <text x={g.tx} y={g.ty} class="planets" font-size={g.fs}>
-        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro}>{l.short}</tspan>{#if l.deg !== null}<tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{/if}{#if l.retro}<tspan dy={l.deg !== null ? g.rise : 0} class="retro">R</tspan>{/if}{/each}
+        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro} class:natal={l.kind === 'natal'} class:transit={l.kind === 'transit'}>{l.short}</tspan>{#if l.deg !== null}<tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{/if}{#if l.retro}<tspan dy={l.deg !== null ? g.rise : 0} class="retro">R</tspan>{/if}{/each}
       </text>
     {/if}
   {/each}
@@ -270,6 +277,11 @@
   .planets .deg { fill: var(--ink-dim); }
   /* ретроградная планета — золотом, как глиф в колесе (ui/Wheel.svelte) */
   .planets .retro { fill: var(--gold); }
+  /* Совмещённая карта (гочара поверх кундали): грахи транзита — акцентом,
+     грахи рождения — приглушённо. Правила идут ПОСЛЕ .retro, чтобы у метки
+     побеждала принадлежность; золотой остаётся сама буква «R». */
+  .planets .transit { fill: var(--neon-cyan); }
+  .planets .natal { fill: var(--ink-dim); }
   /* метка лагны южного стиля — та же кромка, что у рамки */
   .lagna {
     stroke-width: 0.5; stroke-linecap: round;

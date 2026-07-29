@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0.651",
+  "version": "0.1.0.653",
   "url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/bundle.zip",
-  "notes": "build 0.1.0.651 (2a274d0)",
+  "notes": "build 0.1.0.653 (609200a)",
   "files": [
     {
       "file_name": "icon.svg",
@@ -10,7 +10,7 @@
     },
     {
       "file_name": "index.html",
-      "file_hash": "ee2d2cb9cc29c7104707475366e6bb61987fca7dd959e25da9542d5e88952859",
+      "file_hash": "efd0f72d2e1f01c8416c21b9f57c429a7a38faac135f76986fc8967f3b6f2313",
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/index.html"
     },
     {
@@ -25,7 +25,7 @@
     },
     {
       "file_name": "sw.js",
-      "file_hash": "ebe594f7f5573651c96091863ccdf43f57df45c5efaf9b3d22f8037315c86ff8",
+      "file_hash": "7d40ba242eae6a9f70a9be2c575998bd7a4b24c9c332939d04153e1f48ef2b69",
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/sw.js"
     },
     {
@@ -69,14 +69,14 @@
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/golos-text-latin-wght-normal-BS5oQT7X.woff2"
     },
     {
-      "file_name": "assets/index-DgUv3wEM.js",
-      "file_hash": "d3ac63f4032f67adb277af0d4276ac258d84944667cb6ba9077661de0d1f873e",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-DgUv3wEM.js"
+      "file_name": "assets/index-SvVDQTtC.css",
+      "file_hash": "9c8f85343f2250f369dfb964a8c166904bafa852b00a2fa05f73f7a72f1fc3d5",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-SvVDQTtC.css"
     },
     {
-      "file_name": "assets/index-dCVCvfX_.css",
-      "file_hash": "d2b9a752edd27b6f1c8a5218309664c0d3ba23b5f6e03e5bc7b4bebacf221206",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-dCVCvfX_.css"
+      "file_name": "assets/index-YF9tCAgL.js",
+      "file_hash": "9287d1161479e92b63f707983e58a5cb5aac79fb0107daef423b8f71a0bf2abb",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-YF9tCAgL.js"
     },
     {
       "file_name": "assets/jetbrains-mono-cyrillic-400-normal-BEIGL1Tu.woff2",
@@ -504,44 +504,44 @@
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/unbounded-vietnamese-700-normal-CjKRcRIV.woff2"
     },
     {
-      "file_name": "assets/web-9NAE7V4F.js",
-      "file_hash": "a388feda24f5c75f9f2438969328a4c1c2d28b1ebaae55559dca8639530f88bf",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-9NAE7V4F.js"
+      "file_name": "assets/web-B8omHRkn.js",
+      "file_hash": "1a6c8d8e562e3ad3b2871910922f93aa4a8bad7cc257cfc217d62ed0436d8537",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-B8omHRkn.js"
     },
     {
-      "file_name": "assets/web-BXwh2rT0.js",
-      "file_hash": "115f68cca8dc311cb63da50d400e8b65da725af77bbe9c0a3d994c6554457b5f",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-BXwh2rT0.js"
+      "file_name": "assets/web-BHg9BMYn.js",
+      "file_hash": "39cfe136fc8a7bb50ebc335595c4a95d707d0eda24c660519b8ac64e4e5984f6",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-BHg9BMYn.js"
     },
     {
-      "file_name": "assets/web-Cxeyf9Er.js",
-      "file_hash": "da953228ebf7041449f102dece993e1b8d716052d5715d20eb76e7f6e8a26f32",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-Cxeyf9Er.js"
+      "file_name": "assets/web-BK61b9GB.js",
+      "file_hash": "b0166cc0197a206e0fe5ddad2771bb72cb8ac1493ae917ad90bb14ec54a02558",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-BK61b9GB.js"
     },
     {
-      "file_name": "assets/web-DPBIH0_V.js",
-      "file_hash": "a05f6da90215c77a2835866596e12c45863f0b453d965cc14680593b87213e4d",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-DPBIH0_V.js"
+      "file_name": "assets/web-Ca_vCENR.js",
+      "file_hash": "40792092406a4bba3886a6f02b468b14f26a52b58f6a5a776dc2d1882a474b63",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-Ca_vCENR.js"
     },
     {
-      "file_name": "assets/web-Dt1ZXk77.js",
-      "file_hash": "bd653997ace3d0e6f633f7ab9b38267fba65560fe4d0d66201af41b7eb2480b4",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-Dt1ZXk77.js"
+      "file_name": "assets/web-CrFikdog.js",
+      "file_hash": "63deade2a0ddd7589c60e603ae6f4c593eb39ceacfafa3639691684a0503c81b",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-CrFikdog.js"
     },
     {
-      "file_name": "assets/web-OyBKX9r-.js",
-      "file_hash": "6c02302739fad2a778e52a07dd82e77b6ce70d467e08d829adbf914117f1b1a3",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-OyBKX9r-.js"
+      "file_name": "assets/web-DYhlKyf2.js",
+      "file_hash": "c1d7ddd0a1740d82eb6a6f664f8e8f5238a4679e28c9bd779227126ca645fe69",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-DYhlKyf2.js"
     },
     {
-      "file_name": "assets/web-RZPHc3ry.js",
-      "file_hash": "64c4e72b48fc86c4f6edb7cdd7603f6d85fe245f5428740f057b190ac53bce01",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-RZPHc3ry.js"
+      "file_name": "assets/web-Dv1JEj6y.js",
+      "file_hash": "a77ebd5cc287c6bbdc9e5ab906a955fdfaffec55e5a1f0892c2a74110a4b8070",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-Dv1JEj6y.js"
     },
     {
-      "file_name": "assets/web-i-c-cFGW.js",
-      "file_hash": "dfa14c556f41fdf6b37a3f50b841d751a17acb2a0e51e4180539b01f60df6f2f",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-i-c-cFGW.js"
+      "file_name": "assets/web-u_k89IYs.js",
+      "file_hash": "4b6d188c3d84837ed8967a20f1179ed3b932d41a1d92aff7f9fac1aee6d006a9",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-u_k89IYs.js"
     }
   ]
 }

@@ -5,7 +5,8 @@
    *  замером; центр-карточка позиционируется В ПИКСЕЛЯХ (не translate — CSS-
    *  анимация появления перебивает transform); отсутствующий элемент тихо
    *  пропускается. z-index 45 — выше всех шторок. */
-  import { TOUR_STEPS } from '../lib/tour.ts';
+  import { tourSteps } from '../lib/tour.ts';
+  import { db } from '../lib/db.ts';
   import { tourState, closeTour } from '../lib/studyStore.svelte.ts';
   import { tick as haptic } from '../lib/haptics.ts';
   import { pushScrollLock } from '../lib/sheet.ts';
@@ -18,15 +19,17 @@
   let cardPos = $state<{ left: number; top: number }>({ left: 0, top: 0 });
   let measuring = $state(false);
 
-  const step = $derived(TOUR_STEPS[tourState.step]);
-  const total = TOUR_STEPS.length;
+  // тексты тура — под активную школу (в джйотише свой словарь)
+  const STEPS = $derived(tourSteps((db.settings.get().zodiac ?? 'tropical') === 'sidereal'));
+  const step = $derived(STEPS[tourState.step]);
+  const total = $derived(STEPS.length);
 
   $effect(() => pushScrollLock());       // фон под туром не проматывается
 
   // Пересчёт геометрии при смене шага. Ищем элемент, скроллим к центру,
   // ждём ДВА кадра (иначе координаты устаревшие), затем замеряем.
   $effect(() => {
-    const s = TOUR_STEPS[tourState.step];
+    const s = STEPS[tourState.step];
     if (!s) return;
     measuring = true;
     rect = null;

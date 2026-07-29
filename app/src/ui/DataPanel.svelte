@@ -236,16 +236,16 @@
     <summary class="group">Обучение</summary>
   <div class="block">
     {#if onstarttour}<button class="btn" onclick={() => onstarttour?.()} style="margin-bottom:8px">🎓 Тур по приложению</button>{/if}
-    {#if onCourse}<button class="btn" onclick={() => onCourse?.()} style="margin-bottom:8px">📖 Курс астрологии</button>{/if}
+    {#if onCourse}<button class="btn" onclick={() => onCourse?.()} style="margin-bottom:8px">📖 Курс астрологии{#if vedic} (западная школа){/if}</button>{/if}
     <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
     <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
       Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
       и получить разбор.</div>
     {#if vedic}
-      <div class="hint small" style="margin-top:8px">⚠ Тур и курс написаны про ЗАПАДНУЮ
-        астрологию: знаки, дома по градусам, аспекты по орбисам. В джйотише часть этого
-        устроена иначе — управители знаков другие, аспекты считаются по целым знакам.
-        Ведический курс пока не написан.</div>
+      <div class="hint small" style="margin-top:8px">Тур по приложению говорит словами
+        джйотиша. А вот курс написан про западную школу: там знаки, дома по градусам и
+        аспекты по орбисам — в джйотише это устроено иначе. Ведический курс пока
+        не написан.</div>
     {/if}
   </div>
 

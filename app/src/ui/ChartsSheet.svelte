@@ -60,6 +60,7 @@
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
   import { kutaMatch, manglik } from '../lib/kuta.ts';
   import { nakshatraOf, signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
+  import { taraOf, chandraHouse, CHANDRA_LORE, CHANDRA_GOOD } from '../lib/panchangaLore.ts';
   import { antarWindows, sidIngresses, stationsInWindow, monthlyGochara } from '../lib/vedicForecast.ts';
   import { ZODIAC } from '../engine/index.ts';
 
@@ -261,6 +262,22 @@
       }
     }
     return out;
+  });
+
+  // «ДЕНЬ ДЛЯ ЭТОГО ЧЕЛОВЕКА» — тарабала (счёт накшатр от его Луны) и чандра-
+  // гочара (дом Луны от его натальной). Раньше блок жил на главном экране;
+  // решение владелицы 2026-07-29: место личного слоя — в «Картах», у карты
+  // человека. Следует за перемоткой момента, как и вся гочара.
+  const personalDay = $derived.by(() => {
+    if (!vedic || mode !== 'transitNatal' || !personA) return null;
+    const natalMoon = posA.find((p) => p.name === 'Луна');
+    const tMoon = transitPos.find((p) => p.name === 'Луна');
+    if (!natalMoon || !tMoon) return null;
+    const natal = nakshatraOf(natalMoon.lon);
+    const tara = taraOf(natal.index, nakshatraOf(tMoon.lon).index);
+    const house = chandraHouse(signIndexOf(natalMoon.lon), signIndexOf(tMoon.lon));
+    return { tara, house, text: CHANDRA_LORE[house - 1], good: CHANDRA_GOOD.has(house),
+      natalNak: natal.name, unknownTime: !!personA.unknownTime };
   });
 
   // Грахи гочары списком: знак, накшатра и дом ОТ ЛАГНЫ выбранного человека.
@@ -928,6 +945,27 @@
         <div class="vnote">Дома — от лагны рождения ({ZODIAC[vedicA.chart.lagnaSign]}).
           Сама кундали тем же ромбом — режим «Кундали».</div>
         {@render transitCtl()}
+        {#if personalDay}
+          <!-- личный день: тарабала + ход Луны от натальной. Переехал сюда с
+               главного экрана — там день «вообще», здесь день конкретного
+               человека (правка владелицы 2026-07-29) -->
+          <div class="grp">День для {personA?.name} <Hint k="tarabala" /></div>
+          <div class="pers glass">
+            <div class="prow2">
+              <span class="ptara" class:good={personalDay.tara.good}>{personalDay.tara.index}. {personalDay.tara.name}</span>
+              <span class="pverdict">{personalDay.tara.good ? 'благоприятная тара' : 'тара осторожности'}</span>
+            </div>
+            <p>{personalDay.tara.text}</p>
+            <div class="prow2">
+              <span class="ptara" class:good={personalDay.good}>Луна в {personalDay.house}-м от натальной</span>
+              <span class="pverdict">{personalDay.good ? 'удачный ход' : 'слабый ход'}</span>
+            </div>
+            <p>{personalDay.text}</p>
+            <div class="pfrom">Считается от Луны рождения — накшатра {personalDay.natalNak}.
+              {#if personalDay.unknownTime}⚠ Время рождения не задано: Луна проходит накшатру
+                примерно за сутки, поэтому тара может оказаться соседней.{/if}</div>
+          </div>
+        {/if}
       {:else}
         <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
           selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} onscrub={scrubTransit} />
@@ -1394,6 +1432,15 @@
   .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }
   .drhead b { font-weight: 600; }
+  /* личный день (тарабала + чандра-гочара) */
+  .pers { padding: 12px 14px; margin: 6px 0 10px; border-radius: 14px; }
+  .pers p { margin: 4px 0 10px; font-size: 0.86rem; line-height: 1.55; color: var(--ink-dim); }
+  .prow2 { display: flex; align-items: baseline; gap: 10px; }
+  .ptara { font-size: 0.9rem; color: var(--rose); }
+  .ptara.good { color: var(--gold); }
+  .pverdict { margin-left: auto; color: var(--ink-faint); font-size: 0.72rem;
+    text-transform: uppercase; letter-spacing: 0.6px; }
+  .pfrom { color: var(--ink-faint); font-size: 0.76rem; line-height: 1.5; }
   /* таблица грах гочары: знак · накшатра · дом от лагны */
   .vtable { padding: 4px 6px; margin: 6px 0 10px; border-radius: 12px; }
   .vrow { display: grid; grid-template-columns: 5.4rem 7rem 1fr 2.2rem; gap: 6px;

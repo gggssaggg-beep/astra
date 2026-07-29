@@ -28,7 +28,8 @@
     "test:quiet": "node test/quiet.mjs",
     "test:digest": "node test/digest.mjs",
     "test:inputmask": "node test/inputmask.mjs",
-    "test:notesdir": "node test/notesdir.mjs"
+    "test:notesdir": "node test/notesdir.mjs",
+    "test:vedicevents": "node test/vedicevents.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.1",

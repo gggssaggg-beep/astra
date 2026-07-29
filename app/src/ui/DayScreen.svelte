@@ -12,14 +12,12 @@
   import VedicChart from './VedicChart.svelte';
   import { gocharaCells } from '../lib/vedicChart.ts';
   import { VEDIC_ORDER_SET, signIndexOf as sidSign, BHAVA_THEME } from '../lib/vedic.ts';
-  import { skyDrishti } from '../lib/drishti.ts';
-  import { ingressesOnDay } from '../lib/vedicForecast.ts';
-  import { gocharaText } from '../lib/gocharaLore.ts';
+  import { vedicDayEvents } from '../lib/vedicEvents.ts';
+  import type { DashaPeriod } from '../lib/vedic.ts';
   import { ZODIAC as ZODIAC_RU, PLANET_GLYPH } from '../engine/index.ts';
-  import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from '../lib/panchanga.ts';
+  import { panchangaOf } from '../lib/panchanga.ts';
   import { dayHeadline, VARA_LORE, TITHI_LORE, PAKSHA_LORE, tithiGroup, KARANA_LORE,
-    NAKSHATRA_LORE, YOGA_LORE, taraOf, chandraHouse, CHANDRA_LORE, CHANDRA_GOOD } from '../lib/panchangaLore.ts';
-  import { nakshatraOf } from '../lib/vedic.ts';
+    NAKSHATRA_LORE, YOGA_LORE } from '../lib/panchangaLore.ts';
   import Hint from './Hint.svelte';
   import { reveal } from '../lib/reveal.ts';
   import { aspectSignature } from '../lib/signature.ts';
@@ -33,7 +31,7 @@
   // колеса/планет/Луны) и `scrubbed`/`scrubScale`; жест колеса и «↺ сейчас»/
   // смена масштаба — коллбэки наверх.
   let { engine, date, snapshot, scrubbed = false, scrubScale = 'day',
-        vedic = false, vedicLagna = null, vedicMoon = null,
+        vedic = false, vedicLagna = null, vedicMoon = null, vedicDashas = null,
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
         selectedSignature = null, selectedInfo = null,
         onAspect, oninfo, onscrub, onresetnow, onscale }:
@@ -47,6 +45,8 @@
        *  джйотиш и называет «какой сегодня день ДЛЯ МЕНЯ». Место рождения тут
        *  не нужно, а вот время важно (Луна проходит накшатру за сутки). */
       vedicMoon?: { lon: number; unknownTime: boolean; name: string } | null;
+      /** периоды Вимшоттари «моей карты»: смены даш попадают в события дня */
+      vedicDashas?: DashaPeriod[] | null;
       orbOf: (name: string) => number; tz: string;
       objects?: string[] | null; signStyle?: SignStyle; nodalAxisFigures?: boolean;
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
@@ -73,16 +73,10 @@
   // знаки, честно об этом подписав.
   const skyCells = $derived(gocharaCells(positions, vedicLagna ?? 0));
 
-  // дришти и юти между транзитными грахами — джйотиш-«аспекты дня»
-  const skyAsp = $derived(vedic
-    ? skyDrishti(positions.filter((p) => VEDIC_ORDER_SET.has(p.name))
-        .map((p) => ({ name: p.name, signIndex: sidSign(p.lon) })))
-    : { drishti: [], yuti: [] });
-  // смены знака ИМЕННО в эти сутки (бинарный поиск — от якоря суток, не от тика)
-  const todayIngress = $derived.by(() => {
-    if (!vedic) return [];
-    try { return ingressesOnDay(engine, dayStart, vedicLagna); } catch { return []; }
-  });
+  // Дришти и юти с главного экрана УБРАНЫ (правка астролога 2026-07-29): их
+  // место — в карте человека, а не в ленте дней. Переходы грах перестали быть
+  // отдельным разделом — они внутри «Событий дня» (там же станции, границы
+  // накшатры/титхи/йоги и смены даш).
   const vedicFrom = $derived(vedicLagna == null
     ? 'дома не показаны: задай свою карту с местом рождения — тогда транзит ляжет на твои дома'
     : 'дома — от лагны твоей карты (гочара)');
@@ -100,23 +94,11 @@
   const panchanga = $derived(vedic && sun && moon
     ? panchangaOf(sun.lon, moon.lon, civilWeekday(snapshot)) : null);
 
-  // Моменты переходов ищутся двоичным поиском (десятки обращений к движку), а
-  // `snapshot` тикает раз в минуту — считаем от момента, огрублённого до 10 мин,
-  // иначе поиск гонялся бы на каждый тик часов. Отставание невидимо: строка
-  // «перейдёт в HH:MM» не меняется, пока переход не случится.
-  const coarseMs = $derived(Math.floor(snapshot.getTime() / 600_000) * 600_000);
-  const vedicNext = $derived.by(() => {
-    if (!vedic) return null;
-    const at = new Date(coarseMs);
-    try {
-      return { nak: nextNakshatraEnd(engine, at), tithi: nextTithiEnd(engine, at) };
-    } catch { return null; }   // сбой движка не должен уронить экран дня
-  });
-
   // ── трактовка дня (джйотиш) ───────────────────────────────────────────────
-  // Ведический ответ на «что сегодня»: смысл панчанги + два ЛИЧНЫХ слоя от
-  // Луны своей карты — тарабала (счёт накшатр) и чандра-гочара (дом Луны от
-  // натальной). Правка владелицы 2026-07-29: экран дня в джйотише был пустым.
+  // Главный текст дня: накшатра ведёт, вара и титхи уточняют, трудная йога
+  // добавляет оговорку. Личный слой («День для тебя» — тарабала и чандра-
+  // гочара) с главного экрана уехал в «Карты»: там, где заведена карта
+  // человека (решение владелицы 2026-07-29).
   const dayText = $derived(panchanga
     ? dayHeadline({
         varaDay: panchanga.vara.day, varaLord: panchanga.vara.lord,
@@ -125,14 +107,6 @@
         nakshatra: panchanga.nakshatra.name, yoga: panchanga.yoga.name,
       })
     : null);
-  const personalDay = $derived.by(() => {
-    if (!panchanga || !vedicMoon || !moon) return null;
-    const natal = nakshatraOf(vedicMoon.lon);
-    const tara = taraOf(natal.index, panchanga.nakshatra.index);
-    const house = chandraHouse(Math.floor(((vedicMoon.lon % 360) + 360) % 360 / 30), sidSign(moon.lon));
-    return { tara, house, text: CHANDRA_LORE[house - 1], good: CHANDRA_GOOD.has(house),
-      natalNak: natal.name, who: vedicMoon.name, unknownTime: vedicMoon.unknownTime };
-  });
   // раскрытая строка панчанги (одна за раз — иначе экран превращается в простыню)
   let openPan = $state<string | null>(null);
   const panRows = $derived(panchanga ? [
@@ -221,6 +195,16 @@
     return () => { cancelled = true; };
   });
   const events = $derived(eventsOnCached(engine, dayStart));
+  // СОБЫТИЯ ДНЯ (джйотиш): всё, что сегодня меняется, одним списком — смены
+  // знака всеми грахами с домом от лагны, станции, затмения, границы накшатры,
+  // титхи и йоги, смены даш «моей карты».
+  const vedicEvents = $derived.by(() => {
+    if (!vedic) return [];
+    try {
+      return vedicDayEvents(engine, dayStart,
+        { lagnaSign: vedicLagna, dashas: vedicDashas, base: events });
+    } catch { return []; }
+  });
 
   // «Фигуры дня» — конфигурации аспектов (§ раунд 29). Тап по фигуре подсвечивает
   // весь её полигон в колесе (набор линий) и раскрывает декомпозицию.
@@ -339,28 +323,6 @@
       <p>{dayText}</p>
     </div>
 
-    {#if personalDay}
-      <h3 class="sec">День для тебя <Hint k="tarabala" /></h3>
-      <div class="pers glass reveal" use:reveal>
-        <div class="prow2">
-          <span class="ptara" class:good={personalDay.tara.good}>{personalDay.tara.index}. {personalDay.tara.name}</span>
-          <span class="pverdict">{personalDay.tara.good ? 'благоприятная тара' : 'тара осторожности'}</span>
-        </div>
-        <p>{personalDay.tara.text}</p>
-        <div class="prow2">
-          <span class="ptara" class:good={personalDay.good}>Луна в {personalDay.house}-м от твоей</span>
-          <span class="pverdict">{personalDay.good ? 'удачный ход' : 'слабый ход'}</span>
-        </div>
-        <p>{personalDay.text}</p>
-        <div class="pfrom">Считается от Луны карты «{personalDay.who}» — накшатра {personalDay.natalNak}.
-          {#if personalDay.unknownTime}⚠ Время рождения не задано: Луна проходит накшатру примерно
-            за сутки, поэтому тара может оказаться соседней.{/if}</div>
-      </div>
-    {:else}
-      <div class="vhint" style="text-align:left">Выбери свою карту в настройках («Гочара к моей карте»)
-        — и здесь появится тарабала: какой сегодня день лично для тебя, от накшатры твоей Луны.</div>
-    {/if}
-
     <h3 class="sec">Панчанга</h3>
     <div class="panch glass">
       {#each panRows as r (r.k)}
@@ -374,17 +336,6 @@
           <div class="plore">{r.text}</div>
         {/if}
       {/each}
-      {#if vedicNext}
-        <!-- титхи и накшатра меняются посреди суток — без времени перехода
-             строка «сегодня Двадаши» вводит в заблуждение -->
-        <!-- переход часто ЗАВТРАШНИЙ (накшатра длится ~сутки): без пометки дня
-             «в 13:07» при «сейчас 21:19» читается как прошедшее время -->
-        <div class="pnext">
-          <div>Луна перейдёт в {vedicNext.nak.next}
-            {sameDay(vedicNext.nak.at, snapshot, tz) ? '' : 'завтра '}в {fmtTime(vedicNext.nak.at, tz)}</div>
-          <div>Титхи сменится {sameDay(vedicNext.tithi.at, snapshot, tz) ? '' : 'завтра '}в {fmtTime(vedicNext.tithi.at, tz)}</div>
-        </div>
-      {/if}
     </div>
   {/if}
 
@@ -408,6 +359,25 @@
     </div>
   {/if}
 
+  <!-- СОБЫТИЯ ДНЯ в джйотише идут ВЫШЕ грах (правка астролога 2026-07-29):
+       сперва что сегодня меняется, потом где кто стоит. Западный экран не
+       трогаем — там раздел остаётся ниже, на прежнем месте. -->
+  {#if vedic && vedicEvents.length}
+    <h3 class="sec" data-tour="events">События дня <Hint k="day-events" /></h3>
+    <div class="events glass">
+      {#each vedicEvents as ev (ev.at.getTime() + ev.title)}
+        <div class="vev w{ev.weight}" class:passed={ev.at.getTime() <= snapshot.getTime()}>
+          <div class="vevhead">
+            <span class="evg glyph">{ev.glyph}</span>
+            <span class="evt">{ev.title}</span>
+            <span class="evtime">{fmtTime(ev.at, tz)}</span>
+          </div>
+          {#if ev.note}<div class="vevnote">{ev.note}</div>{/if}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
   <!-- в джйотише планеты зовут грахами: слово идёт через весь ведический режим -->
   <h3 class="sec" data-tour="positions">{vedic ? 'Грахи сейчас' : 'Планеты сейчас'} <Hint k="planet" /></h3>
   <div class="positions glass">
@@ -422,7 +392,7 @@
     {/each}
   </div>
 
-  {#if events.length}
+  {#if events.length && !vedic}
     <h3 class="sec" data-tour="events">События дня <Hint k="day-events" /></h3>
     <div class="events glass">
       {#each events as ev}
@@ -446,52 +416,6 @@
           onactivate={() => (selFigureKey = selFigureKey === f.hit.key ? null : f.hit.key)} />
       {/each}
     </details>
-  {/if}
-
-  <!-- Что МЕНЯЕТСЯ сегодня: смены знака грахами. По списку «планеты сейчас»
-       этого не видно, а для гочары переход — главное событие суток. -->
-  {#if vedic && todayIngress.length}
-    <h3 class="sec">Переходы сегодня</h3>
-    <div class="card glass vasp">
-      {#each todayIngress as g (g.name)}
-        <div class="ingr" class:passed={g.passed}>
-          <div class="ingrHead">
-            <span class="g glyph">{PLANET_GLYPH[g.name] ?? '•'}</span>
-            <b>{g.name}</b>{#if g.retro}<span class="rx">℞</span>{/if}
-            <span class="arrow">{ZODIAC_RU[g.fromSign]} → {ZODIAC_RU[g.toSign]}</span>
-            <span class="ingrTime">{fmtTime(g.at, tz)}</span>
-          </div>
-          {#if g.house}
-            <div class="ingrWhat">входит в {g.house}-й дом — {BHAVA_THEME[g.house]}.
-              {g.passed ? 'Уже перешла' : 'Перейдёт сегодня'}.</div>
-            {#if gocharaText(g.name, g.house)}
-              <div class="ingrLore">{gocharaText(g.name, g.house)}</div>
-            {/if}
-          {:else}
-            <div class="ingrWhat">Дом не показан — задай свою карту с местом рождения.</div>
-          {/if}
-        </div>
-      {/each}
-    </div>
-  {/if}
-
-  <!-- Джйотиш-аналог «аспектов дня»: дришти и юти МЕЖДУ транзитными грахами,
-       по целым знакам. Держится сутками, а не минутами — потому и без окон
-       «вход/точно/выход», которые есть у западных орбисных аспектов. -->
-  {#if vedic && (skyAsp.yuti.length || skyAsp.drishti.length)}
-    <h3 class="sec">Дришти и юти сегодня</h3>
-    <div class="card glass vasp">
-      {#each skyAsp.yuti as y (y.sign)}
-        <div class="vaspRow"><span class="vk">юти</span>
-          <span class="vv">{y.planets.join(' + ')} — вместе в {ZODIAC_RU[y.sign]}</span></div>
-      {/each}
-      {#each skyAsp.drishti as d (d.from + d.to)}
-        <div class="vaspRow"><span class="vk">дришти</span>
-          <span class="vv">{d.from} смотрит на {d.to} ({ZODIAC_RU[d.fromSign]} → {ZODIAC_RU[d.toSign]})</span></div>
-      {/each}
-    </div>
-    <div class="vhint" style="text-align:left">Все грахи смотрят в 7-й знак от себя; у Марса
-      это ещё 4-й и 8-й, у Юпитера 5-й и 9-й, у Сатурна 3-й и 10-й. Узлы по умолчанию не аспектируют.</div>
   {/if}
 
   <!-- Аспектные секции — ЗАПАДНАЯ школа (орбисы). В джйотише их нет: аспекты
@@ -544,20 +468,15 @@
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude; }
   /* подпись под квадратной картой: от чего считаются дома гочары */
-  .vasp { padding: 10px 14px; margin: 6px 0; }
-  .ingr { padding: 8px 0; }
-  .ingr + .ingr { border-top: 1px solid var(--glass-brd); }
-  .ingr.passed { opacity: 0.62; }
-  .ingrHead { display: flex; align-items: baseline; gap: 7px; font-size: 0.88rem; color: var(--ink); }
-  .ingrHead .arrow { color: var(--ink-dim); font-size: 0.82rem; }
-  .ingrHead .rx { color: var(--gold); font-size: 0.78rem; }
-  .ingrTime { margin-left: auto; color: var(--ink-faint); font-size: 0.78rem; }
-  .ingrWhat { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45; margin-top: 3px; }
-  .ingrLore { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5; margin-top: 5px; }
-  .vaspRow { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; font-size: 0.84rem; }
-  .vaspRow + .vaspRow { border-top: 1px solid var(--glass-brd); }
-  .vk { color: var(--ink-faint); font-size: 0.72rem; min-width: 3.4rem; }
-  .vv { color: var(--ink); }
+  /* события дня (джйотиш): строка «откуда → куда» + дом в два слова.
+     Медленные грахи и смены даш (w2) — ярче: это событие месяцев, не суток. */
+  .vev { padding: 8px 0; }
+  .vev + .vev { border-top: 1px solid var(--glass-brd); }
+  .vev.passed { opacity: 0.62; }
+  .vev.w0 .evt { color: var(--ink-dim); }
+  .vev.w2 .evt { color: var(--gold); }
+  .vevhead { display: flex; align-items: baseline; gap: 8px; font-size: 0.88rem; color: var(--ink); }
+  .vevnote { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45; margin: 3px 0 0 1.9rem; }
   .vhint { text-align: center; color: var(--ink-faint); font-size: 0.74rem;
     line-height: 1.4; margin: 8px 10px 0; }
   .snaptime { display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -618,14 +537,6 @@
   /* ── Трактовка дня (джйотиш): главный текст + личный слой ─────────────── */
   .daytext { padding: 14px 16px; margin: 8px 0; }
   .daytext p { margin: 0; font-size: 0.92rem; line-height: 1.6; color: var(--ink); }
-  .pers { padding: 12px 16px 14px; margin: 8px 0; }
-  .pers p { margin: 4px 0 10px; font-size: 0.88rem; line-height: 1.55; color: var(--ink-dim); }
-  .prow2 { display: flex; align-items: baseline; gap: 10px; }
-  .ptara { font-size: 0.92rem; color: var(--rose); }
-  .ptara.good { color: var(--gold); }
-  .pverdict { margin-left: auto; color: var(--ink-faint); font-size: 0.74rem;
-    text-transform: uppercase; letter-spacing: 0.6px; }
-  .pfrom { color: var(--ink-faint); font-size: 0.76rem; line-height: 1.5; margin-top: 2px; }
   /* ── Панчанга: список «член дня → значение», как «Планеты сейчас» ──────── */
   .panch { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; margin: 8px 0; }
   .prow { display: flex; align-items: baseline; gap: 12px; min-width: 0; }

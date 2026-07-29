@@ -11,6 +11,7 @@
   import { aspectsOnCached } from './lib/dayCache.ts';
   import { recoverNoteDirections } from './lib/notesMigrate.ts';
   import { natalPositions, birthInstantUTC } from './lib/charts.ts';
+  import { vedicNatal } from './lib/vedicChart.ts';
   import DayScreen from './ui/DayScreen.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
@@ -484,6 +485,15 @@
     } catch { return null; }
   });
 
+  /** Периоды Вимшоттари «моей карты» — их смены попадают в события дня.
+   *  Нужны место и время рождения (без лагны карта не строится). */
+  const myDashas = $derived.by(() => {
+    if (!isVedic || !engine || !settings.transitSelfId) return null;
+    const me = db.people.get(settings.transitSelfId);
+    if (!me?.place) return null;
+    try { return vedicNatal(engine, me)?.dashas ?? null; } catch { return null; }
+  });
+
   /** Смена школы: сохраняем и пересобираем движок (зодиак — его свойство). */
   function setZodiac(z: 'tropical' | 'sidereal') {
     if ((settings.zodiac ?? 'tropical') === z) return;
@@ -633,7 +643,7 @@
     {#key date.getTime()}
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
-          vedic={isVedic} vedicLagna={myLagna} vedicMoon={myMoon}
+          vedic={isVedic} vedicLagna={myLagna} vedicMoon={myMoon} vedicDashas={myDashas}
           {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}

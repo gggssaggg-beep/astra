@@ -13,6 +13,7 @@
   import { natalPositions, birthInstantUTC } from './lib/charts.ts';
   import { vedicNatal } from './lib/vedicChart.ts';
   import DayScreen from './ui/DayScreen.svelte';
+  import GrahaSheet from './ui/GrahaSheet.svelte';
   import DataPanel from './ui/DataPanel.svelte';
   import DateSheet from './ui/DateSheet.svelte';
   import Journal from './ui/Journal.svelte';
@@ -494,6 +495,20 @@
     try { return vedicNatal(engine, me)?.dashas ?? null; } catch { return null; }
   });
 
+  /** открытая страница грахи (джйотиш): имя грахи или null */
+  let showGraha = $state<string | null>(null);
+  const mySelfName = $derived(
+    settings.transitSelfId ? db.people.get(settings.transitSelfId)?.name ?? null : null);
+  /** «Сатурн — Меркурий» — текущий период Вимшоттари моей карты */
+  const myDashaNow = $derived.by(() => {
+    if (!myDashas?.length) return null;
+    const now = Date.now();
+    const maha = myDashas.find((m) => +m.from <= now && now < +m.to);
+    if (!maha) return null;
+    const antar = (maha.sub ?? []).find((a) => +a.from <= now && now < +a.to);
+    return antar ? `${maha.lord} — ${antar.lord}` : maha.lord;
+  });
+
   /** Смена школы: сохраняем и пересобираем движок (зодиак — его свойство). */
   function setZodiac(z: 'tropical' | 'sidereal') {
     if ((settings.zodiac ?? 'tropical') === z) return;
@@ -648,7 +663,8 @@
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}
           onscrub={scrubWheel} onresetnow={resetScrub} onscale={(s) => { scrubScale = s; }}
-          onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }} />
+          onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }}
+          ongraha={(name) => { showGraha = name; buzzTick(); }} />
       </div>
     {/key}
   {/if}
@@ -768,6 +784,13 @@
       requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' })); }}
     onclose={() => (showCharts = false)} />
   {/key}
+{/if}
+
+{#if showGraha && engine}
+  <!-- страница грахи: разбор текущего прохода по знаку и дому (джйотиш) -->
+  <GrahaSheet {engine} graha={showGraha} at={scrubInstant} tz={settings.tz}
+    lagnaSign={myLagna} selfName={mySelfName} dasha={myDashaNow}
+    onclose={() => (showGraha = null)} />
 {/if}
 
 {#if showCommunity}

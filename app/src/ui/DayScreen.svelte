@@ -13,6 +13,8 @@
   import { gocharaCells } from '../lib/vedicChart.ts';
   import { VEDIC_ORDER_SET, signIndexOf as sidSign, BHAVA_THEME } from '../lib/vedic.ts';
   import { vedicDayEvents } from '../lib/vedicEvents.ts';
+  import { gocharaTeaser } from '../lib/gocharaTeaser.ts';
+  import { degMin } from '../lib/vedicChart.ts';
   import type { DashaPeriod } from '../lib/vedic.ts';
   import { ZODIAC as ZODIAC_RU, PLANET_GLYPH } from '../engine/index.ts';
   import { panchangaOf } from '../lib/panchanga.ts';
@@ -34,7 +36,7 @@
         vedic = false, vedicLagna = null, vedicMoon = null, vedicDashas = null,
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
         selectedSignature = null, selectedInfo = null,
-        onAspect, oninfo, onscrub, onresetnow, onscale }:
+        onAspect, oninfo, onscrub, onresetnow, onscale, ongraha }:
     { engine: Engine; date: Date; snapshot: Date; scrubbed?: boolean;
       scrubScale?: 'day' | 'month' | 'year';
       vedic?: boolean;
@@ -52,7 +54,9 @@
       selectedSignature?: string | null; selectedInfo?: WheelInfo | null;
       onAspect?: (r: AspectRecord) => void; oninfo?: (info: WheelInfo) => void;
       onscrub?: (deltaMs: number) => void; onresetnow?: () => void;
-      onscale?: (s: 'day' | 'month' | 'year') => void } = $props();
+      onscale?: (s: 'day' | 'month' | 'year') => void;
+      /** тап по плашке грахи — открыть её страницу (джйотиш) */
+      ongraha?: (name: string) => void } = $props();
 
   // Сутки (для аспектов/событий) — 00:00 ВЫБРАННОГО пояса ЭФФЕКТИВНОЙ даты (при
   // прокрутке за полночь `date` = гражданская дата прокрученного момента, контент
@@ -158,6 +162,22 @@
     // в джйотише грах девять: Уран/Нептун/астероиды в ведическом списке не место
     return vedic ? list.filter((p) => VEDIC_ORDER_SET.has(p.name)) : list;
   });
+  // ПЛАШКИ ГРАХ (правка астролога 2026-07-29): вместо строки таблицы — карточка
+  // с домом от лагны и затравкой в несколько слов, чтобы «глянул и понял».
+  // Тап уводит на страницу грахи с полным разбором.
+  const favTransits = $derived(db.settings.get().favTransits ?? []);
+  const grahaCards = $derived.by(() => {
+    if (!vedic) return [];
+    return planets.map((p) => {
+      const si = sidSign(p.lon);
+      const house = vedicLagna == null ? 0 : ((si - vedicLagna + 12) % 12) + 1;
+      return { name: p.name, glyph: p.glyph, retro: p.retro, lon: p.lon, signIndex: si,
+        sign: ZODIAC_RU[si], deg: p.lon - si * 30, house,
+        teaser: gocharaTeaser(p.name, ZODIAC_RU[si]),
+        fav: favTransits.includes(`${p.name}|${ZODIAC_RU[si]}`) };
+    });
+  });
+
   const day = $derived(aspectsOnCached(engine, dayStart, orbOf, objects));
   const allAspects = $derived([...day.moon, ...day.fast, ...day.slow]);
   // КОЛЕСО ЧЕСТНОЕ К МОМЕНТУ: линии = РЕАЛЬНЫЕ углы между показанными планетами
@@ -380,6 +400,30 @@
 
   <!-- в джйотише планеты зовут грахами: слово идёт через весь ведический режим -->
   <h3 class="sec" data-tour="positions">{vedic ? 'Грахи сейчас' : 'Планеты сейчас'} <Hint k="planet" /></h3>
+  {#if vedic}
+    <!-- ПЛАШКИ: знак и градус, дом от лагны и затравка в несколько слов;
+         тап — страница грахи с разбором (правка астролога 2026-07-29) -->
+    <div class="cards">
+      {#each grahaCards as g (g.name)}
+        <button class="gcard glass reveal" class:retro={g.retro} use:reveal
+          onclick={() => ongraha?.(g.name)}>
+          <div class="gtop">
+            <span class="g glyph">{g.glyph}</span>
+            <span class="gname">{g.name}{#if g.retro}<span class="grx">℞</span>{/if}{#if g.fav}<span class="gfav">★</span>{/if}</span>
+            <span class="gpos">{degMin(g.deg)} {g.sign}</span>
+          </div>
+          {#if g.house}
+            <div class="ghouse">{g.house}-й дом — {BHAVA_THEME[g.house]}</div>
+          {/if}
+          {#if g.teaser}<div class="gteaser">{g.teaser}</div>{/if}
+        </button>
+      {/each}
+    </div>
+    {#if vedicLagna == null}
+      <div class="vhint" style="text-align:left">Дома не показаны: выбери свою карту с местом
+        рождения в настройках — тогда у каждой грахи появится дом от твоей лагны.</div>
+    {/if}
+  {:else}
   <div class="positions glass">
     {#each planets as p}
       <!-- каждая планета своей строкой С ИМЕНЕМ: «☉ Солнце — 2°09′ Рака»
@@ -391,6 +435,7 @@
       </div>
     {/each}
   </div>
+  {/if}
 
   {#if events.length && !vedic}
     <h3 class="sec" data-tour="events">События дня <Hint k="day-events" /></h3>
@@ -556,6 +601,21 @@
     font-variant-numeric: tabular-nums; }
   .pnext::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 1px;
     background: linear-gradient(90deg, transparent, var(--glass-brd), transparent); }
+  /* плашки грах (джйотиш): карточка на граху с домом и затравкой */
+  .cards { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+  .gcard { display: block; width: 100%; text-align: left; padding: 11px 14px;
+    border-radius: 16px; border: 1px solid var(--glass-brd); }
+  .gtop { display: flex; align-items: baseline; gap: 8px; }
+  .gcard .g { font-size: 1.15rem; color: var(--silver); flex: none; }
+  .gname { font-size: 0.95rem; color: var(--ink); }
+  .grx { color: var(--gold); font-size: 0.78rem; margin-left: 4px; }
+  .gfav { color: var(--gold); font-size: 0.76rem; margin-left: 5px; }
+  .gpos { margin-left: auto; font-size: 0.88rem; color: var(--ink-dim);
+    font-variant-numeric: tabular-nums; }
+  .gcard.retro .gpos { color: var(--gold); }
+  .ghouse { color: var(--ink-faint); font-size: 0.76rem; margin: 5px 0 0 1.9rem; }
+  .gteaser { color: var(--ink-dim); font-size: 0.84rem; line-height: 1.45;
+    margin: 3px 0 0 1.9rem; }
   /* один пункт = одна строка (перенос каждому пункту — просьба владелицы) */
   .positions { display: flex; flex-direction: column; gap: 7px; padding: 12px 14px; margin: 8px 0; }
   .chip { display: flex; align-items: center; gap: 8px; min-width: 0; }

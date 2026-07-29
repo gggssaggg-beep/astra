@@ -33,6 +33,12 @@
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
   let tlAll = $state(false);                    // лента дат раскрыта целиком
 
+  // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
+  // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
+  // остаётся НАД вкладками — это шапка кундали, а не раздел.
+  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'dashas';
+  let tab = $state<TabId>('grahas');
+
   // небо «сейчас» нужно только для станции Сатурна от Луны (Саде Сати)
   const sky = $derived(vedicSky(engine));
 
@@ -66,6 +72,20 @@
 
   // короткое имя карты — {@const} на верхнем уровне разметки Svelte не разрешён
   const c = $derived(natal.chart);
+
+  // «я не астролог»: дришти и аштакаварга — специальные слои, вкладок под них нет
+  const tabs = $derived.by(() => {
+    const out: { id: TabId; label: string }[] = [
+      { id: 'grahas', label: 'Грахи' },
+      { id: 'houses', label: 'Дома' },
+    ];
+    if (!simple && drishti.length) out.push({ id: 'drishti', label: 'Дришти' });
+    if (!simple && av) out.push({ id: 'av', label: 'Аштакаварга' });
+    out.push({ id: 'dashas', label: 'Даши' });
+    return out;
+  });
+  // если открытая вкладка исчезла (включили упрощённый вид) — возвращаемся к грахам
+  const active = $derived(tabs.some((t) => t.id === tab) ? tab : 'grahas');
 
   const karakaName = (code?: string) =>
     CHARA_KARAKAS.find((k) => k.code === code)?.name ?? '';
@@ -101,6 +121,15 @@
   </div>
 </div>
 
+<!-- разделы разбора: на экране живёт один, остальные — в один тап -->
+<div class="tabs">
+  {#each tabs as t (t.id)}
+    <button class:on={active === t.id} aria-current={active === t.id ? 'true' : undefined}
+      onclick={() => (tab = t.id)}>{t.label}</button>
+  {/each}
+</div>
+
+{#if active === 'houses'}
 <div class="hdr">Дома <Hint k="wholeSign" /></div>
 <div class="card glass table reveal" use:reveal>
   <div class="row th"><span>Дом</span><span>Знак <Hint k="rashi" /></span><span>Грахи</span><span>Упр. в</span></div>
@@ -116,9 +145,10 @@
 </div>
 <div class="note">«Упр. в» — где стоит управитель знака этого дома: связь домов, с которой
   начинается чтение карты.</div>
+{/if}
 
 <!-- дришти — специальный слой джйотиша, в упрощённом виде его не показываем -->
-{#if !simple && drishti.length}
+{#if active === 'drishti' && !simple && drishti.length}
   <div class="hdr">Дришти <Hint k="drishti" /></div>
   <div class="card glass table drishti reveal" use:reveal>
     <div class="row th"><span>Граха</span><span>Куда смотрит</span></div>
@@ -137,7 +167,7 @@
     целиком, вместе со всеми, кто там стоит, — градусы здесь не участвуют.</div>
 {/if}
 
-{#if !simple && av}
+{#if active === 'av' && !simple && av}
   <div class="hdr">Аштакаварга</div>
   <div class="card glass table reveal" use:reveal>
     <div class="row th av"><span>Дом</span><span>Знак</span><span>Бинду</span><span></span></div>
@@ -156,7 +186,44 @@
     где приходится добирать усилием.</div>
 {/if}
 
+{#if active === 'grahas'}
 <div class="hdr">Грахи <Hint k="dignity" /></div>
+<!-- Сводная таблица положений — то, с чего джйотиш-программы начинают разбор:
+     где стоит каждая граха. Первой строкой лагна. Без трактовок: они ниже,
+     в карточках. Правка астролога 2026-07-29. -->
+<div class="card glass ptable reveal" use:reveal>
+  <div class="pscroll">
+    <table class="pgrid">
+      <thead>
+        <tr><th>Граха</th><th>Градус</th><th>Раши</th><th>Накшатра</th><th class="pd">Пада</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="pn"><span class="as">As</span><span class="nm">Лагна</span></td>
+          <td class="deg">{degMin(c.lagnaLon % 30)}</td>
+          <td class="sg"><span class="g glyph">{SIGN_GLYPH[c.lagnaSign]}</span><span
+            class="sn">{ZODIAC[c.lagnaSign]}</span></td>
+          <td class="nk">{c.lagnaNakshatra.name}</td>
+          <td class="pd">{c.lagnaNakshatra.pada}</td>
+        </tr>
+        {#each c.planets as p}
+          <tr>
+            <td class="pn"><span class="g glyph">{PLANET_GLYPH[p.name] ?? '•'}</span><span
+              class="nm">{p.name}{#if p.retro}<span class="rx">R</span>{/if}</span
+              >{#if p.karaka}<span class="kk">{p.karaka}</span>{/if}</td>
+            <td class="deg">{degMin(p.degInSign)}</td>
+            <td class="sg"><span class="g glyph">{SIGN_GLYPH[p.signIndex]}</span><span
+              class="sn">{p.sign}</span></td>
+            <td class="nk">{p.nakshatra.name}</td>
+            <td class="pd">{p.nakshatra.pada}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+</div>
+<div class="note">R — граха идёт попятно; АК, АмК и прочие пометки у имени — чара-караки.{#if !simple}
+  Ниже то же самое подробно: достоинство, навамша и что это значит.{/if}</div>
 {#each c.planets as p}
   <div class="card glass pcard reveal" use:reveal>
     <div class="pline">
@@ -193,7 +260,9 @@
     </div>
   </div>
 {/each}
+{/if}
 
+{#if active === 'dashas'}
 <!-- Что и когда — без похода к ИИ: смены даш, заходы медленных грах,
      Саде Сати, узловые возвращения. Ближайшее сверху. -->
 {#if timeline.length}
@@ -250,12 +319,25 @@
   до рождения. Границы очень чувствительны ко времени рождения: минута сдвигает их примерно
   на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты — на две недели. Если даты не сходятся
   с другой программой, сверяй сперва время, а не расчёт.</div>
+{/if}
 
 <style>
   .note { color: var(--ink-faint); font-size: 0.8rem; line-height: 1.45; margin: 6px 4px 12px; }
   .card { padding: 10px 12px; margin: 8px 0; }
   .hdr { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 1px; margin: 16px 4px 4px; }
+
+  /* Вкладки разделов — в духе переключателя варг, но ряд прокручивается вбок и
+     НЕ переносится: «Аштакаварга» длинная. Кегль и поля подобраны так, чтобы
+     все пять названий влезали в 360 px без прокрутки (мерено браузером). */
+  .tabs { display: flex; gap: 4px; margin: 14px 0 2px; overflow-x: auto;
+    white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { flex: 0 0 auto; padding: 8px; border-radius: 10px; font-size: 0.74rem;
+    background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-faint); }
+  .tabs button.on { color: var(--ink-dim);
+    border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd));
+    background: color-mix(in srgb, var(--glass) 80%, var(--gold) 8%); }
 
   .grid { display: flex; flex-direction: column; gap: 8px; }
   .grid > div { display: flex; gap: 10px; align-items: baseline; }
@@ -285,6 +367,43 @@
   .drishti .pn { display: flex; align-items: baseline; gap: 6px; color: var(--ink-dim); }
   .drishti .tg { display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
   .drishti .under { color: var(--ink-faint); font-size: 0.76rem; }
+
+  /* Таблица положений грах — настоящая <table>, а не сетка по строкам: колонки
+     сами берут ширину по содержимому и совпадают во всех строках (у «Меркурия»
+     и «Уттарапхалгуни» ширина не угадывается рёмами). Если строка всё же не
+     влезла в телефон — вбок едет ТОЛЬКО таблица (обёртка), не страница. */
+  .ptable { padding: 4px 6px; }
+  .pscroll { overflow-x: auto; scrollbar-width: none; }
+  .pscroll::-webkit-scrollbar { display: none; }
+  .pgrid { width: 100%; border-collapse: collapse; font-size: 0.66rem; color: var(--ink); }
+  /* поля ячеек тесные намеренно: пять колонок должны уложиться в 360 px,
+     а «Уттарапхалгуни» и «Меркурий АмК» — самые широкие строки (мерено
+     headless-браузером на 320/360/384/390/412) */
+  .pgrid th, .pgrid td { padding: 7px 2px; text-align: left; font-weight: 400;
+    white-space: nowrap; vertical-align: baseline; }
+  .pgrid th { color: var(--ink-faint); font-size: 0.62rem; text-transform: uppercase;
+    letter-spacing: 0.2px; }
+  .pgrid tbody tr + tr td { border-top: 1px solid var(--glass-brd); }
+  /* правила ниже держим внутри .pgrid: класс .pn есть и в таблице дришти,
+     без прививки к таблице он утащил бы туда чужой кегль глифа */
+  .pgrid .pn .g { font-size: 0.92rem; margin-right: 4px; }
+  .pgrid .as { color: var(--ink-faint); font-size: 0.7rem; margin-right: 4px; }
+  .pgrid .nm { color: var(--ink); }
+  .pgrid .nm .rx { color: var(--gold); margin-left: 2px; }
+  .pgrid .kk { color: var(--neon-cyan); font-size: 0.6rem; margin-left: 4px; }
+  .pgrid .deg { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .pgrid .sg { color: var(--ink-dim); }
+  .pgrid .sg .g { font-size: 0.86rem; }
+  /* Раши: на узком экране (≤ 384 px) в колонке остаётся только глиф знака —
+     со словом «Стрелец» строка перестаёт помещаться и таблицу приходится
+     возить вбок. Название знака целиком есть ниже, в карточке грахи. */
+  .pgrid .sn { display: none; }
+  @media (min-width: 390px) {
+    .pgrid .sg .g { margin-right: 3px; }
+    .pgrid .sn { display: inline; }
+  }
+  .pgrid .nk { color: var(--ink-dim); }
+  .pgrid .pd { color: var(--ink-faint); text-align: center; font-variant-numeric: tabular-nums; }
 
   .pcard { padding: 10px 12px; }
   .pline { display: flex; align-items: baseline; gap: 8px; }

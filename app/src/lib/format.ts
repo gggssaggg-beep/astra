@@ -46,9 +46,50 @@ export function fmtDayMid(date: Date): string {
 
 // --- пояс-зависимые сутки (требование астролога: всё в одном поясе из настроек) ---
 
+/**
+ * Пояс, заданный ЧИСЛОМ, а не городом: «+03:00», «-04:30» (правка астролога
+ * 2026-07-29 — «нужен GMT+3, город не находится»). Канонический вид хранения —
+ * «±ЧЧ:ММ»: его же понимает Intl на свежих движках, поэтому строка остаётся
+ * годной и там, где пояс просто печатают.
+ *
+ * Смещение ФИКСИРОВАНО: перевода часов у такого пояса нет — астролог берёт то
+ * смещение, которое было в месте рождения в тот день.
+ * @returns минуты от UTC либо null, если это не числовой пояс.
+ */
+export function fixedTzMinutes(tz: string): number | null {
+  const m = /^([+-])(\d{1,2}):(\d{2})$/.exec(tz.trim());
+  if (!m) return null;
+  const h = +m[2], mi = +m[3];
+  if (h > 14 || mi > 59) return null;
+  return (m[1] === '-' ? -1 : 1) * (h * 60 + mi);
+}
+
+/** Минуты от UTC → канонический «+03:00» (так пояс кладётся в карту человека). */
+export function fixedTzId(minutes: number): string {
+  const s = minutes < 0 ? '-' : '+', a = Math.abs(minutes);
+  return `${s}${String(Math.floor(a / 60)).padStart(2, '0')}:${String(a % 60).padStart(2, '0')}`;
+}
+
+/** Подпись пояса для человека: «GMT+3», «GMT+5:30»; города остаются как есть. */
+export function tzLabel(tz: string): string {
+  const off = fixedTzMinutes(tz);
+  if (off == null) return tz;
+  const a = Math.abs(off), m = a % 60;
+  return `GMT${off < 0 ? '−' : '+'}${Math.floor(a / 60)}${m ? `:${String(m).padStart(2, '0')}` : ''}`;
+}
+
+/** Пояс годен для расчёта: либо числовое смещение, либо известный Intl город. */
+export function tzValid(tz: string): boolean {
+  if (fixedTzMinutes(tz) != null) return true;
+  try { new Intl.DateTimeFormat('ru', { timeZone: tz }); return true; } catch { return false; }
+}
+
 /** Смещение пояса tz (мс): сколько прибавить к UTC, чтобы получить настенное
  *  время пояса на момент instant. */
 function tzOffsetMs(instant: Date, tz: string): number {
+  // числовой пояс считаем сами: старые движки WebView не знают «+03:00» в Intl
+  const fixed = fixedTzMinutes(tz);
+  if (fixed != null) return fixed * 60_000;
   const dtf = new Intl.DateTimeFormat('en-US', {
     timeZone: tz, hourCycle: 'h23',
     year: 'numeric', month: '2-digit', day: '2-digit',

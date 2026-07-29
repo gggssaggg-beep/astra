@@ -339,12 +339,13 @@
   </div>
 
   <div class="block">
+    <!-- Школа (западная/джйотиш) переключается ЧИПАМИ вверху главного экрана —
+         второй такой же переключатель в настройках убран по правке владелицы
+         2026-07-29: два места для одного тумблера путают. Здесь остаются только
+         настройки выбранной школы. -->
     <div class="lbl">Зодиак</div>
-    <select class="select" value={cfg.zodiac ?? 'tropical'}
-      onchange={(e) => save({ zodiac: (e.target as HTMLSelectElement).value as 'tropical' | 'sidereal' })}>
-      <option value="tropical">Западный · тропический</option>
-      <option value="sidereal">Ведический · джйотиш</option>
-    </select>
+    <div class="hint small">Сейчас: <b>{vedic ? 'ведический · джйотиш' : 'западный · тропический'}</b>.
+      Школа переключается кнопками «Западная / Джйотиш» вверху главного экрана.</div>
     {#if vedic}
       <div class="lbl" style="margin-top:10px">Аянамша</div>
       <select class="select" value={cfg.ayanamsa ?? 'lahiri'}

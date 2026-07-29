@@ -11,6 +11,7 @@
 import type { BodyPosition } from '../engine/index.ts';
 import { ZODIAC, AYANAMSAS } from '../engine/index.ts';
 import type { Person } from './models.ts';
+import { tzLabel } from './format.ts';
 import type { VedicNatal } from './vedicChart.ts';
 import { degMin, SHORT } from './vedicChart.ts';
 import { GRAHA_NAMES } from './vedicLore.ts';
@@ -92,7 +93,7 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
   // ── данные рождения ──
   L.push(`\n## КАРТА: ${person.name}`);
   L.push(`Рождение: ${person.birthDate} ${person.birthTime ?? '12:00 (время неизвестно!)'} `
-    + `(${person.birthTz})${person.place ? `, ${person.place.name} — ${person.place.lat.toFixed(3)}°N ${person.place.lon.toFixed(3)}°E` : ''}.`);
+    + `(${tzLabel(person.birthTz)})${person.place ? `, ${person.place.name} — ${person.place.lat.toFixed(3)}°N ${person.place.lon.toFixed(3)}°E` : ''}.`);
   if (person.unknownTime) L.push('⚠ Время рождения НЕ задано — взят полдень: лагна и дома ненадёжны, предложи ректификацию.');
 
   // ── базовые параметры ──

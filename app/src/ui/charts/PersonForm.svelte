@@ -9,6 +9,7 @@
   import type { Person } from '../../lib/models.ts';
   import { maskDate, maskTime, maskWithCaret, isoFromMasked, maskedFromIso, normTime } from '../../lib/inputmask.ts';
   import { searchCities, type City } from '../../lib/cities.ts';
+  import { fixedTzMinutes, fixedTzId, tzLabel, tzValid } from '../../lib/format.ts';
   import Hint from '../Hint.svelte';
 
   let { person, defaultTz, onsaved, ondeleted, oncancel, onclose,
@@ -26,6 +27,14 @@
     return f ? f('timeZone') : ['UTC', 'Europe/Moscow', 'Asia/Yekaterinburg', 'Asia/Novosibirsk'];
   }
   const TZs = ZONES();
+
+  /** Пояс ЧИСЛОМ (GMT±ч) — правка астролога 2026-07-29: «нужен GMT+3, по городу
+   *  и стране не находит». Список — реально существующие смещения, включая
+   *  получасовые и Непал (+5:45); ввод руками не нужен, ошибиться нечем. */
+  const GMT_OFFSETS = [-720, -660, -600, -570, -540, -480, -420, -360, -300, -270, -240, -210,
+    -180, -120, -60, 0, 60, 120, 180, 210, 240, 270, 300, 330, 345, 360, 390, 420, 480, 525,
+    540, 570, 600, 630, 660, 720, 765, 780, 840];
+  const GMT_LIST = GMT_OFFSETS.map((m) => ({ id: fixedTzId(m), label: tzLabel(fixedTzId(m)) }));
 
   // Инициализация ОДИН раз из пропа (компонент ремонтируется при каждом входе в
   // форму). untrack — снимок без реактивной подписки: значения стартовые, дальше
@@ -49,10 +58,13 @@
   let citySug = $state<City[]>([]);
   let manualPlace = $state(p0 ? (!p0.place?.name && p0.place != null) : false);
   let confirmDel = $state(false);
+  // каким способом задаётся пояс вручную: городом (IANA) или числом (GMT±ч)
+  let tzMode = $state<'city' | 'gmt'>(fixedTzMinutes(untrack(() => p0?.birthTz ?? dtz)) != null ? 'gmt' : 'city');
 
   function onCityInput(v: string): void { cityQuery = v; citySug = searchCities(v); }
   function pickCity(c: City): void {
-    fPlaceName = c.ru; cityQuery = c.ru; fLat = c.lat; fLon = c.lon; fTz = c.tz; citySug = []; tzBad = false;
+    fPlaceName = c.ru; cityQuery = c.ru; fLat = c.lat; fLon = c.lon; fTz = c.tz; citySug = [];
+    tzBad = false; tzMode = 'city';
   }
   // Маска + ВОЗВРАТ КУРСОРА на место (правка в середине поля больше не швыряет
   // его в конец). Значение полю выставляем сами и сразу ставим курсор: Svelte
@@ -80,8 +92,9 @@
       if (!time) { fErr = 'Время — как ЧЧ:ММ или ЧЧ:ММ:СС (например, 04:30 или 04:30:15).'; return; }
     }
     const tzv = fTz.trim();
-    try { new Intl.DateTimeFormat('ru', { timeZone: tzv }); }
-    catch { tzBad = true; fErr = 'Не узнаю такой часовой пояс — выбери город или пояс вручную.'; return; }
+    if (!tzValid(tzv)) {
+      tzBad = true; fErr = 'Не узнаю такой часовой пояс — выбери город, зону или смещение GMT.'; return;
+    }
     if (fLat != null && (fLat < -90 || fLat > 90)) { fErr = 'Широта — от −90 до 90.'; return; }
     if (fLon != null && (fLon < -180 || fLon > 180)) { fErr = 'Долгота — от −180 до 180.'; return; }
     const place = (fPlaceName.trim() || fLat != null || fLon != null)
@@ -159,10 +172,11 @@
   {/if}
 </div>
 {#if fTz}
-  <div class="tzchip" class:bad={tzBad}>Часовой пояс: <b>{fTz}</b>{#if fLat != null} · {fLat.toFixed(2)}, {fLon?.toFixed(2)}{/if}</div>
+  <div class="tzchip" class:bad={tzBad}>Часовой пояс: <b>{tzLabel(fTz)}</b>{#if fLat != null} · {fLat.toFixed(2)}, {fLon?.toFixed(2)}{/if}</div>
 {/if}
 <div class="hint small">Город нужен только чтобы взять часовой пояс (и координаты для домов позже) —
-  геолокация телефона не используется. Нет в списке — впиши координаты и пояс вручную.</div>
+  геолокация телефона не используется. Нет в списке — впиши координаты и пояс вручную (там же
+  можно задать пояс просто числом, GMT+3).</div>
 
 <details class="place" bind:open={manualPlace}>
   <summary>Координаты и пояс вручную</summary>
@@ -172,10 +186,30 @@
     <label class="fld"><span>Долгота (−180…180)</span>
       <input type="number" step="0.0001" bind:value={fLon} placeholder="30.3159" /></label>
   </div>
-  <label class="fld"><span>Часовой пояс места рождения</span>
-    <select class="tzsel" bind:value={fTz}>
-      {#each TZs as z}<option value={z}>{z}</option>{/each}
-    </select></label>
+  <!-- пояс двумя способами: зоной-городом или ЧИСЛОМ (GMT±ч). Второй — правка
+       астролога 2026-07-29: когда города в списке нет, смещение он знает точно,
+       а какую зону выбрать — нет. -->
+  <div class="fld"><span>Часовой пояс места рождения</span>
+    <div class="tmode">
+      <button type="button" class:on={tzMode === 'city'}
+        onclick={() => { tzMode = 'city'; if (fixedTzMinutes(fTz) != null) fTz = dtz; tzBad = false; }}>Зоной</button>
+      <button type="button" class:on={tzMode === 'gmt'}
+        onclick={() => { tzMode = 'gmt'; if (fixedTzMinutes(fTz) == null) fTz = fixedTzId(0); tzBad = false; }}>Числом · GMT</button>
+    </div>
+  </div>
+  {#if tzMode === 'gmt'}
+    <label class="fld"><span>Смещение от Гринвича</span>
+      <select class="tzsel" bind:value={fTz}>
+        {#each GMT_LIST as z (z.id)}<option value={z.id}>{z.label}</option>{/each}
+      </select></label>
+    <div class="hint small">Смещение фиксировано — перевод часов к нему не применяется.
+      Ставь то, что было в месте рождения в тот день (например, летнее время СССР).</div>
+  {:else}
+    <label class="fld"><span>Зона (город/регион)</span>
+      <select class="tzsel" bind:value={fTz}>
+        {#each TZs as z}<option value={z}>{z}</option>{/each}
+      </select></label>
+  {/if}
 </details>
 
 {#if fErr}<div class="err">⚠ {fErr}</div>{/if}

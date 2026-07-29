@@ -14,7 +14,7 @@ import type { Person } from './models.ts';
 import { HOUSE_SYSTEMS } from './models.ts';
 import { natalPositions, birthInstantUTC } from './charts.ts';
 import { analyzeHouses, houseOfLon } from './houses.ts';
-import { fmtPosRx } from './format.ts';
+import { fmtPosRx, tzLabel } from './format.ts';
 
 export interface ClientChartBlocks { positions: boolean; aspects: boolean; houses: boolean; }
 
@@ -38,7 +38,7 @@ export function personBirthLine(p: Person): string {
   const time = (p.unknownTime || !p.birthTime) ? 'время неизвестно' : p.birthTime;
   const place = p.place?.name ? ` · ${p.place.name}` : '';
   const [Y, M, D] = p.birthDate.split('-');
-  return `${D}.${M}.${Y} · ${time} · ${p.birthTz}${place}`;
+  return `${D}.${M}.${Y} · ${time} · ${tzLabel(p.birthTz)}${place}`;
 }
 
 export interface ClientChartResult { summary: string; card: string; person: Person; payload: string; }

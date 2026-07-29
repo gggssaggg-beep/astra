@@ -34,7 +34,7 @@
   import { analyzeHouses, houseOfLon, type HouseInfo } from '../lib/houses.ts';
   import { HOUSE_SYSTEMS } from '../lib/models.ts';
   import { buildAstroPrompt, type PromptPerson } from '../lib/aiPrompt.ts';
-  import { fmtPos, fmtPosRx } from '../lib/format.ts';
+  import { fmtPos, fmtPosRx, tzLabel } from '../lib/format.ts';
   import { forecastTransits, transitWindow, type TransitHit, type TransitWindow } from '../lib/forecast.ts';
   import type { BodyPosition } from '../engine/index.ts';
   import Wheel from './Wheel.svelte';
@@ -604,7 +604,7 @@
     const [y, m, d] = p.birthDate.split('-');
     const tm = p.unknownTime || !p.birthTime ? 'время неизвестно' : p.birthTime;
     const where = p.place?.name ? ` · ${p.place.name}` : '';
-    return `${d}.${m}.${y} · ${tm} · ${p.birthTz}${where}`;
+    return `${d}.${m}.${y} · ${tm} · ${tzLabel(p.birthTz)}${where}`;
   };
 
   function toggleSel(id: string): void {

@@ -16,6 +16,7 @@
   import { nakshatraOf, signIndexOf, BHAVA_THEME } from '../lib/vedic.ts';
   import { degMin } from '../lib/vedicChart.ts';
   import { gocharaText } from '../lib/gocharaLore.ts';
+  import { gocharaSignText } from '../lib/gocharaSignLore.ts';
   import { gocharaTeaser } from '../lib/gocharaTeaser.ts';
   import { signPassages, passageDays, type Passage } from '../lib/gocharaTiming.ts';
   import PromptSheet from './PromptSheet.svelte';
@@ -37,6 +38,9 @@
   const house = $derived(lagnaSign == null ? 0 : ((signIndex - lagnaSign + 12) % 12) + 1);
   const teaser = $derived(gocharaTeaser(graha, sign));
   const lore = $derived(house ? gocharaText(graha, house) : null);
+  // текст по ЗНАКУ работает без карты — он и идёт первым: «что вообще
+  // происходит». Дом ниже отвечает на «как это ложится на тебя».
+  const signLore = $derived(gocharaSignText(graha, sign));
 
   // сроки прохода и прошлые заходы в этот же знак (ретро-заходы склеены)
   const passages = $derived.by((): Passage[] => {
@@ -134,13 +138,18 @@
         новое здесь даётся хуже, чем доделывание старого.</div>{/if}
     </div>
 
+    {#if signLore}
+      <div class="hdr">Что происходит <Hint k="gochara" /></div>
+      <div class="card glass"><p>{signLore}</p></div>
+    {/if}
+
     {#if lore}
-      <div class="hdr">Что включает <Hint k="gochara" /></div>
+      <div class="hdr">Как ложится на карту {selfName ? `«${selfName}»` : ''}</div>
       <div class="card glass"><p>{lore}</p></div>
     {:else if house === 0}
-      <div class="hdr">Что включает</div>
-      <div class="card glass"><p>Разбор прохода считается от твоей лагны: без карты с местом
-        рождения дом неизвестен, а в джйотише всё читается по домам. Заведи свою карту
+      <div class="hdr">Как ложится на твою карту</div>
+      <div class="card glass"><p>Это считается от лагны: без карты с местом рождения дом
+        неизвестен, а в джйотише проход читается именно по дому. Заведи свою карту
         в «Картах» и выбери её в настройках.</p></div>
     {/if}
 

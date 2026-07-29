@@ -340,7 +340,8 @@
     </div>
   {/if}
 
-  <h3 class="sec" data-tour="positions">Планеты сейчас <Hint k="planet" /></h3>
+  <!-- в джйотише планеты зовут грахами: слово идёт через весь ведический режим -->
+  <h3 class="sec" data-tour="positions">{vedic ? 'Грахи сейчас' : 'Планеты сейчас'} <Hint k="planet" /></h3>
   <div class="positions glass">
     {#each planets as p}
       <!-- каждая планета своей строкой С ИМЕНЕМ: «☉ Солнце — 2°09′ Рака»

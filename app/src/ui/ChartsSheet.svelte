@@ -53,9 +53,10 @@
   import TransitControls from './charts/TransitControls.svelte';
   import PeopleList from './charts/PeopleList.svelte';
   import VedicChart from './VedicChart.svelte';
-  import VedicSheet from './VedicSheet.svelte';
-  import { vedicNatal, chartCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
-  import { grahaDrishti, drishtiSigns } from '../lib/drishti.ts';
+  import VedicReport from './VedicReport.svelte';
+  import { vedicNatal, vargaCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
+  import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
+  import { drishtiSigns } from '../lib/drishti.ts';
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
   import { kutaMatch, manglik } from '../lib/kuta.ts';
   import { nakshatraOf, signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
@@ -185,11 +186,17 @@
   $effect(() => {
     if (vedic && !MODES_VEDIC.some((m) => m.id === mode)) setMode('natal');
   });
-  // статья глоссария под каждый режим — «?» рядом с описанием выбранного
-  const MODE_GLOSS: Record<Mode, string> = {
+  // статья глоссария под каждый режим — «?» рядом с описанием выбранного.
+  // В джйотише свои статьи: западные «Натальная карта»/«Транзит»/«Синастрия»
+  // там не к месту (правка владелицы 2026-07-29).
+  const MODE_GLOSS_WEST: Record<Mode, string> = {
     natal: 'natal', transitNatal: 'transit', triple: 'transit',
     synastry: 'synastry', composite: 'composite',
   };
+  const MODE_GLOSS_VEDIC: Partial<Record<Mode, string>> = {
+    natal: 'kundali', transitNatal: 'gochara', synastry: 'kuta',
+  };
+  const modeGloss = $derived((vedic ? MODE_GLOSS_VEDIC[mode] : null) ?? MODE_GLOSS_WEST[mode]);
 
   function setMode(m: Mode): void {
     mode = m;
@@ -218,8 +225,20 @@
     try { return vedicNatal(engine, personA); } catch { return null; }
   });
 
-  // дришти натальной карты — вместо западных списков аспектов в джйотише
-  const drishtiA = $derived(vedicA ? grahaDrishti(vedicA.chart.planets, vedicA.chart.lagnaSign) : []);
+  // дришти натальной карты рисует сам разбор (VedicReport) — здесь дублировать
+  // не надо: карта человека и её разбор теперь один экран.
+
+  // «Я не астролог» из настроек: разбор прячет специальные слои (навамша,
+  // отношения грах, дришти, аштакаварга, варги). Тумблер был в настройках, но
+  // никуда не приходил — теперь он наконец работает.
+  const vedicSimple = $derived(!!db.settings.get().vedicSimple);
+
+  // варга (D1/D9/D10…) — переключатель над ромбом кундали. Ходовые три кнопками,
+  // остальные списком: восемь кнопок в ряд на телефоне не влезают.
+  const VARGA_MAIN: VargaId[] = ['d1', 'd9', 'd10'];
+  const VARGA_MORE = VARGA_LIST.filter((v) => !VARGA_MAIN.includes(v.id));
+  let varga = $state<VargaId>('d1');
+  const inMoreVarga = $derived(VARGA_MORE.some((v) => v.id === varga));
 
   // ГОЧАРА-ДРИШТИ: транзитная граха смотрит на натальную (по целым знакам).
   // Джйотиш-замена «транзит аспектирует натал» — держится знаком, не орбисом.
@@ -242,6 +261,21 @@
       }
     }
     return out;
+  });
+
+  // Грахи гочары списком: знак, накшатра и дом ОТ ЛАГНЫ выбранного человека.
+  // Джйотиш-замена западного списка «Позиции» (там были только градусы) —
+  // и заодно то, что раньше жило отдельной вкладкой «Сейчас на небе».
+  const gocharaRows = $derived.by(() => {
+    if (!vedicA || mode !== 'transitNatal') return [];
+    const lagna = vedicA.chart.lagnaSign;
+    return transitPos.filter((p) => VEDIC_ORDER_SET.has(p.name)).map((p) => {
+      const si = signIndexOf(p.lon);
+      const nak = nakshatraOf(p.lon);
+      return { name: p.name, glyph: p.glyph, retro: p.retro, signIndex: si,
+        deg: p.lon - si * 30, nak: nak.name, pada: nak.pada,
+        house: ((si - lagna + 12) % 12) + 1 };
+    });
   });
 
   // КУТА (гуна-милан) — джйотиш-замена синастрии: считается от ЛУН двоих,
@@ -586,12 +620,15 @@
   }
   function openChart(): void { transitAt = new Date(); selKey = null; view = 'chart'; }
 
+  // Заголовок — В ТЕРМИНАХ ШКОЛЫ (правка владелицы 2026-07-29: в джйотише не
+  // должно быть западных слов). Кундали/гочара/гуна-милан вместо натала и
+  // транзита; тройная и композит — западные инструменты, остаются как есть.
   const chartTitle = $derived(
-    mode === 'natal' ? `Натал · ${personA?.name}`
-    : mode === 'synastry' ? `${personA?.name} ✕ ${personB?.name}`
+    mode === 'natal' ? `${vedic ? 'Кундали' : 'Натал'} · ${personA?.name}`
+    : mode === 'synastry' ? `${vedic ? 'Гуна-милан · ' : ''}${personA?.name} ✕ ${personB?.name}`
     : mode === 'composite' ? `Композит · ${personA?.name} + ${personB?.name}`
     : mode === 'triple' ? `Транзит · ${personA?.name} + ${personB?.name}`
-    : `Транзит · ${personA?.name}`);
+    : `${vedic ? 'Гочара' : 'Транзит'} · ${personA?.name}`);
 
   // ЕДИНЫЙ контекст карты — общий и для Claude, и для экспорта в любую ИИ.
   // Индивидуально по режиму: натал = только этот человек; синастрия = обе карты;
@@ -751,8 +788,6 @@
   });
 
   let showPrompt = $state(false);      // окно «Промпт для любой ИИ»
-  // полный ведический разбор выбранного человека (шторка поверх карт)
-  let showVedicFull = $state(false);
 
   // «Откуда» заметка: «Я+Пётр 13.06.25» / «Я 20.06.2006» (просьба владелицы
   // 2026-07-25). «Я» — карта, выбранная как своя в Настройках (transitSelfId).
@@ -773,7 +808,7 @@
     <!-- «?» объясняет ВЫБРАННЫЙ режим (жалоба владелицы 2026-07-27: одна общая
          «?» в ряду всегда открывала «Транзит» — не к селу ни к городу) -->
     <div class="hint">{modeInfo.hint} — выбери
-      {needCount === 1 ? 'человека' : 'двух людей'}. <Hint k={MODE_GLOSS[mode]} /></div>
+      {needCount === 1 ? 'человека' : 'двух людей'}. <Hint k={modeGloss} /></div>
 
     <!-- «Открыть карту» НАД списком (просьба 2026-07-11): при длинном списке
          людей кнопка внизу терялась за прокруткой -->
@@ -804,16 +839,38 @@
 
     {#if mode === 'natal'}
       {#if vedicA}
-        <!-- джйотиш: натал — ромб D1, не колесо. Аспектные списки ниже остаются
-             западными (орбисы); полный ведический разбор — VedicSheet -->
-        <VedicChart cells={chartCells(vedicA.chart)} />
-        <div class="legend">D1 · раши {personA?.name} · лагна
+        <!-- джйотиш: кундали — ромб, не колесо. Разбор (дома, грахи, дришти,
+             аштакаварга, даши) идёт НИЖЕ на этом же экране: отдельной шторки
+             «Полный разбор карты» больше нет — лишний переход убран по правке
+             владелицы 2026-07-29. -->
+        <!-- «я не астролог»: варги — специальный слой, их не показываем -->
+        {#if !vedicSimple}
+        <div class="vargas">
+          {#each VARGA_MAIN as id}
+            <button class:on={varga === id} onclick={() => (varga = id)}>{id.toUpperCase()}</button>
+          {/each}
+          <select class="more" class:on={inMoreVarga} aria-label="Другие варги"
+            value={inMoreVarga ? varga : ''}
+            onchange={(e) => {
+              const v = (e.currentTarget as HTMLSelectElement).value;
+              if (v) varga = v as VargaId;
+            }}>
+            <option value="">ещё…</option>
+            {#each VARGA_MORE as v}<option value={v.id}>{v.label}</option>{/each}
+          </select>
+        </div>
+        {/if}
+        <VedicChart cells={vargaCells(vedicA.chart, vedicSimple ? 'd1' : varga)} />
+        <div class="legend">{vedicSimple ? 'D1' : varga.toUpperCase()} ·
+          {vedicSimple || varga === 'd1' ? 'раши' : vargaInfo(varga).theme}
+          {personA?.name} · лагна
           {degMin(vedicA.chart.lagnaLon % 30)} {ZODIAC[vedicA.chart.lagnaSign]}</div>
-        <button class="btn full" onclick={() => (showVedicFull = true)}>
-          Полный разбор карты →
-        </button>
-        <div class="vnote">Дома с планетами, накшатры, караки, дришти, аштакаварга,
-          периоды и важные даты.</div>
+        {#if !vedicSimple && varga !== 'd1'}
+          {@const info = vargaInfo(varga)}
+          <div class="vnote"><b>{info.label} — {info.theme}.</b> Варга берёт одну тему крупным
+            планом: по ней смотрят, дотягивает ли граха то, что обещает в раши. Градусы здесь
+            не пишут — в варге своя, растянутая шкала. Разбор ниже — всегда по раши (D1).</div>
+        {/if}
       {:else}
         <Wheel positions={posA} staticAspects={natalAsp} {signStyle} houses={housesA}
           selectedStaticKey={selKey} figureStaticKeys={figStaticKeys} onstatictap={onStatic} />
@@ -867,9 +924,9 @@
              и читает транзит («Сатурн идёт по 7-му дому»). Скраб работает:
              transitPos пересчитывается, клетки следуют -->
         <VedicChart cells={gocharaCells(transitPos, vedicA.chart.lagnaSign)} />
-        <div class="legend">гочара — транзит на {transitLabel} в домах {personA?.name}</div>
-        <div class="vnote">Дома — от натальной лагны ({ZODIAC[vedicA.chart.lagnaSign]}).
-          Натал тем же ромбом — режим «Натал».</div>
+        <div class="legend">гочара — небо на {transitLabel} в домах {personA?.name}</div>
+        <div class="vnote">Дома — от лагны рождения ({ZODIAC[vedicA.chart.lagnaSign]}).
+          Сама кундали тем же ромбом — режим «Кундали».</div>
         {@render transitCtl()}
       {:else}
         <Wheel positions={posA} positionsOuter={transitPos} staticAspects={crossTA} {signStyle} houses={housesA}
@@ -985,38 +1042,22 @@
     {/if}
 
     {#if vedicHide}
-      <!-- вместо западных орбисных списков — ДРИШТИ: аспекты грах по целым
-           знакам, как читает джйотиш (ответ на вопрос владелицы 2026-07-29
-           «почему в джйотиш западные аспекты?»). Прогноз здесь тоже скрыт:
-           в джйотише прогнозируют дашами и гочарой, они в «Ведической карте» -->
-      {#if vedicA}
-      <details class="fold" open={mode === 'natal'}>
-        <summary class="grp">☍ Дришти · {drishtiA.length}</summary>
-        <div class="hint small">Дришти считаются по целым знакам: граха смотрит из своего
-          знака, градусы и орбисы не участвуют.</div>
-        {#each drishtiA as d (d.from)}
-          <div class="drow glass">
-            <div class="drhead"><b>{d.from}</b> из {d.fromHouse}-го дома — смотрит в
-              {d.targets.map((t) => `${t.house}-й`).join(', ')}</div>
-            {#if d.targets.some((t) => t.hits.length)}
-              <div class="drhits">под аспектом: {d.targets.flatMap((t) => t.hits).join(', ')}</div>
-            {/if}
-          </div>
-        {/each}
-      </details>
-      {/if}
+      <!-- Западных орбисных списков в джйотише нет вовсе (ответ на вопрос
+           владелицы 2026-07-29 «почему в джйотиш западные аспекты?»): дришти
+           грах кундали идут ниже, внутри самого разбора (VedicReport), а
+           прогноз здесь делают даши и гочара — они там же. -->
 
-      <!-- гочара-дришти: какие ТРАНЗИТНЫЕ грахи смотрят на натальные позиции.
+      <!-- гочара-дришти: какие ТРАНЗИТНЫЕ грахи смотрят на грахи кундали.
            В джйотише это и есть «транзит задел карту» — вместо орбисных окон -->
       {#if vedicA && mode === 'transitNatal' && transitDrishti.length}
         <details class="fold" open>
-          <summary class="grp">☍ Транзитные дришти · {transitDrishti.length}</summary>
-          <div class="hint small">Транзитная граха смотрит на натальную по целым знакам:
-            влияние держится, пока она идёт по этому знаку, а не минуты орбиса.</div>
+          <summary class="grp">☍ Дришти гочары · {transitDrishti.length} <Hint k="drishti" /></summary>
+          <div class="hint small">Идущая граха смотрит на граху кундали по целым знакам:
+            влияние держится, пока она проходит этот знак, — в градусах и минутах не считается.</div>
           {#each transitDrishti as d (d.from + d.to)}
             <div class="drow glass">
-              <div class="drhead">транзитный <b>{d.from}</b> ({ZODIAC[d.fromSign]}, {d.fromHouse}-й дом)
-                смотрит на натального <b>{d.to}</b> ({ZODIAC[d.toSign]}, {d.toHouse}-й дом)</div>
+              <div class="drhead">в гочаре <b>{d.from}</b> ({ZODIAC[d.fromSign]}, {d.fromHouse}-й дом)
+                смотрит на <b>{d.to}</b> в кундали ({ZODIAC[d.toSign]}, {d.toHouse}-й дом)</div>
             </div>
           {/each}
         </details>
@@ -1173,7 +1214,33 @@
       </div>
     {/if}
 
-    {#if mode === 'natal'}
+    {#if vedicA && mode === 'natal'}
+      <!-- ПОЛНЫЙ РАЗБОР КУНДАЛИ прямо здесь, без перехода в отдельную шторку
+           (правка владелицы 2026-07-29: «мы и так на моей карте — зачем ещё
+           куда-то тыкать»). Западные «Положения»/«Дома» ниже в джйотише не
+           показываем: там знаки трактуются по-западному, а управители домов —
+           по авторской раскладке, чего в джйотише нет. -->
+      <VedicReport {engine} {tz} natal={vedicA} simple={vedicSimple} />
+
+    {:else if vedicA && mode === 'transitNatal'}
+      <!-- гочара списком: где какая граха идёт сейчас — знак, накшатра, дом от
+           лагны. Заменяет западный список «Позиции» с градусами -->
+      <details class="fold" open>
+        <summary class="grp">✧ Грахи в гочаре · {transitLabel}</summary>
+        <div class="vtable glass">
+          <div class="vrow th"><span>Граха</span><span>Знак</span><span>Накшатра</span><span>Дом</span></div>
+          {#each gocharaRows as r (r.name)}
+            <div class="vrow">
+              <span class="vn"><span class="glyph">{r.glyph}</span> {r.name}{r.retro ? ' R' : ''}</span>
+              <span>{degMin(r.deg)} {ZODIAC[r.signIndex]}</span>
+              <span class="vnak">{r.nak} ({r.pada})</span>
+              <span class="vh">{r.house}-й</span>
+            </div>
+          {/each}
+        </div>
+      </details>
+
+    {:else if mode === 'natal'}
       <!-- расшифровка положений (правка астролога): планета в знаке + разбор.
            ЕДИНОЕ ПРАВИЛО выделения: развёрнутый блок держит рамку GlowCard -->
       <div class="grp">Положения</div>
@@ -1254,10 +1321,6 @@
     oncommunity={(s, t) => { detail = null; oncommunity?.(s, t); }} />
 {/if}
 
-{#if showVedicFull && personA}
-  <VedicSheet {engine} {tz} pinnedId={personA.id} onclose={() => (showVedicFull = false)} />
-{/if}
-
 {#if showPrompt}
   <PromptSheet text={chartPromptText} vedic={!!vedicA || !!kutaData} onclose={() => (showPrompt = false)} />
 {/if}
@@ -1315,12 +1378,31 @@
   /* пояснение ведического режима: что здесь джйотиш, а что — западная школа */
   .vnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45;
     text-align: center; margin: -6px 8px 12px; }
-  .btn.full { width: 100%; margin: 2px 0 4px; }
+  /* переключатель варг над ромбом — мельче кнопок режима: это выбор карты
+     внутри кундали, а не раздел */
+  .vargas { display: flex; gap: 6px; margin: 0 0 8px; }
+  .vargas button { flex: 1; padding: 6px 8px; border-radius: 10px; font-size: 0.78rem;
+    background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-faint); }
+  .vargas button.on { color: var(--ink-dim); border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
+  .vargas .more { flex: 1.7; min-width: 0; padding: 6px 8px; border-radius: 10px;
+    font-size: 0.78rem; background: transparent; border: 1px solid var(--glass-brd);
+    color: var(--ink-faint); }
+  .vargas .more.on { color: var(--ink-dim);
+    border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
+  .vnote b { color: var(--ink-dim); font-weight: 500; }
   /* строки дришти (джйотиш-аспекты по знакам) */
   .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }
   .drhead b { font-weight: 600; }
-  .drhits { color: var(--ink-faint); font-size: 0.78rem; margin-top: 3px; }
+  /* таблица грах гочары: знак · накшатра · дом от лагны */
+  .vtable { padding: 4px 6px; margin: 6px 0 10px; border-radius: 12px; }
+  .vrow { display: grid; grid-template-columns: 5.4rem 7rem 1fr 2.2rem; gap: 6px;
+    padding: 7px 6px; align-items: center; font-size: 0.82rem; color: var(--ink); }
+  .vrow + .vrow { border-top: 1px solid var(--glass-brd); }
+  .vrow.th { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
+  .vn { display: flex; align-items: baseline; gap: 6px; color: var(--ink-dim); }
+  .vnak { color: var(--ink-dim); font-size: 0.78rem; }
+  .vh { color: var(--ink-faint); text-align: right; }
   /* кута (гуна-милан): таблица восьми кут + итог */
   .kuta { padding: 12px 14px; margin: 8px 0 6px; border-radius: 16px; }
   .kmoons { display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem;

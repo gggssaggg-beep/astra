@@ -3,7 +3,7 @@
    *  считаем. Показывается, пока settings.seenWelcome=false; повторно — из настроек.
    *  Онбординг П1 (2026-07-11): три шага — приветствие → «Добавь себя» (натальная
    *  карта пользователя) → предложение тура. */
-  import { WELCOME } from '../lib/lore.ts';
+  import { welcomeFor } from '../lib/lore.ts';
   import { pushScrollLock } from '../lib/sheet.ts';
   import { db } from '../lib/db.ts';
   import PersonForm from './charts/PersonForm.svelte';
@@ -12,6 +12,9 @@
 
   // пока приветствие открыто — фоновая лента дней не должна проматываться под ним
   $effect(() => pushScrollLock());
+
+  // тексты школы — под активный зодиак: в джйотише правила свои
+  const W = $derived(welcomeFor((db.settings.get().zodiac ?? 'tropical') === 'sidereal'));
 
   // шаги приветствия: интро → добавь себя → предложение тура
   let step = $state<'intro' | 'self' | 'offer'>('intro');
@@ -27,13 +30,13 @@
   <section class="card glass frost">
     {#if step === 'intro'}
       <div class="logo glyph">☉ ☽ ☿ ♀ ♂ ♃ ♄</div>
-      <h1>{WELCOME.title}</h1>
-      <p class="intro">{WELCOME.intro}</p>
-      <p class="school">{WELCOME.school}</p>
+      <h1>{W.title}</h1>
+      <p class="intro">{W.intro}</p>
+      <p class="school">{W.school}</p>
 
       <div class="rules">
         <div class="rt">По каким правилам считаем</div>
-        <ul>{#each WELCOME.rules as r}<li>{r}</li>{/each}</ul>
+        <ul>{#each W.rules as r}<li>{r}</li>{/each}</ul>
       </div>
 
       <button class="go" onclick={() => (step = 'self')}>Дальше →</button>
@@ -41,8 +44,8 @@
     {:else if step === 'self'}
       <h1>Добавь себя</h1>
       <p class="intro">Впиши свою дату рождения — и приложение будет показывать,
-        как небо каждого дня трогает <b>именно твою</b> карту: транзиты к наталу,
-        «твой Меркурий», «твоё Солнце». Без этого термины остаются в вакууме.</p>
+        как небо каждого дня трогает <b>именно твою</b> карту: «твой Меркурий»,
+        «твоё Солнце». Без этого термины остаются в вакууме.</p>
       <p class="mini">Время и место — по желанию. Не помнишь время — так и скажи,
         возьмём полдень. Позже это всё правится в <b>«Карты → + Добавить человека»</b>.</p>
 

@@ -234,6 +234,19 @@
   // никуда не приходил — теперь он наконец работает.
   const vedicSimple = $derived(!!db.settings.get().vedicSimple);
 
+  // Стиль чертежа кундали (север — ромб, юг — квадратная сетка). Держим ЛОКАЛЬНО
+  // в $state: db.settings.get() не реактивен, а переключатель стоит прямо над
+  // картой — она должна перерисоваться сразу. Значение пишем и в настройки.
+  let chartStyle = $state<'north' | 'south'>(db.settings.get().chartStyle ?? 'north');
+  function setChartStyle(s: 'north' | 'south') {
+    chartStyle = s;
+    db.settings.set({ ...db.settings.get(), chartStyle: s });
+  }
+
+  // Гочара: показывать ли вместе с транзитными грахами ещё и грахи рождения
+  // (одна карта вместо двух — просьба астролога). По умолчанию — вместе.
+  let withNatal = $state(true);
+
   // варга (D1/D9/D10…) — переключатель над ромбом кундали. Ходовые три кнопками,
   // остальные списком: восемь кнопок в ряд на телефоне не влезают.
   const VARGA_MAIN: VargaId[] = ['d1', 'd9', 'd10'];
@@ -860,6 +873,11 @@
              аштакаварга, даши) идёт НИЖЕ на этом же экране: отдельной шторки
              «Полный разбор карты» больше нет — лишний переход убран по правке
              владелицы 2026-07-29. -->
+        <!-- стиль чертежа под рукой: тот же выбор, что в настройках (пишет туда же) -->
+        <div class="vargas">
+          <button class:on={chartStyle === 'north'} onclick={() => setChartStyle('north')}>Север · ромб</button>
+          <button class:on={chartStyle === 'south'} onclick={() => setChartStyle('south')}>Юг · квадрат</button>
+        </div>
         <!-- «я не астролог»: варги — специальный слой, их не показываем -->
         {#if !vedicSimple}
         <div class="vargas">
@@ -877,7 +895,7 @@
           </select>
         </div>
         {/if}
-        <VedicChart cells={vargaCells(vedicA.chart, vedicSimple ? 'd1' : varga)} />
+        <VedicChart cells={vargaCells(vedicA.chart, vedicSimple ? 'd1' : varga)} layout={chartStyle} />
         <div class="legend">{vedicSimple ? 'D1' : varga.toUpperCase()} ·
           {vedicSimple || varga === 'd1' ? 'раши' : vargaInfo(varga).theme}
           {personA?.name} · лагна
@@ -940,10 +958,22 @@
         <!-- гочара: транзитные грахи по домам ОТ НАТАЛЬНОЙ лагны — так джйотиш
              и читает транзит («Сатурн идёт по 7-му дому»). Скраб работает:
              transitPos пересчитывается, клетки следуют -->
-        <VedicChart cells={gocharaCells(transitPos, vedicA.chart.lagnaSign)} />
+        <VedicChart layout={chartStyle}
+          cells={gocharaCells(transitPos, vedicA.chart.lagnaSign,
+            withNatal ? vedicA.chart.planets : undefined)} />
         <div class="legend">гочара — небо на {transitLabel} в домах {personA?.name}</div>
+        <!-- один чертёж вместо двух: грахи гочары и грахи рождения рядом -->
+        <div class="vargas">
+          <button class:on={withNatal} onclick={() => (withNatal = true)}>гочара + кундали</button>
+          <button class:on={!withNatal} onclick={() => (withNatal = false)}>только гочара</button>
+        </div>
+        {#if withNatal}
+          <div class="vnote"><span class="lgt">грахи гочары</span> — те, что идут по небу сейчас;
+            <span class="lgn">грахи рождения</span> — из кундали {personA?.name}. Обе группы в одной
+            клетке стоят в одном знаке.</div>
+        {/if}
         <div class="vnote">Дома — от лагны рождения ({ZODIAC[vedicA.chart.lagnaSign]}).
-          Сама кундали тем же ромбом — режим «Кундали».</div>
+          Сама кундали тем же чертежом — режим «Кундали».</div>
         {@render transitCtl()}
         {#if personalDay}
           <!-- личный день: тарабала + ход Луны от натальной. Переехал сюда с
@@ -1428,6 +1458,9 @@
   .vargas .more.on { color: var(--ink-dim);
     border-color: color-mix(in srgb, var(--gold) 35%, var(--glass-brd)); }
   .vnote b { color: var(--ink-dim); font-weight: 500; }
+  /* легенда совмещённого чертежа — теми же цветами, что и метки в клетках */
+  .lgt { color: var(--neon-cyan); }
+  .lgn { color: var(--ink-dim); }
   /* строки дришти (джйотиш-аспекты по знакам) */
   .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }

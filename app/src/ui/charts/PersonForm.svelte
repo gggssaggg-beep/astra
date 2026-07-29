@@ -171,6 +171,14 @@
     </ul>
   {/if}
 </div>
+<!-- Города в списке нет — не молчим, а сразу показываем выход (жалоба астролога
+     2026-07-29: «по городу и стране не находит, и я не знаю, куда тыкать»).
+     Кнопка раскрывает блок ручного ввода — там координаты и пояс числом. -->
+{#if !manualPlace && cityQuery.trim().length >= 3 && !citySug.length && fLat == null}
+  <button type="button" class="notfound" onclick={() => (manualPlace = true)}>
+    Не нашёл такой город. Впиши координаты и часовой пояс вручную →
+  </button>
+{/if}
 {#if fTz}
   <div class="tzchip" class:bad={tzBad}>Часовой пояс: <b>{tzLabel(fTz)}</b>{#if fLat != null} · {fLat.toFixed(2)}, {fLon?.toFixed(2)}{/if}</div>
 {/if}
@@ -260,6 +268,11 @@
     color: var(--ink); padding: 9px 10px; border-radius: 8px; font: inherit; }
   .suggest button:hover { background: #ffffff14; }
   .suggest small { color: var(--ink-faint); font-size: 0.76rem; margin-left: 6px; }
+  /* подсказка «города нет» — тем же цветом, что остальные подсказки формы,
+     но кликабельная: она и есть ответ на «куда тыкать» */
+  .notfound { display: block; width: 100%; text-align: left; background: #ffffff0c;
+    border: 1px solid var(--glass-brd); border-radius: 12px; padding: 9px 11px;
+    color: var(--ink-dim); font: inherit; font-size: 0.82rem; margin: 2px 0 8px; }
   .tzchip { display: inline-block; margin: 2px 0 6px; padding: 6px 10px; border-radius: 10px;
     background: #ffffff0c; border: 1px solid var(--glass-brd); color: var(--ink-dim); font-size: 0.82rem; }
   .tzchip b { color: var(--ink); }

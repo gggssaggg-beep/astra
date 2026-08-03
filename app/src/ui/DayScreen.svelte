@@ -249,6 +249,13 @@
   const selFigure = $derived(figures.find((f) => f.hit.key === selFigureKey) ?? null);
   const figureSigs = $derived(selFigure
     ? selFigure.hit.edges.map((e) => aspectSignature(e.p1, e.p2, e.aspect)) : null);
+  // Прокрутка колеса снимает подсветку фигуры С ПЕРВОГО движения пальца — как в
+  // «Картах» (selFigKey в scrubTransit). Иначе на прокрученный момент фигуры уже
+  // нет, её рёбра не находятся, а остальные линии всё это время притушены.
+  function scrubWheel(deltaMs: number): void {
+    if (selFigureKey) selFigureKey = null;
+    onscrub?.(deltaMs);
+  }
 
   // вертикальный порядок в блоках уже задан движком (aspects.ts: быстрые сверху
   // по sunRank, Луна — по времени точного аспекта) — здесь не пересортировываем
@@ -320,7 +327,7 @@
       <div class="vhint">{vedicFrom}</div>
     {:else}
       <Wheel {positions} aspects={wheelAspects} {signStyle} {selectedSignature} {selectedInfo} {figureSigs}
-        {oninfo} {onscrub} />
+        {oninfo} onscrub={onscrub ? scrubWheel : undefined} />
     {/if}
     <!-- честно объясняем момент снимка: «то же время суток, что сейчас» — иначе
          выглядит как загадочные «мои 4 утра» (вопрос владелицы). Прокрутка колеса

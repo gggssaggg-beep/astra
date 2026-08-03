@@ -80,11 +80,13 @@
   // символ знака / линия аспекта). НИКОГДА не рамка (жёсткое правило владелицы).
   const selSignIdx = $derived(selectedInfo?.kind === 'sign' ? selectedInfo.index : -1);
   const selPlanet = $derived(selectedInfo?.kind === 'planet' ? selectedInfo.name : null);
-  // тап ПО ЛИНИИ в колесе тоже подсвечивает её (раньше линия ждала выбора
-  // карточки — жалоба «линии не подсвечиваются»)
-  const effSig = $derived(selectedSignature
-    ?? (selectedInfo?.kind === 'aspect'
-      ? aspectSignature(selectedInfo.p1, selectedInfo.p2, selectedInfo.aspect) : null));
+  // ОДИН источник выделения линии — `selectedSignature`; ровно так же, как в
+  // «Картах» линия светится по `selectedStaticKey`. Раньше источников было ДВА
+  // (ещё и `selectedInfo` от тапа по линии), и второй ПРОИГРЫВАЛ первому: пока
+  // жила «липкая» подсветка выбранной карточки, тапнутая линия не загоралась
+  // вовсе — светилась чужая. Тап по линии теперь сам ставит `selectedSignature`
+  // (App), поэтому колесо всегда честно к последнему выбору.
+  const effSig = $derived(selectedSignature);
 
   const uid = ++wheelUid;
   // цвета стихий: огонь, земля, воздух, вода (по индексу знака % 4)
@@ -179,7 +181,7 @@
         if (l1 == null || l2 == null) return null;
         const A = pt(l1, rAspect), B = pt(l2, rAspect);
         const sig = aspectSignature(a.p1, a.p2, a.aspect);
-        return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect), dim: !a.applying,
+        return { x1: A.x, y1: A.y, x2: B.x, y2: B.y, color: toneColor(a.aspect),
           aspect: a.aspect, p1: a.p1, p2: a.p2, symbol: a.symbol,
           sel: (!!effSig && sig === effSig) || figSet.has(sig) };
       })
@@ -339,10 +341,14 @@
     {#each lines as l (l.p1 + '|' + l.p2 + '|' + l.aspect)}
       <!-- выбранный аспект подсвечивается САМОЙ линией: толще, ярче, с глоу;
            остальные притухают. Глоу-фильтр ТОЛЬКО у выбранной линии: пачка
-           drop-shadow на каждой линии перегружала GPU слабых WebView («тупит») -->
+           drop-shadow на каждой линии перегружала GPU слабых WebView («тупит»).
+           Яркость невыбранных — ровно как в «Картах»: 0.8 у ВСЕХ. Раньше
+           расходящиеся аспекты (applying=false) гасились до 0.35 — половина
+           линий выглядела приглушённой, будто что-то уже выделено. Сходится
+           аспект или расходится, видно по стрелке в карточке. -->
       <line x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.color}
         stroke-width={l.sel ? 2.8 : 1.2}
-        opacity={l.sel ? 1 : anySel ? 0.18 : l.dim ? 0.35 : 0.8}
+        opacity={l.sel ? 1 : anySel ? 0.18 : 0.8}
         class:selline={l.sel}
         style={l.sel ? `filter: drop-shadow(0 0 6px ${l.color})` : ''} />
       {#if oninfo}

@@ -98,8 +98,13 @@
     // снимает выделение и НИЧЕГО не открывает (правка владелицы). Тап из
     // библиотеки/журнала (interp/tracked) — всегда открывает, там своя навигация.
     if (from === 'day' && selSig === sig && !selRec) { selSig = null; return; }
+    openAspect(r, from);
+  }
+  // открыть БЕЗ тумблера (пара toggleDetail/openDetail из «Карт»): из «?»-шторки
+  // колеса аспект уже выделен тапом по линии — через pickAspect он бы схлопнулся
+  function openAspect(r: AspectRecord, from: 'day' | 'interp' | 'tracked' = 'day') {
     selRec = r;
-    selSig = sig;
+    selSig = aspectSignature(r.p1, r.p2, r.aspect);
     selFrom = from;
   }
   function closeAspect() {
@@ -114,6 +119,20 @@
   // scroll-нить, чтобы она не просвечивала поверх затемнения под шторкой
   let sheetsOpen = $state(false);
   let wheelInfo = $state<WheelInfo | null>(null);
+  // Тап по элементу колеса. Для ЛИНИИ выделение идёт в тот же `selSig`, что и у
+  // карточек, — один источник истины, как `selKey` в «Картах». Раньше подсветка
+  // линии висела на `wheelInfo`, а он живёт лишь пока открыта «?»-шторка (она же
+  // накрывает колесо): линия гасла сразу после закрытия, а при выделенной
+  // карточке не загоралась вообще. Повторный тап по выделенной линии — снимает
+  // выделение и ничего не открывает (тумблер, как onStatic в «Картах»).
+  function tapWheel(i: WheelInfo): void {
+    if (i.kind === 'aspect') {
+      const sig = aspectSignature(i.p1, i.p2, i.aspect);
+      if (selSig === sig) { selSig = null; return; }
+      selSig = sig;
+    }
+    wheelInfo = i;
+  }
   // Мостик колесо → карточка: если тапнутая линия аспекта есть в списке дня,
   // даём в InfoSheet кнопку «Открыть карточку аспекта →» (полная шторка с
   // временами). Ищем в том же кэше дня, что считает DayScreen — бесплатно.
@@ -674,7 +693,7 @@
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}
           onscrub={scrubWheel} onresetnow={resetScrub} onscale={(s) => { scrubScale = s; }}
-          onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { wheelInfo = i; buzzTick(); }}
+          onAspect={(r) => { pickAspect(r); buzzTick(); }} oninfo={(i) => { tapWheel(i); buzzTick(); }}
           ongraha={(name) => { showGraha = name; buzzTick(); }} />
       </div>
     {/key}
@@ -830,7 +849,7 @@
 {#if wheelInfo}
   <InfoSheet info={wheelInfo} onclose={() => (wheelInfo = null)}
     onopenfull={wheelAspectRec
-      ? () => { const r = wheelAspectRec; wheelInfo = null; if (r) { pickAspect(r); buzzTick(); } }
+      ? () => { const r = wheelAspectRec; wheelInfo = null; if (r) { openAspect(r); buzzTick(); } }
       : undefined} />
 {/if}
 

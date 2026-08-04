@@ -13,11 +13,11 @@
    */
   import { reveal } from '../lib/reveal.ts';
   import type { Engine } from '../engine/index.ts';
-  import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH } from '../engine/index.ts';
-  import { vedicSky, degMin, type VedicNatal } from '../lib/vedicChart.ts';
+  import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH, VEDIC_BODIES } from '../engine/index.ts';
+  import { vedicSky, degMin, SHORT, type VedicNatal } from '../lib/vedicChart.ts';
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati,
     pratyantarDashas } from '../lib/vedic.ts';
-  import { ashtakavarga } from '../lib/ashtakavarga.ts';
+  import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
@@ -91,6 +91,8 @@
   // если открытая вкладка исчезла (включили упрощённый вид) — возвращаемся к грахам
   const active = $derived(tabs.some((t) => t.id === tab) ? tab : 'grahas');
 
+  // семь грах аштакаварги в каноническом порядке (узлы в системе не участвуют)
+  const BODIES = [...VEDIC_BODIES];
   const karakaName = (code?: string) =>
     CHARA_KARAKAS.find((k) => k.code === code)?.name ?? '';
   // даши тянутся десятилетиями — без года подпись «24 июл. — 24 июл.» бессмысленна
@@ -188,6 +190,68 @@
   <div class="note">Сарва-аштакаварга: сколько бинду набрал каждый дом (всего 337,
     в среднем 28 на знак). Больше — дела дома идут легче, меньше — территория,
     где приходится добирать усилием.</div>
+
+  <!-- Бхинна: из чего складывается сарва. Восемь дарителей (семь грах + лагна)
+       раздают бинду по домам ОТ СЕБЯ; здесь итог каждой грахи по знакам. -->
+  <div class="hdr">Бхинна по грахам</div>
+  <div class="card glass reveal" use:reveal>
+    <div class="scrollx">
+      <table class="bav">
+        <thead>
+          <tr>
+            <th class="hcell">Дом</th>
+            {#each BODIES as b}<th title={b}>{SHORT[b]}</th>{/each}
+            <th class="sum">Σ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each c.houses as h, i}
+            <tr>
+              <th class="hcell">{h.house}-й <span class="sg glyph">{SIGN_GLYPH[h.signIndex]}</span></th>
+              {#each BODIES as b}
+                {@const v = av.bav[b]?.[h.signIndex] ?? 0}
+                <td class:hi={v >= 5} class:lo={v <= 2}>{v}</td>
+              {/each}
+              <td class="sum">{av.savByHouse[i]}</td>
+            </tr>
+          {/each}
+          <tr class="tot">
+            <th class="hcell">всего</th>
+            {#each BODIES as b}<td>{BAV_TOTALS[b]}</td>{/each}
+            <td class="sum">337</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note">Строка — дом, столбец — граха. Итог каждой грахи задан классикой и от карты
+    не зависит (48 · 49 · 39 · 54 · 56 · 52 · 39): если бы таблицы были набраны с опечаткой,
+    нижняя строка разъехалась бы. У грахи считается сильным свой знак с 5 и больше бинду,
+    слабым — с 2 и меньше. Узлы в аштакаварге не участвуют.</div>
+
+  <!-- Шодхья пинда: вес грахи после двух редукций (трикона + экадхипатья). -->
+  <div class="hdr">Шодхья пинда</div>
+  <div class="card glass table reveal" use:reveal>
+    <div class="row th pinda"><span>Граха</span><span>Раши</span><span>Граха</span><span>Итог</span></div>
+    {#each BODIES as b}
+      {@const p = av.pinda[b]}
+      {#if p}
+        <div class="row pinda">
+          <span class="pn"><span class="g glyph">{PLANET_GLYPH[b] ?? '•'}</span> {b}</span>
+          <span class="num">{p.rashiPinda}</span>
+          <span class="num">{p.grahaPinda}</span>
+          <span class="num bold">{p.total}</span>
+        </div>
+      {/if}
+    {/each}
+  </div>
+  <div class="note">Сырые бинду сперва очищаются двумя редукциями. <b>Трикона-шодхана:</b> в каждой
+    тройке знаков «через один» (Овен–Лев–Стрелец и далее) вычитается наименьшее; если хоть где-то
+    ноль — тройку не трогают, если все три равны — обнуляют. <b>Экадхипатья-шодхана:</b> в паре
+    знаков одного управителя (Овен/Скорпион, Телец/Весы, Близнецы/Дева, Стрелец/Рыбы,
+    Козерог/Водолей) пустой знак отдаёт очки занятому; Рак и Лев одиночные и не редуцируются.
+    Очищенные бинду умножаются на вес знака (раши-мана) и на вес грахи в занятых знаках
+    (граха-мана) — сумма и есть пинда: чем больше, тем весомее граха в карте.</div>
 {/if}
 
 {#if active === 'grahas'}
@@ -471,6 +535,26 @@
   .dashaTxt { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5;
     padding: 4px 6px 8px; }
   .dashaTxt.sub2 { color: var(--ink-faint); font-size: 0.78rem; padding: 2px 10px 8px; }
+  /* Бхинна — широкая матрица 12×8: на узком экране едет вбок ВНУТРИ карточки,
+     страница по горизонтали не скроллится. */
+  .scrollx { overflow-x: auto; }
+  table.bav { border-collapse: collapse; width: 100%; font-size: 0.74rem; }
+  table.bav th, table.bav td { padding: 3px 5px; text-align: center; font-weight: 400;
+    color: var(--ink-dim); white-space: nowrap; }
+  table.bav thead th { color: var(--ink-faint); font-size: 0.68rem; }
+  table.bav .hcell { text-align: left; color: var(--ink-faint); }
+  table.bav .sg { font-size: 0.8rem; }
+  table.bav td.hi { color: var(--gold); }
+  table.bav td.lo { color: var(--rose); }
+  table.bav .sum { color: var(--ink); }
+  table.bav tr.tot th, table.bav tr.tot td { color: var(--ink-faint); font-size: 0.68rem;
+    border-top: 1px solid var(--glass-brd); padding-top: 5px; }
+
+  .row.pinda { grid-template-columns: 1fr 3.2rem 3.2rem 3.6rem; }
+  .pn { display: flex; align-items: center; gap: 6px; }
+  .num { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .num.bold { color: var(--ink); }
+
   /* антардаша — кнопка (раскрывает третий уровень), но выглядит как строка */
   .sub { display: flex; align-items: center; justify-content: space-between; gap: 8px;
     width: 100%; text-align: left; padding: 5px 6px; border-radius: 8px;

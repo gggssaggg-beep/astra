@@ -14,6 +14,7 @@ import { buildVedicChart, vimshottari, currentDasha,
   signIndexOf, VEDIC_ORDER_SET, dashaSensitivity, VIMSHOTTARI,
   type VedicChart, type DashaPeriod } from './vedic.ts';
 import { vargaSignAt, type VargaId } from './vargas.ts';
+import { upagrahas, type SkyForUpagraha, type UpagrahaResult } from './upagraha.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
 /** Латиница — международный стандарт джйотиш-программ; выбор владелицы
@@ -30,6 +31,31 @@ export interface VedicNatal {
   now: ReturnType<typeof currentDasha>;
   /** на сколько суток уедут границы даш, если время рождения сдвинуть на минуту */
   dashaDaysPerMinute: number;
+  /** упаграхи: пять от Солнца всегда, шесть суточных — если есть восход/закат */
+  upagrahas: UpagrahaResult;
+  /** пояс МЕСТА рождения: границы частей суток лежат в нём, не в поясе показа */
+  birthTz: string;
+}
+
+/** Дни недели en-US → индекс (0 = вс): вара берётся по МЕСТНОЙ дате места
+ *  рождения, иначе у рождений под утро день недели уезжает на сутки. */
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const weekdayIn = (t: Date, tz: string): number =>
+  WD.indexOf(new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(t));
+
+/**
+ * Небо глазами упаграх: восход/закат и лагна на произвольный момент. Восход
+ * считается по индийскому соглашению (центр диска без рефракции) — это зашито
+ * в engine.sunRiseSet.
+ */
+function skyFor(E: Engine, lat: number, lon: number, tz: string): SkyForUpagraha {
+  const jd = (t: Date) => E.toJD(t);
+  return {
+    riseAfter: (t) => { const r = E.sunRiseSet(jd(t), lat, lon, 'rise'); return r == null ? null : E.fromJD(r); },
+    setAfter: (t) => { const r = E.sunRiseSet(jd(t), lat, lon, 'set'); return r == null ? null : E.fromJD(r); },
+    asc: (t) => E.houses(jd(t), lat, lon, 'wholeSign')?.asc ?? 0,
+    weekday: (t) => weekdayIn(t, tz),
+  };
 }
 
 const lonMap = (pos: BodyPosition[]) => {
@@ -50,8 +76,10 @@ export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNa
   const dashas = vimshottari(lons['Луна'], when);
   const first = VIMSHOTTARI.find((v) => v.lord === dashas[0]?.lord)?.years ?? 20;
   const moonSpeed = E.lonSpeed(jd, 'Луна')[1];
+  const sky = skyFor(E, p.place.lat, p.place.lon, p.birthTz);
   return { chart, dashas, now: currentDasha(dashas, at),
-    dashaDaysPerMinute: dashaSensitivity(moonSpeed, first) };
+    dashaDaysPerMinute: dashaSensitivity(moonSpeed, first),
+    upagrahas: upagrahas(when, lons['Солнце'], sky), birthTz: p.birthTz };
 }
 
 /** «Сейчас на небе» в сидерических знаках — карта без домов и без лагны:

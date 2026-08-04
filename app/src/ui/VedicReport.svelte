@@ -18,6 +18,7 @@
   import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati,
     pratyantarDashas } from '../lib/vedic.ts';
   import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
+  import { WEEKDAY_RU } from '../lib/upagraha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
@@ -40,7 +41,7 @@
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
   // остаётся НАД вкладками — это шапка кундали, а не раздел.
-  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'dashas';
+  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'upa' | 'dashas';
   let tab = $state<TabId>('grahas');
 
   // небо «сейчас» нужно только для станции Сатурна от Луны (Саде Сати)
@@ -85,6 +86,7 @@
     ];
     if (!simple && drishti.length) out.push({ id: 'drishti', label: 'Дришти' });
     if (!simple && av) out.push({ id: 'av', label: 'Аштакаварга' });
+    if (!simple) out.push({ id: 'upa', label: 'Упаграхи' });
     out.push({ id: 'dashas', label: 'Даши' });
     return out;
   });
@@ -93,6 +95,14 @@
 
   // семь грах аштакаварги в каноническом порядке (узлы в системе не участвуют)
   const BODIES = [...VEDIC_BODIES];
+  /** Дом от лагны по знаку точки (целознаковые дома: дом = знак). */
+  const houseOf = (lon: number) =>
+    ((Math.floor(lon / 30) - natal.chart.lagnaSign + 12) % 12) + 1;
+  const signOfLon = (lon: number) => Math.floor(lon / 30) % 12;
+  // время частей суток — в поясе МЕСТА РОЖДЕНИЯ: восход и закат случились там,
+  // и в поясе показа «часть от восхода» выглядела бы бессмыслицей
+  const hm = (d: Date) => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: natal.birthTz, hour: '2-digit', minute: '2-digit' }).format(d);
   const karakaName = (code?: string) =>
     CHARA_KARAKAS.find((k) => k.code === code)?.name ?? '';
   // даши тянутся десятилетиями — без года подпись «24 июл. — 24 июл.» бессмысленна
@@ -330,6 +340,59 @@
 {/each}
 {/if}
 
+{#if active === 'upa' && !simple}
+  {@const u = natal.upagrahas}
+  <div class="hdr">Упаграхи от Солнца</div>
+  <div class="card glass table reveal" use:reveal>
+    <div class="row th upa"><span>Упаграха</span><span>Положение</span><span>Дом</span></div>
+    {#each u.points.filter((p) => p.source === 'sun') as p}
+      <div class="row upa">
+        <span class="un">{p.name}</span>
+        <span class="uv">{degMin(p.lon % 30)} <span class="glyph">{SIGN_GLYPH[signOfLon(p.lon)]}</span>
+          {ZODIAC[signOfLon(p.lon)]}</span>
+        <span class="num">{houseOf(p.lon)}-й</span>
+      </div>
+    {/each}
+  </div>
+  <div class="note">Пять точек считаются прямо от Солнца жёсткой цепочкой: Дхума = Солнце + 133°20′,
+    Вьятипата = 360° − Дхума, Паривеша = Вьятипата + 180°, Индрачапа = 360° − Паривеша,
+    Упакету = Индрачапа + 16°40′. Цепочка замкнута: Упакету + 30° снова даёт Солнце — это и есть
+    встроенная проверка расчёта. Разночтений между школами здесь нет.</div>
+
+  <div class="hdr">Упаграхи от частей суток</div>
+  {#if u.parts.length && u.frame}
+    <div class="card glass table reveal" use:reveal>
+      <div class="row th upa2"><span>Упаграха</span><span>Часть</span><span>Положение</span><span>Дом</span></div>
+      {#each u.parts as p}
+        <div class="row upa2">
+          <span class="un">{p.name}</span>
+          <span class="upart">{p.part}-я · {p.lord}<br><span class="utime">{hm(p.from)}–{hm(p.to)}</span></span>
+          <span class="uv">{degMin(p.lon % 30)} <span class="glyph">{SIGN_GLYPH[signOfLon(p.lon)]}</span></span>
+          <span class="num">{houseOf(p.lon)}-й</span>
+        </div>
+      {/each}
+    </div>
+    <div class="note">Рождение пришлось на {u.frame.dayBirth ? 'светлую' : 'тёмную'} половину
+      суток: {hm(u.frame.start)} — {hm(u.frame.end)} (восход {hm(u.frame.sunrise)}, закат
+      {hm(u.frame.sunset)}). Джйотиш-сутки начинаются с восхода, поэтому день недели считается
+      от него: {WEEKDAY_RU[u.frame.weekday]}.</div>
+    <div class="note">Половина делится на восемь равных частей. Днём счёт владык идёт от владыки
+      дня недели, ночью — от владыки пятого дня (воскресенье → четверг); восьмая часть остаётся
+      без владыки. Упаграха — это лагна на границе своей части: Кала в части Солнца, Мритью —
+      Марса, Ардхапрахара — Меркурия, Ямагантака — Юпитера, Гулика и Манди — Сатурна.</div>
+    <div class="note">⚠ Здесь школы расходятся, и это стоит сверить: лагна берётся на НАЧАЛЕ части
+      (у Манди — на конце), ночной счёт стартует с пятого дня, восьмая часть безвладычная.
+      Встречаются варианты «середина части» и «Гулика = Манди». Метод описан в
+      docs/TASK_JYOTISH_CORE.md; если астролог работает иначе — правится одним местом в расчёте.</div>
+  {:else}
+    <div class="card glass reveal" use:reveal>
+      <div class="empty">Нужны восход и закат по месту рождения. Если места нет — добавь его в
+        карте; если место за полярным кругом и Солнце в тот день не пересекало горизонт,
+        частей суток не существует и эта группа не считается ни в одной программе.</div>
+    </div>
+  {/if}
+{/if}
+
 {#if active === 'dashas'}
 <!-- Что и когда — без похода к ИИ: смены даш, заходы медленных грах,
      Саде Сати, узловые возвращения. Ближайшее сверху. -->
@@ -352,6 +415,7 @@
     в новый знак, фазы Саде Сати, узловые возвращения. Быстрые грахи сюда не идут —
     они на экране дня.</div>
 {/if}
+
 
 <div class="hdr">Периоды Вимшоттари <Hint k="dasha" /></div>
 {#each natal.dashas as d}
@@ -551,6 +615,13 @@
     border-top: 1px solid var(--glass-brd); padding-top: 5px; }
 
   .row.pinda { grid-template-columns: 1fr 3.2rem 3.2rem 3.6rem; }
+  .row.upa { grid-template-columns: 6.4rem 1fr 2.6rem; }
+  .row.upa2 { grid-template-columns: 6.4rem 5.6rem 1fr 2.6rem; align-items: center; }
+  .un { color: var(--ink-dim); font-size: 0.82rem; }
+  .uv { color: var(--ink-dim); font-size: 0.8rem; }
+  .upart { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.25; }
+  .utime { font-size: 0.68rem; }
+  .empty { color: var(--ink-faint); font-size: 0.82rem; line-height: 1.5; padding: 6px 4px; }
   .pn { display: flex; align-items: center; gap: 6px; }
   .num { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .num.bold { color: var(--ink); }

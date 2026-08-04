@@ -19,6 +19,7 @@
     pratyantarDashas } from '../lib/vedic.ts';
   import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
+  import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
@@ -41,7 +42,7 @@
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
   // остаётся НАД вкладками — это шапка кундали, а не раздел.
-  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'upa' | 'dashas';
+  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'upa' | 'arudha' | 'dashas';
   let tab = $state<TabId>('grahas');
 
   // небо «сейчас» нужно только для станции Сатурна от Луны (Саде Сати)
@@ -52,6 +53,13 @@
     const signs: Record<string, number> = {};
     for (const p of natal.chart.planets) signs[p.name] = p.signIndex;
     return ashtakavarga(signs, natal.chart.lagnaSign);
+  });
+
+  // арудхи: пады всех двенадцати бхав от знаков грах (узлы в правиле не участвуют)
+  const padas = $derived.by(() => {
+    const signs: Record<string, number> = {};
+    for (const p of natal.chart.planets) signs[p.name] = p.signIndex;
+    return arudhaPadas(natal.chart.lagnaSign, signs);
   });
 
   // важные даты на три года вперёд (движок, без ИИ)
@@ -87,6 +95,7 @@
     if (!simple && drishti.length) out.push({ id: 'drishti', label: 'Дришти' });
     if (!simple && av) out.push({ id: 'av', label: 'Аштакаварга' });
     if (!simple) out.push({ id: 'upa', label: 'Упаграхи' });
+    if (!simple) out.push({ id: 'arudha', label: 'Арудхи' });
     out.push({ id: 'dashas', label: 'Даши' });
     return out;
   });
@@ -393,6 +402,31 @@
   {/if}
 {/if}
 
+{#if active === 'arudha' && !simple}
+  <div class="hdr">Арудхи (пады бхав)</div>
+  <div class="card glass table reveal" use:reveal>
+    <div class="row th ar"><span>Пада</span><span>Дом</span><span>Управитель</span><span>Знак пады</span></div>
+    {#each padas as p}
+      <div class="row ar" class:key={p.special}>
+        <span class="un">{p.code}{#if p.special} · {p.special}{/if}</span>
+        <span class="num">{p.house}-й</span>
+        <span class="uv">{p.lord}{#if p.lordSign !== null} · {p.distance}-й{/if}</span>
+        <span class="uv">{#if p.lordSign === null}—{:else}<span class="glyph">{SIGN_GLYPH[p.sign]}</span>
+          {ZODIAC[p.sign]} <span class="dim">({padaHouse(p, natal.chart.lagnaSign)}-й)</span>{#if p.shifted}<span class="mark" title="пада схлопнулась — взят десятый знак">*</span>{/if}{/if}</span>
+      </div>
+    {/each}
+  </div>
+  <div class="note">Пада — отражение дома: не то, чем дом является, а то, каким он выглядит
+    снаружи. Считается одинаково для всех двенадцати: берём знак дома и его управителя, смотрим,
+    в каком доме ОТ ЭТОГО ДОМА стоит управитель (столбец «Управитель» — он и его расстояние,
+    счёт включительный: свой знак = 1), и отсчитываем столько же знаков уже ОТ УПРАВИТЕЛЯ.</div>
+  <div class="note">Звёздочкой помечены пады, где сработало исключение: если отражение упало на
+    сам дом или на седьмой от него, оно «схлопнулось» — тогда берут десятый знак от него.
+    <b>A1 (АЛ)</b> — Арудха Лагна: образ человека, каким его считывают окружающие, статус и
+    репутация. <b>A12 (УЛ)</b> — Упапада: брак и долгое партнёрство. Управители взяты
+    классические: Скорпион у Марса, Водолей у Сатурна.</div>
+{/if}
+
 {#if active === 'dashas'}
 <!-- Что и когда — без похода к ИИ: смены даш, заходы медленных грах,
      Саде Сати, узловые возвращения. Ближайшее сверху. -->
@@ -622,6 +656,10 @@
   .upart { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.25; }
   .utime { font-size: 0.68rem; }
   .empty { color: var(--ink-faint); font-size: 0.82rem; line-height: 1.5; padding: 6px 4px; }
+  .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
+  .row.ar.key .un { color: var(--ink); }
+  .dim { color: var(--ink-faint); }
+  .mark { color: var(--gold); }
   .pn { display: flex; align-items: center; gap: 6px; }
   .num { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
   .num.bold { color: var(--ink); }

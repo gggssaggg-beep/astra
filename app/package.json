@@ -17,6 +17,7 @@
     "test:kuta": "node test/kuta.mjs",
     "test:ashtakavarga": "node test/ashtakavarga.mjs",
     "test:upagraha": "node test/upagraha.mjs",
+    "test:arudha": "node test/arudha.mjs",
     "test:panchanga": "node test/panchanga.mjs",
     "test:static": "node test/static.mjs",
     "test:figures": "node test/figures.mjs",

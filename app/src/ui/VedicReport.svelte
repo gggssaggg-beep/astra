@@ -15,7 +15,8 @@
   import type { Engine } from '../engine/index.ts';
   import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH } from '../engine/index.ts';
   import { vedicSky, degMin, type VedicNatal } from '../lib/vedicChart.ts';
-  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
+  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati,
+    pratyantarDashas } from '../lib/vedic.ts';
   import { ashtakavarga } from '../lib/ashtakavarga.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
@@ -30,6 +31,9 @@
       simple?: boolean } = $props();
 
   let openDasha = $state<string | null>(null);
+  // раскрытая антардаша: ключ «махадаша|антардаша» — третий уровень (пратьянтары)
+  // строится на лету, поэтому раскрыта всегда только одна ветка
+  let openAntar = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
   let tlAll = $state(false);                    // лента дат раскрыта целиком
 
@@ -302,23 +306,44 @@
       <div class="subs">
         {#each d.sub ?? [] as s}
           {@const scur = natal.now.antar?.from.getTime() === s.from.getTime()}
-          <div class="sub" class:cur={scur}>
+          {@const key = `${d.lord}|${s.lord}`}
+          <!-- антардаша раскрывается в третий уровень: пратьянтар-даши -->
+          <button class="sub" class:cur={scur}
+            onclick={() => (openAntar = openAntar === key ? null : key)}>
             <span class="sl">{d.lord} — {s.lord}</span>
             <span class="sd">{dt(s.from)} — {dt(s.to)}</span>
-          </div>
+            <span class="arr">{openAntar === key ? '▾' : '▸'}</span>
+          </button>
           {#if scur}
             {@const aTxt = antarDashaText(d.lord, s.lord)}
             {#if aTxt}<div class="dashaTxt sub2">{aTxt}</div>{/if}
+          {/if}
+          {#if openAntar === key}
+            <div class="prs">
+              {#each pratyantarDashas(s) as p}
+                {@const pcur = natal.now.pratyantar?.from.getTime() === p.from.getTime()}
+                <div class="pr" class:cur={pcur}>
+                  <span class="pl">{d.lord} — {s.lord} — {p.lord}</span>
+                  <span class="pd">{dt(p.from)} — {dt(p.to)}</span>
+                </div>
+              {/each}
+            </div>
           {/if}
         {/each}
       </div>
     {/if}
   </div>
 {/each}
-<div class="note">Периоды считаются от накшатры Луны: первый идёт неполным — часть его прошла
-  до рождения. Границы очень чувствительны ко времени рождения: минута сдвигает их примерно
-  на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты — на две недели. Если даты не сходятся
-  с другой программой, сверяй сперва время, а не расчёт.</div>
+<div class="note">Три уровня: махадаша (нажми на строку) → антардаша → пратьянтар (нажми на
+  антардашу). Владыки идут одним и тем же кругом Кету&nbsp;7 · Венера&nbsp;20 · Солнце&nbsp;6 ·
+  Луна&nbsp;10 · Марс&nbsp;7 · Раху&nbsp;18 · Юпитер&nbsp;16 · Сатурн&nbsp;19 · Меркурий&nbsp;17 =
+  120 лет; внутри периода счёт начинается с его же владыки, а доля каждого — его годы, делённые
+  на 120. Первый период идёт неполным: он начался до рождения, и прошедшую часть задаёт
+  положение Луны внутри её накшатры.</div>
+<div class="note">Отсюда чувствительность ко времени рождения: накшатра — всего 800′, минута
+  времени сдвигает границы примерно на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты —
+  на две недели. Если даты не сходятся с другой программой, сверяй сперва время рождения,
+  потом аянамшу, и только потом подозревай расчёт. Год даши здесь юлианский — 365,25 суток.</div>
 {/if}
 
 <style>
@@ -446,8 +471,18 @@
   .dashaTxt { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5;
     padding: 4px 6px 8px; }
   .dashaTxt.sub2 { color: var(--ink-faint); font-size: 0.78rem; padding: 2px 10px 8px; }
-  .sub { display: flex; justify-content: space-between; gap: 8px; padding: 5px 6px; border-radius: 8px; }
+  /* антардаша — кнопка (раскрывает третий уровень), но выглядит как строка */
+  .sub { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; text-align: left; padding: 5px 6px; border-radius: 8px;
+    background: transparent; border: none; }
   .sub.cur { background: color-mix(in srgb, var(--glass) 80%, var(--gold) 8%); }
-  .sl { color: var(--ink-dim); font-size: 0.8rem; }
+  .sl { color: var(--ink-dim); font-size: 0.8rem; flex: 1; }
   .sd { color: var(--ink-faint); font-size: 0.76rem; }
+  /* третий уровень: пратьянтары — с отступом и мельче, чтобы вложенность читалась */
+  .prs { padding: 2px 0 6px 14px; border-left: 1px solid var(--glass-brd); margin-left: 8px; }
+  .pr { display: flex; justify-content: space-between; gap: 8px; padding: 3px 6px;
+    border-radius: 6px; }
+  .pr.cur { background: color-mix(in srgb, var(--glass) 80%, var(--gold) 10%); }
+  .pl { color: var(--ink-faint); font-size: 0.74rem; }
+  .pd { color: var(--ink-faint); font-size: 0.72rem; white-space: nowrap; }
 </style>

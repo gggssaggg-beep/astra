@@ -238,6 +238,34 @@ const addYears = (d: Date, years: number): Date =>
   new Date(d.getTime() + years * DASHA_YEAR_DAYS * 86400000);
 
 /**
+ * Дробление ЛЮБОГО периода на девять следующих: порядок владык начинается с
+ * владыки самого периода и идёт по кругу Вимшоттари, доля каждого = его
+ * годы / 120. Одним и тем же приёмом получаются антар-, пратьянтар- и
+ * сукшма-даши — уровень задаёт только то, что подали на вход.
+ *
+ * Границы считаются от НАЧАЛА периода накопленной долей, а не цепочкой
+ * прибавлений: иначе последняя подпериода не сходится с концом родительской
+ * на несколько миллисекунд, и «текущий период» на самой границе теряется.
+ */
+export function subPeriods(p: { lord: string; from: Date; to: Date }): DashaPeriod[] {
+  const span = p.to.getTime() - p.from.getTime();
+  const i0 = VIMSHOTTARI.findIndex((v) => v.lord === p.lord);
+  if (i0 < 0) return [];
+  const out: DashaPeriod[] = [];
+  let acc = 0;
+  for (let j = 0; j < VIMSHOTTARI.length; j++) {
+    const s = VIMSHOTTARI[(i0 + j) % VIMSHOTTARI.length];
+    const from = new Date(p.from.getTime() + span * acc / VIM_TOTAL);
+    acc += s.years;
+    out.push({ lord: s.lord, from, to: new Date(p.from.getTime() + span * acc / VIM_TOTAL) });
+  }
+  return out;
+}
+
+/** Пратьянтар-даши (третий уровень) внутри антардаши. */
+export const pratyantarDashas = (antar: DashaPeriod): DashaPeriod[] => subPeriods(antar);
+
+/**
  * Периоды Вимшоттари от рождения. Первая махадаша — владыка накшатры Луны, и
  * она НЕПОЛНАЯ: к моменту рождения часть её уже прошла (доля = положение Луны
  * внутри накшатры). Возвращаем полный цикл 120 лет с антардашами.
@@ -252,16 +280,7 @@ export function vimshottari(moonLon: number, birthUTC: Date): DashaPeriod[] {
     const { lord, years } = VIMSHOTTARI[(start + k) % VIMSHOTTARI.length];
     const from = cursor, to = addYears(from, years);
     // антардаши: те же владыки в том же порядке, длительность пропорциональна
-    const subStart = VIMSHOTTARI.findIndex((v) => v.lord === lord);
-    const sub: DashaPeriod[] = [];
-    let sc = from;
-    for (let j = 0; j < VIMSHOTTARI.length; j++) {
-      const s = VIMSHOTTARI[(subStart + j) % VIMSHOTTARI.length];
-      const sTo = addYears(sc, years * s.years / VIM_TOTAL);
-      sub.push({ lord: s.lord, from: sc, to: sTo });
-      sc = sTo;
-    }
-    out.push({ lord, from, to, sub });
+    out.push({ lord, from, to, sub: subPeriods({ lord, from, to }) });
     cursor = to;
   }
   return out;
@@ -283,27 +302,19 @@ export function dashaSensitivity(moonSpeedPerDay: number, firstDashaYears: numbe
   return (arcminPerMinute / (NAK_SPAN * 60)) * firstDashaYears * DASHA_YEAR_DAYS;
 }
 
-/** Действующие маха/антар/пратьянтар на момент. Пратьянтар считаем на лету —
- *  третий уровень нужен только «сейчас», хранить весь его незачем. */
+/** Действующие маха/антар/пратьянтар/сукшма на момент. Нижние уровни считаем
+ *  на лету: хранить весь третий и четвёртый уровень цикла незачем. */
 export function currentDasha(periods: DashaPeriod[], at: Date): {
-  maha?: DashaPeriod; antar?: DashaPeriod; pratyantar?: DashaPeriod;
+  maha?: DashaPeriod; antar?: DashaPeriod; pratyantar?: DashaPeriod; sookshma?: DashaPeriod;
 } {
   const t = at.getTime();
-  const maha = periods.find((p) => t >= p.from.getTime() && t < p.to.getTime());
-  const antar = maha?.sub?.find((p) => t >= p.from.getTime() && t < p.to.getTime());
-  let pratyantar: DashaPeriod | undefined;
-  if (antar) {
-    const len = (antar.to.getTime() - antar.from.getTime()) / 86400000 / DASHA_YEAR_DAYS;
-    const i0 = VIMSHOTTARI.findIndex((v) => v.lord === antar.lord);
-    let c = antar.from;
-    for (let j = 0; j < VIMSHOTTARI.length; j++) {
-      const s = VIMSHOTTARI[(i0 + j) % VIMSHOTTARI.length];
-      const to = addYears(c, len * s.years / VIM_TOTAL);
-      if (t >= c.getTime() && t < to.getTime()) { pratyantar = { lord: s.lord, from: c, to }; break; }
-      c = to;
-    }
-  }
-  return { maha, antar, pratyantar };
+  const inside = (list: DashaPeriod[]): DashaPeriod | undefined =>
+    list.find((p) => t >= p.from.getTime() && t < p.to.getTime());
+  const maha = inside(periods);
+  const antar = maha?.sub ? inside(maha.sub) : undefined;
+  const pratyantar = antar ? inside(subPeriods(antar)) : undefined;
+  const sookshma = pratyantar ? inside(subPeriods(pratyantar)) : undefined;
+  return { maha, antar, pratyantar, sookshma };
 }
 
 // ─── варги (дробные карты) ─────────────────────────────────────────────────

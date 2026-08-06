@@ -19,6 +19,7 @@
     pratyantarDashas } from '../lib/vedic.ts';
   import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
+  import { mrityuCheck, mrityuLabel, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
@@ -82,6 +83,23 @@
 
   // дришти: узлы не аспектируют (школа по умолчанию, см. lib/drishti.ts)
   const drishti = $derived(grahaDrishti(natal.chart.planets, natal.chart.lagnaSign));
+
+  // мритью бхага: критический градус грахи в её знаке. Проверяем лагну, семь
+  // грах, узлы и Манди (у неё в таблице своя строка) — карта чаще всего без
+  // попаданий, и это нормально: точка узкая, орбис полградуса-градус.
+  const mrityu = $derived.by(() => {
+    const map: Record<string, MrityuHit> = {};
+    const lag = mrityuCheck('Лагна', natal.chart.lagnaLon);
+    if (lag) map['Лагна'] = lag;
+    for (const p of natal.chart.planets) {
+      const h = mrityuCheck(p.name, p.lon);
+      if (h) map[p.name] = h;
+    }
+    const mandi = natal.upagrahas.parts.find((p) => p.name === 'Манди');
+    if (mandi) { const h = mrityuCheck('Манди', mandi.lon); if (h) map['Манди'] = h; }
+    return map;
+  });
+  const mrityuList = $derived(Object.values(mrityu));
 
   // короткое имя карты — {@const} на верхнем уровне разметки Svelte не разрешён
   const c = $derived(natal.chart);
@@ -287,7 +305,8 @@
       <tbody>
         <tr>
           <td class="pn"><span class="as">As</span><span class="nm">Лагна</span></td>
-          <td class="deg">{degMin(c.lagnaLon % 30)}</td>
+          <td class="deg">{degMin(c.lagnaLon % 30)}{#if mrityu['Лагна']}<span
+            class="mb" title="Мритью бхага">МБ</span>{/if}</td>
           <td class="sg"><span class="g glyph">{SIGN_GLYPH[c.lagnaSign]}</span><span
             class="sn">{ZODIAC[c.lagnaSign]}</span></td>
           <td class="nk">{c.lagnaNakshatra.name}</td>
@@ -298,7 +317,8 @@
             <td class="pn"><span class="g glyph">{PLANET_GLYPH[p.name] ?? '•'}</span><span
               class="nm">{p.name}{#if p.retro}<span class="rx">R</span>{/if}</span
               >{#if p.karaka}<span class="kk">{p.karaka}</span>{/if}</td>
-            <td class="deg">{degMin(p.degInSign)}</td>
+            <td class="deg">{degMin(p.degInSign)}{#if mrityu[p.name]}<span
+              class="mb" title="Мритью бхага">МБ</span>{/if}</td>
             <td class="sg"><span class="g glyph">{SIGN_GLYPH[p.signIndex]}</span><span
               class="sn">{p.sign}</span></td>
             <td class="nk">{p.nakshatra.name}</td>
@@ -311,6 +331,33 @@
 </div>
 <div class="note">R — граха идёт попятно; АК, АмК и прочие пометки у имени — чара-караки.{#if !simple}
   Ниже то же самое подробно: достоинство, навамша и что это значит.{/if}</div>
+<!-- Мритью бхага: блок появляется ТОЛЬКО при попадании. Пустого раздела
+     «попаданий нет» здесь не будет — карта без них это норма, а не отсутствие
+     расчёта (об этом сказано в примечании, чтобы не искали пропажу). -->
+{#if !simple && mrityuList.length}
+  <div class="hdr">Мритью бхага</div>
+  <div class="card glass table reveal" use:reveal>
+    {#each mrityuList as h}
+      <div class="row mbrow">
+        <span class="un">{h.name}</span>
+        <span class="uv">{degMin(h.deg)} <span class="glyph">{SIGN_GLYPH[h.signIndex]}</span>
+          {ZODIAC[h.signIndex]}</span>
+        <span class="mbv">{mrityuLabel(h)}</span>
+      </div>
+      {#if h.variant === 'parijata'}
+        <div class="mbsrc">Совпало по трактату «{MRITYU_SOURCE[h.variant]}»: у Луны трактаты
+          дают разные градусы, и по «Пхаладипике» попадания здесь нет.</div>
+      {/if}
+    {/each}
+  </div>
+  <div class="note">У каждой грахи в каждом знаке есть свой критический градус — мритью бхага.
+    Граха, попавшая в него, считается лишённой сил: классика читает это не как смерть, а как
+    жёсткие уроки по её темам, и ярче всего — в её же периоды даш. Смягчается соединением или
+    дришти сильного благодетеля и хорошим положением в навамше. Таблица — «Пхаладипика»
+    (гл. 13, шл. 10–11), орбисы по д-ру Чараку: лагна 1°, Солнце, Луна и Меркурий 40′,
+    остальные 30′. Метод спорный — Георгий сам это отметил; смотреть его стоит вместе с
+    остальной картой, а не отдельно.</div>
+{/if}
 {#each c.planets as p}
   <div class="card glass pcard reveal" use:reveal>
     <div class="pline">
@@ -342,6 +389,7 @@
     {/if}
     <div class="tags">
       {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
+      {#if mrityu[p.name]}<span class="tag mbt">мритью бхага {mrityu[p.name].degree}°</span>{/if}
       {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}
       {#if NATURAL_KARAKAS[p.name]}<span class="nat">{NATURAL_KARAKAS[p.name]}</span>{/if}
     </div>
@@ -387,12 +435,12 @@
       от него: {WEEKDAY_RU[u.frame.weekday]}.</div>
     <div class="note">Половина делится на восемь равных частей. Днём счёт владык идёт от владыки
       дня недели, ночью — от владыки пятого дня (воскресенье → четверг); восьмая часть остаётся
-      без владыки. Упаграха — это лагна на границе своей части: Кала в части Солнца, Мритью —
+      без владыки. Упаграха — это лагна внутри своей части: Кала в части Солнца, Мритью —
       Марса, Ардхапрахара — Меркурия, Ямагантака — Юпитера, Гулика и Манди — Сатурна.</div>
-    <div class="note">⚠ Здесь школы расходятся, и это стоит сверить: лагна берётся на НАЧАЛЕ части
-      (у Манди — на конце), ночной счёт стартует с пятого дня, восьмая часть безвладычная.
-      Встречаются варианты «середина части» и «Гулика = Манди». Метод описан в
-      docs/TASK_JYOTISH_CORE.md; если астролог работает иначе — правится одним местом в расчёте.</div>
+    <div class="note">Момент взятия лагны — <b>середина</b> части, и только у Манди — её
+      <b>начало</b> (правило Георгия от 06.08.2026). Поэтому Гулика и Манди стоят в одной части
+      Сатурна, но это две разные точки. Ночной счёт с пятого дня и безвладычная восьмая часть —
+      самый распространённый вариант классики. Метод описан в docs/TASK_JYOTISH_CORE.md.</div>
   {:else}
     <div class="card glass reveal" use:reveal>
       <div class="empty">Нужны восход и закат по месту рождения. Если места нет — добавь его в
@@ -620,6 +668,9 @@
   .tag.exalted { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--glass-brd)); }
   .tag.debilitated { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 45%, var(--glass-brd)); }
   .tag.k { color: var(--neon-cyan); border-color: color-mix(in srgb, var(--neon-cyan) 40%, var(--glass-brd)); }
+  /* мритью бхага — та же «тревожная» краска, что у падения: смысловая плашка
+     одного веса, отдельного цвета под неё не заводим (правило темы) */
+  .tag.mbt { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 45%, var(--glass-brd)); }
   .nat { color: var(--ink-faint); font-size: 0.76rem; }
 
   .dasha { padding: 2px 6px; }
@@ -656,6 +707,12 @@
   .upart { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.25; }
   .utime { font-size: 0.68rem; }
   .empty { color: var(--ink-faint); font-size: 0.82rem; line-height: 1.5; padding: 6px 4px; }
+  /* мритью бхага: метка в таблице положений и строка разбора */
+  .mb { color: var(--rose); font-size: 0.62rem; letter-spacing: 0.4px; margin-left: 4px;
+    vertical-align: super; }
+  .row.mbrow { grid-template-columns: 5.6rem 1fr auto; align-items: center; }
+  .mbv { color: var(--rose); font-size: 0.76rem; text-align: right; }
+  .mbsrc { color: var(--ink-faint); font-size: 0.72rem; line-height: 1.4; padding: 0 6px 6px; }
   .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
   .row.ar.key .un { color: var(--ink); }
   .dim { color: var(--ink-faint); }

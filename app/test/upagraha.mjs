@@ -125,19 +125,28 @@ console.log('=== шесть суточных упаграх ===');
     assert.equal(g.lord, 'Сатурн');
     assert.equal(g.part, 1);                    // суббота, день
   });
-  ok('Гулика и Манди — одна часть, но разные границы', () => {
+  // правило Георгия 06.08.2026: у всех упаграх — СЕРЕДИНА своей части,
+  // у Манди — НАЧАЛО. Гулика и Манди при этом остаются разными точками
+  ok('Гулика и Манди — одна часть, но разные мгновения', () => {
     const g = parts.find((p) => p.name === 'Гулика');
     const md = parts.find((p) => p.name === 'Манди');
     assert.equal(g.part, md.part);
-    assert.equal(+g.at, +g.from);
-    assert.equal(+md.at, +md.to);
+    assert.equal(+g.at, (+g.from + +g.to) / 2);   // Гулика — середина
+    assert.equal(+md.at, +md.from);               // Манди — начало
     assert.notEqual(g.lon, md.lon);
+  });
+  ok('все прочие упаграхи берутся на середине части', () => {
+    for (const p of parts.filter((x) => x.name !== 'Манди')) {
+      assert.equal(p.edge, 'mid');
+      assert.equal(+p.at, (+p.from + +p.to) / 2);
+    }
+    assert.equal(parts.find((p) => p.name === 'Манди').edge, 'start');
   });
   ok('части равны восьмой доле светлого времени (12 ч / 8 = 90 мин)', () => {
     const g = parts.find((p) => p.name === 'Кала');
     assert.equal((g.to - g.from) / 60000, 90);
   });
-  ok('лагна взята именно на границе части', () => {
+  ok('лагна взята именно на своём мгновении части', () => {
     for (const p of parts) assert.equal(p.lon, sky.asc(p.at));
   });
   ok('ночью части короче или длиннее — делится своя половина', () => {

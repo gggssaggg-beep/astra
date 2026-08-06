@@ -12,11 +12,12 @@
  *    части. Значит, нужны восход и закат по месту рождения: без места этой
  *    группы не существует (как и домов).
  *
- * ⚠ Развилки школ (см. docs/TASK_JYOTISH_CORE.md, помечены [?]): момент взятия
- * лагны (начало / середина / конец части), различение Гулики и Манди, старт
- * ночного счёта. Здесь реализован самый распространённый вариант, и он
- * ПОДПИСАН в интерфейсе — чтобы никто не принял его за единственно верный,
- * пока астролог не сверил с Jagannatha Hora.
+ * Развилки школ закрыл Георгий 06.08.2026: лагна берётся на СЕРЕДИНЕ своей
+ * части, и только у Манди — на НАЧАЛЕ; Гулика и Манди — две разные точки
+ * (обе в части Сатурна, но на разных её мгновениях). Ночной счёт владык
+ * стартует с владыки пятого дня — оставлено как было («сделай, как
+ * рекомендует AI», п.6): это самый распространённый вариант классики.
+ * Метод подписан в интерфейсе, чтобы его можно было сверить с Jagannatha Hora.
  */
 
 const norm = (x: number): number => ((x % 360) + 360) % 360;
@@ -57,15 +58,22 @@ export const WEEK_LORDS = ['Солнце', 'Луна', 'Марс', 'Меркур
 export const WEEKDAY_RU = ['воскресенье', 'понедельник', 'вторник', 'среда',
   'четверг', 'пятница', 'суббота'];
 
-/** Какая упаграха рождается в части какой грахи. Гулика и Манди — обе части
- *  Сатурна, но берутся на разных её границах. */
-const PART_OWNER: { name: string; lord: string; edge: 'start' | 'end' }[] = [
-  { name: 'Кала', lord: 'Солнце', edge: 'start' },
-  { name: 'Мритью', lord: 'Марс', edge: 'start' },
-  { name: 'Ардхапрахара', lord: 'Меркурий', edge: 'start' },
-  { name: 'Ямагантака', lord: 'Юпитер', edge: 'start' },
-  { name: 'Гулика', lord: 'Сатурн', edge: 'start' },
-  { name: 'Манди', lord: 'Сатурн', edge: 'end' },
+/** Момент внутри части, на который берётся лагна. */
+export type PartEdge = 'start' | 'mid' | 'end';
+
+/**
+ * Какая упаграха рождается в части какой грахи и на каком её мгновении.
+ * Правило Георгия (06.08.2026): у всех — СЕРЕДИНА части, у Манди — НАЧАЛО.
+ * Гулика и Манди обе живут в части Сатурна и потому отличаются только этим:
+ * Гулика — середина, Манди — начало. Точки разные, как он и просил.
+ */
+const PART_OWNER: { name: string; lord: string; edge: PartEdge }[] = [
+  { name: 'Кала', lord: 'Солнце', edge: 'mid' },
+  { name: 'Мритью', lord: 'Марс', edge: 'mid' },
+  { name: 'Ардхапрахара', lord: 'Меркурий', edge: 'mid' },
+  { name: 'Ямагантака', lord: 'Юпитер', edge: 'mid' },
+  { name: 'Гулика', lord: 'Сатурн', edge: 'mid' },
+  { name: 'Манди', lord: 'Сатурн', edge: 'start' },
 ];
 
 /** Светлый или тёмный отрезок суток, внутри которого случилось рождение. */
@@ -126,6 +134,7 @@ export interface UpagrahaPart extends UpagrahaPoint {
   from: Date;
   to: Date;
   at: Date;             // момент, на который взята лагна
+  edge: PartEdge;       // какое мгновение части это было
 }
 
 /**
@@ -140,8 +149,8 @@ export function partLord(frame: DayFrame, part: number): string | null {
 }
 
 /**
- * Шесть упаграх от частей суток. Лагна берётся на НАЧАЛЕ своей части
- * (у Манди — на конце: это и отличает её от Гулики).
+ * Шесть упаграх от частей суток. Лагна берётся на СЕРЕДИНЕ своей части
+ * (у Манди — на начале: это и отличает её от Гулики).
  */
 export function partUpagrahas(frame: DayFrame, sky: SkyForUpagraha): UpagrahaPart[] {
   const span = (frame.end.getTime() - frame.start.getTime()) / 8;
@@ -151,8 +160,10 @@ export function partUpagrahas(frame: DayFrame, sky: SkyForUpagraha): UpagrahaPar
     if (!part) continue;
     const from = new Date(frame.start.getTime() + span * (part - 1));
     const to = new Date(from.getTime() + span);
-    const at = edge === 'start' ? from : to;
-    out.push({ name, lord, part, from, to, at, lon: sky.asc(at), source: 'part' });
+    const at = edge === 'start' ? from
+      : edge === 'end' ? to
+        : new Date(from.getTime() + span / 2);
+    out.push({ name, lord, part, from, to, at, edge, lon: sky.asc(at), source: 'part' });
   }
   return out;
 }

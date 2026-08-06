@@ -736,6 +736,8 @@
       } catch { /* прогноз опционален — карта важнее */ }
       return buildVedicPrompt({
         person: personA, natal: vedicA, ayanamsaDeg, tz, forecast,
+        ayanamsa: db.settings.get().ayanamsa,
+        nodes: db.settings.get().vedicNodes ?? 'mean',
         transit: { at: transitAt, positions: transitPos },
       });
     }

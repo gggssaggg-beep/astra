@@ -55,6 +55,10 @@ export interface Settings {
   studyDone?: string[];       // id пройденных уроков курса «с нуля» (слой 2); нет = пусто
   zodiac?: 'tropical' | 'sidereal';  // зодиак: западный (по умолч.) или ведический
   ayanamsa?: string;          // id аянамши для ведического режима (нет = Лахири)
+  // Узлы в ведическом режиме: СРЕДНИЕ по умолчанию (выбор Георгия 2026-08-06 —
+  // так считает классика и так по умолчанию делает Jagannatha Hora), истинные —
+  // опцией. В западном режиме узлы всегда истинные, как было (правило ТЗ).
+  vedicNodes?: 'mean' | 'true';
   chartStyle?: 'north' | 'south'; // стиль ведической карты: ромб или квадратная сетка (нет = north)
   // «я не астролог»: убрать специальные слои джйотиша (навамша, отношения планет
   // и всё, что добавится дальше). По умолчанию ВЫКЛ — вид полный, приложение
@@ -90,8 +94,17 @@ export const HOUSE_SYSTEMS: { id: string; label: string }[] = [
 ];
 
 /** Настройки движка из настроек приложения (профиль зодиака). */
-export const zodiacOptions = (s: Settings): { zodiac: 'tropical' | 'sidereal'; ayanamsa?: string } =>
-  s.zodiac === 'sidereal' ? { zodiac: 'sidereal', ayanamsa: s.ayanamsa ?? 'lahiri' } : { zodiac: 'tropical' };
+export const zodiacOptions = (s: Settings):
+{ zodiac: 'tropical' | 'sidereal'; ayanamsa?: string; nodes?: 'mean' | 'true' } =>
+  s.zodiac === 'sidereal'
+    ? { zodiac: 'sidereal', ayanamsa: s.ayanamsa ?? 'lahiri', nodes: s.vedicNodes ?? 'mean' }
+    : { zodiac: 'tropical' };
+
+/** Ключ профиля расчёта: сменился — движок надо пересоздать (App следит). */
+export const zodiacKey = (s: Settings): string => {
+  const o = zodiacOptions(s);
+  return `${o.zodiac}|${o.ayanamsa ?? '-'}|${o.nodes ?? '-'}`;
+};
 
 /** В ведическом режиме дома всегда целознаковые: так читает джйотиш. */
 export const houseSystemOf = (s: Settings): string =>

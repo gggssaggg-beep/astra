@@ -13,10 +13,14 @@
    */
   import { reveal } from '../lib/reveal.ts';
   import type { Engine } from '../engine/index.ts';
-  import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH } from '../engine/index.ts';
-  import { vedicSky, degMin, type VedicNatal } from '../lib/vedicChart.ts';
-  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati } from '../lib/vedic.ts';
-  import { ashtakavarga } from '../lib/ashtakavarga.ts';
+  import { ZODIAC, SIGN_GLYPH, PLANET_GLYPH, VEDIC_BODIES } from '../engine/index.ts';
+  import { vedicSky, degMin, SHORT, type VedicNatal } from '../lib/vedicChart.ts';
+  import { NATURAL_KARAKAS, CHARA_KARAKAS, RELATION_LABEL, sadeSati,
+    pratyantarDashas } from '../lib/vedic.ts';
+  import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
+  import { WEEKDAY_RU } from '../lib/upagraha.ts';
+  import { mrityuCheck, mrityuLabel, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
+  import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
@@ -30,13 +34,16 @@
       simple?: boolean } = $props();
 
   let openDasha = $state<string | null>(null);
+  // раскрытая антардаша: ключ «махадаша|антардаша» — третий уровень (пратьянтары)
+  // строится на лету, поэтому раскрыта всегда только одна ветка
+  let openAntar = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
   let tlAll = $state(false);                    // лента дат раскрыта целиком
 
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
   // остаётся НАД вкладками — это шапка кундали, а не раздел.
-  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'dashas';
+  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'upa' | 'arudha' | 'dashas';
   let tab = $state<TabId>('grahas');
 
   // небо «сейчас» нужно только для станции Сатурна от Луны (Саде Сати)
@@ -47,6 +54,13 @@
     const signs: Record<string, number> = {};
     for (const p of natal.chart.planets) signs[p.name] = p.signIndex;
     return ashtakavarga(signs, natal.chart.lagnaSign);
+  });
+
+  // арудхи: пады всех двенадцати бхав от знаков грах (узлы в правиле не участвуют)
+  const padas = $derived.by(() => {
+    const signs: Record<string, number> = {};
+    for (const p of natal.chart.planets) signs[p.name] = p.signIndex;
+    return arudhaPadas(natal.chart.lagnaSign, signs);
   });
 
   // важные даты на три года вперёд (движок, без ИИ)
@@ -70,6 +84,23 @@
   // дришти: узлы не аспектируют (школа по умолчанию, см. lib/drishti.ts)
   const drishti = $derived(grahaDrishti(natal.chart.planets, natal.chart.lagnaSign));
 
+  // мритью бхага: критический градус грахи в её знаке. Проверяем лагну, семь
+  // грах, узлы и Манди (у неё в таблице своя строка) — карта чаще всего без
+  // попаданий, и это нормально: точка узкая, орбис полградуса-градус.
+  const mrityu = $derived.by(() => {
+    const map: Record<string, MrityuHit> = {};
+    const lag = mrityuCheck('Лагна', natal.chart.lagnaLon);
+    if (lag) map['Лагна'] = lag;
+    for (const p of natal.chart.planets) {
+      const h = mrityuCheck(p.name, p.lon);
+      if (h) map[p.name] = h;
+    }
+    const mandi = natal.upagrahas.parts.find((p) => p.name === 'Манди');
+    if (mandi) { const h = mrityuCheck('Манди', mandi.lon); if (h) map['Манди'] = h; }
+    return map;
+  });
+  const mrityuList = $derived(Object.values(mrityu));
+
   // короткое имя карты — {@const} на верхнем уровне разметки Svelte не разрешён
   const c = $derived(natal.chart);
 
@@ -81,12 +112,24 @@
     ];
     if (!simple && drishti.length) out.push({ id: 'drishti', label: 'Дришти' });
     if (!simple && av) out.push({ id: 'av', label: 'Аштакаварга' });
+    if (!simple) out.push({ id: 'upa', label: 'Упаграхи' });
+    if (!simple) out.push({ id: 'arudha', label: 'Арудхи' });
     out.push({ id: 'dashas', label: 'Даши' });
     return out;
   });
   // если открытая вкладка исчезла (включили упрощённый вид) — возвращаемся к грахам
   const active = $derived(tabs.some((t) => t.id === tab) ? tab : 'grahas');
 
+  // семь грах аштакаварги в каноническом порядке (узлы в системе не участвуют)
+  const BODIES = [...VEDIC_BODIES];
+  /** Дом от лагны по знаку точки (целознаковые дома: дом = знак). */
+  const houseOf = (lon: number) =>
+    ((Math.floor(lon / 30) - natal.chart.lagnaSign + 12) % 12) + 1;
+  const signOfLon = (lon: number) => Math.floor(lon / 30) % 12;
+  // время частей суток — в поясе МЕСТА РОЖДЕНИЯ: восход и закат случились там,
+  // и в поясе показа «часть от восхода» выглядела бы бессмыслицей
+  const hm = (d: Date) => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: natal.birthTz, hour: '2-digit', minute: '2-digit' }).format(d);
   const karakaName = (code?: string) =>
     CHARA_KARAKAS.find((k) => k.code === code)?.name ?? '';
   // даши тянутся десятилетиями — без года подпись «24 июл. — 24 июл.» бессмысленна
@@ -184,6 +227,68 @@
   <div class="note">Сарва-аштакаварга: сколько бинду набрал каждый дом (всего 337,
     в среднем 28 на знак). Больше — дела дома идут легче, меньше — территория,
     где приходится добирать усилием.</div>
+
+  <!-- Бхинна: из чего складывается сарва. Восемь дарителей (семь грах + лагна)
+       раздают бинду по домам ОТ СЕБЯ; здесь итог каждой грахи по знакам. -->
+  <div class="hdr">Бхинна по грахам</div>
+  <div class="card glass reveal" use:reveal>
+    <div class="scrollx">
+      <table class="bav">
+        <thead>
+          <tr>
+            <th class="hcell">Дом</th>
+            {#each BODIES as b}<th title={b}>{SHORT[b]}</th>{/each}
+            <th class="sum">Σ</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each c.houses as h, i}
+            <tr>
+              <th class="hcell">{h.house}-й <span class="sg glyph">{SIGN_GLYPH[h.signIndex]}</span></th>
+              {#each BODIES as b}
+                {@const v = av.bav[b]?.[h.signIndex] ?? 0}
+                <td class:hi={v >= 5} class:lo={v <= 2}>{v}</td>
+              {/each}
+              <td class="sum">{av.savByHouse[i]}</td>
+            </tr>
+          {/each}
+          <tr class="tot">
+            <th class="hcell">всего</th>
+            {#each BODIES as b}<td>{BAV_TOTALS[b]}</td>{/each}
+            <td class="sum">337</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="note">Строка — дом, столбец — граха. Итог каждой грахи задан классикой и от карты
+    не зависит (48 · 49 · 39 · 54 · 56 · 52 · 39): если бы таблицы были набраны с опечаткой,
+    нижняя строка разъехалась бы. У грахи считается сильным свой знак с 5 и больше бинду,
+    слабым — с 2 и меньше. Узлы в аштакаварге не участвуют.</div>
+
+  <!-- Шодхья пинда: вес грахи после двух редукций (трикона + экадхипатья). -->
+  <div class="hdr">Шодхья пинда</div>
+  <div class="card glass table reveal" use:reveal>
+    <div class="row th pinda"><span>Граха</span><span>Раши</span><span>Граха</span><span>Итог</span></div>
+    {#each BODIES as b}
+      {@const p = av.pinda[b]}
+      {#if p}
+        <div class="row pinda">
+          <span class="pn"><span class="g glyph">{PLANET_GLYPH[b] ?? '•'}</span> {b}</span>
+          <span class="num">{p.rashiPinda}</span>
+          <span class="num">{p.grahaPinda}</span>
+          <span class="num bold">{p.total}</span>
+        </div>
+      {/if}
+    {/each}
+  </div>
+  <div class="note">Сырые бинду сперва очищаются двумя редукциями. <b>Трикона-шодхана:</b> в каждой
+    тройке знаков «через один» (Овен–Лев–Стрелец и далее) вычитается наименьшее; если хоть где-то
+    ноль — тройку не трогают, если все три равны — обнуляют. <b>Экадхипатья-шодхана:</b> в паре
+    знаков одного управителя (Овен/Скорпион, Телец/Весы, Близнецы/Дева, Стрелец/Рыбы,
+    Козерог/Водолей) пустой знак отдаёт очки занятому; Рак и Лев одиночные и не редуцируются.
+    Очищенные бинду умножаются на вес знака (раши-мана) и на вес грахи в занятых знаках
+    (граха-мана) — сумма и есть пинда: чем больше, тем весомее граха в карте.</div>
 {/if}
 
 {#if active === 'grahas'}
@@ -200,7 +305,8 @@
       <tbody>
         <tr>
           <td class="pn"><span class="as">As</span><span class="nm">Лагна</span></td>
-          <td class="deg">{degMin(c.lagnaLon % 30)}</td>
+          <td class="deg">{degMin(c.lagnaLon % 30)}{#if mrityu['Лагна']}<span
+            class="mb" title="Мритью бхага">МБ</span>{/if}</td>
           <td class="sg"><span class="g glyph">{SIGN_GLYPH[c.lagnaSign]}</span><span
             class="sn">{ZODIAC[c.lagnaSign]}</span></td>
           <td class="nk">{c.lagnaNakshatra.name}</td>
@@ -211,7 +317,8 @@
             <td class="pn"><span class="g glyph">{PLANET_GLYPH[p.name] ?? '•'}</span><span
               class="nm">{p.name}{#if p.retro}<span class="rx">R</span>{/if}</span
               >{#if p.karaka}<span class="kk">{p.karaka}</span>{/if}</td>
-            <td class="deg">{degMin(p.degInSign)}</td>
+            <td class="deg">{degMin(p.degInSign)}{#if mrityu[p.name]}<span
+              class="mb" title="Мритью бхага">МБ</span>{/if}</td>
             <td class="sg"><span class="g glyph">{SIGN_GLYPH[p.signIndex]}</span><span
               class="sn">{p.sign}</span></td>
             <td class="nk">{p.nakshatra.name}</td>
@@ -224,6 +331,33 @@
 </div>
 <div class="note">R — граха идёт попятно; АК, АмК и прочие пометки у имени — чара-караки.{#if !simple}
   Ниже то же самое подробно: достоинство, навамша и что это значит.{/if}</div>
+<!-- Мритью бхага: блок появляется ТОЛЬКО при попадании. Пустого раздела
+     «попаданий нет» здесь не будет — карта без них это норма, а не отсутствие
+     расчёта (об этом сказано в примечании, чтобы не искали пропажу). -->
+{#if !simple && mrityuList.length}
+  <div class="hdr">Мритью бхага</div>
+  <div class="card glass table reveal" use:reveal>
+    {#each mrityuList as h}
+      <div class="row mbrow">
+        <span class="un">{h.name}</span>
+        <span class="uv">{degMin(h.deg)} <span class="glyph">{SIGN_GLYPH[h.signIndex]}</span>
+          {ZODIAC[h.signIndex]}</span>
+        <span class="mbv">{mrityuLabel(h)}</span>
+      </div>
+      {#if h.variant === 'parijata'}
+        <div class="mbsrc">Совпало по трактату «{MRITYU_SOURCE[h.variant]}»: у Луны трактаты
+          дают разные градусы, и по «Пхаладипике» попадания здесь нет.</div>
+      {/if}
+    {/each}
+  </div>
+  <div class="note">У каждой грахи в каждом знаке есть свой критический градус — мритью бхага.
+    Граха, попавшая в него, считается лишённой сил: классика читает это не как смерть, а как
+    жёсткие уроки по её темам, и ярче всего — в её же периоды даш. Смягчается соединением или
+    дришти сильного благодетеля и хорошим положением в навамше. Таблица — «Пхаладипика»
+    (гл. 13, шл. 10–11), орбисы по д-ру Чараку: лагна 1°, Солнце, Луна и Меркурий 40′,
+    остальные 30′. Метод спорный — Георгий сам это отметил; смотреть его стоит вместе с
+    остальной картой, а не отдельно.</div>
+{/if}
 {#each c.planets as p}
   <div class="card glass pcard reveal" use:reveal>
     <div class="pline">
@@ -255,11 +389,90 @@
     {/if}
     <div class="tags">
       {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
+      {#if mrityu[p.name]}<span class="tag mbt">мритью бхага {mrityu[p.name].degree}°</span>{/if}
       {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}
       {#if NATURAL_KARAKAS[p.name]}<span class="nat">{NATURAL_KARAKAS[p.name]}</span>{/if}
     </div>
   </div>
 {/each}
+{/if}
+
+{#if active === 'upa' && !simple}
+  {@const u = natal.upagrahas}
+  <div class="hdr">Упаграхи от Солнца</div>
+  <div class="card glass table reveal" use:reveal>
+    <div class="row th upa"><span>Упаграха</span><span>Положение</span><span>Дом</span></div>
+    {#each u.points.filter((p) => p.source === 'sun') as p}
+      <div class="row upa">
+        <span class="un">{p.name}</span>
+        <span class="uv">{degMin(p.lon % 30)} <span class="glyph">{SIGN_GLYPH[signOfLon(p.lon)]}</span>
+          {ZODIAC[signOfLon(p.lon)]}</span>
+        <span class="num">{houseOf(p.lon)}-й</span>
+      </div>
+    {/each}
+  </div>
+  <div class="note">Пять точек считаются прямо от Солнца жёсткой цепочкой: Дхума = Солнце + 133°20′,
+    Вьятипата = 360° − Дхума, Паривеша = Вьятипата + 180°, Индрачапа = 360° − Паривеша,
+    Упакету = Индрачапа + 16°40′. Цепочка замкнута: Упакету + 30° снова даёт Солнце — это и есть
+    встроенная проверка расчёта. Разночтений между школами здесь нет.</div>
+
+  <div class="hdr">Упаграхи от частей суток</div>
+  {#if u.parts.length && u.frame}
+    <div class="card glass table reveal" use:reveal>
+      <div class="row th upa2"><span>Упаграха</span><span>Часть</span><span>Положение</span><span>Дом</span></div>
+      {#each u.parts as p}
+        <div class="row upa2">
+          <span class="un">{p.name}</span>
+          <span class="upart">{p.part}-я · {p.lord}<br><span class="utime">{hm(p.from)}–{hm(p.to)}</span></span>
+          <span class="uv">{degMin(p.lon % 30)} <span class="glyph">{SIGN_GLYPH[signOfLon(p.lon)]}</span></span>
+          <span class="num">{houseOf(p.lon)}-й</span>
+        </div>
+      {/each}
+    </div>
+    <div class="note">Рождение пришлось на {u.frame.dayBirth ? 'светлую' : 'тёмную'} половину
+      суток: {hm(u.frame.start)} — {hm(u.frame.end)} (восход {hm(u.frame.sunrise)}, закат
+      {hm(u.frame.sunset)}). Джйотиш-сутки начинаются с восхода, поэтому день недели считается
+      от него: {WEEKDAY_RU[u.frame.weekday]}.</div>
+    <div class="note">Половина делится на восемь равных частей. Днём счёт владык идёт от владыки
+      дня недели, ночью — от владыки пятого дня (воскресенье → четверг); восьмая часть остаётся
+      без владыки. Упаграха — это лагна внутри своей части: Кала в части Солнца, Мритью —
+      Марса, Ардхапрахара — Меркурия, Ямагантака — Юпитера, Гулика и Манди — Сатурна.</div>
+    <div class="note">Момент взятия лагны — <b>середина</b> части, и только у Манди — её
+      <b>начало</b> (правило Георгия от 06.08.2026). Поэтому Гулика и Манди стоят в одной части
+      Сатурна, но это две разные точки. Ночной счёт с пятого дня и безвладычная восьмая часть —
+      самый распространённый вариант классики. Метод описан в docs/TASK_JYOTISH_CORE.md.</div>
+  {:else}
+    <div class="card glass reveal" use:reveal>
+      <div class="empty">Нужны восход и закат по месту рождения. Если места нет — добавь его в
+        карте; если место за полярным кругом и Солнце в тот день не пересекало горизонт,
+        частей суток не существует и эта группа не считается ни в одной программе.</div>
+    </div>
+  {/if}
+{/if}
+
+{#if active === 'arudha' && !simple}
+  <div class="hdr">Арудхи (пады бхав)</div>
+  <div class="card glass table reveal" use:reveal>
+    <div class="row th ar"><span>Пада</span><span>Дом</span><span>Управитель</span><span>Знак пады</span></div>
+    {#each padas as p}
+      <div class="row ar" class:key={p.special}>
+        <span class="un">{p.code}{#if p.special} · {p.special}{/if}</span>
+        <span class="num">{p.house}-й</span>
+        <span class="uv">{p.lord}{#if p.lordSign !== null} · {p.distance}-й{/if}</span>
+        <span class="uv">{#if p.lordSign === null}—{:else}<span class="glyph">{SIGN_GLYPH[p.sign]}</span>
+          {ZODIAC[p.sign]} <span class="dim">({padaHouse(p, natal.chart.lagnaSign)}-й)</span>{#if p.shifted}<span class="mark" title="пада схлопнулась — взят десятый знак">*</span>{/if}{/if}</span>
+      </div>
+    {/each}
+  </div>
+  <div class="note">Пада — отражение дома: не то, чем дом является, а то, каким он выглядит
+    снаружи. Считается одинаково для всех двенадцати: берём знак дома и его управителя, смотрим,
+    в каком доме ОТ ЭТОГО ДОМА стоит управитель (столбец «Управитель» — он и его расстояние,
+    счёт включительный: свой знак = 1), и отсчитываем столько же знаков уже ОТ УПРАВИТЕЛЯ.</div>
+  <div class="note">Звёздочкой помечены пады, где сработало исключение: если отражение упало на
+    сам дом или на седьмой от него, оно «схлопнулось» — тогда берут десятый знак от него.
+    <b>A1 (АЛ)</b> — Арудха Лагна: образ человека, каким его считывают окружающие, статус и
+    репутация. <b>A12 (УЛ)</b> — Упапада: брак и долгое партнёрство. Управители взяты
+    классические: Скорпион у Марса, Водолей у Сатурна.</div>
 {/if}
 
 {#if active === 'dashas'}
@@ -285,6 +498,7 @@
     они на экране дня.</div>
 {/if}
 
+
 <div class="hdr">Периоды Вимшоттари <Hint k="dasha" /></div>
 {#each natal.dashas as d}
   {@const cur = natal.now.maha?.from.getTime() === d.from.getTime()}
@@ -302,23 +516,44 @@
       <div class="subs">
         {#each d.sub ?? [] as s}
           {@const scur = natal.now.antar?.from.getTime() === s.from.getTime()}
-          <div class="sub" class:cur={scur}>
+          {@const key = `${d.lord}|${s.lord}`}
+          <!-- антардаша раскрывается в третий уровень: пратьянтар-даши -->
+          <button class="sub" class:cur={scur}
+            onclick={() => (openAntar = openAntar === key ? null : key)}>
             <span class="sl">{d.lord} — {s.lord}</span>
             <span class="sd">{dt(s.from)} — {dt(s.to)}</span>
-          </div>
+            <span class="arr">{openAntar === key ? '▾' : '▸'}</span>
+          </button>
           {#if scur}
             {@const aTxt = antarDashaText(d.lord, s.lord)}
             {#if aTxt}<div class="dashaTxt sub2">{aTxt}</div>{/if}
+          {/if}
+          {#if openAntar === key}
+            <div class="prs">
+              {#each pratyantarDashas(s) as p}
+                {@const pcur = natal.now.pratyantar?.from.getTime() === p.from.getTime()}
+                <div class="pr" class:cur={pcur}>
+                  <span class="pl">{d.lord} — {s.lord} — {p.lord}</span>
+                  <span class="pd">{dt(p.from)} — {dt(p.to)}</span>
+                </div>
+              {/each}
+            </div>
           {/if}
         {/each}
       </div>
     {/if}
   </div>
 {/each}
-<div class="note">Периоды считаются от накшатры Луны: первый идёт неполным — часть его прошла
-  до рождения. Границы очень чувствительны ко времени рождения: минута сдвигает их примерно
-  на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты — на две недели. Если даты не сходятся
-  с другой программой, сверяй сперва время, а не расчёт.</div>
+<div class="note">Три уровня: махадаша (нажми на строку) → антардаша → пратьянтар (нажми на
+  антардашу). Владыки идут одним и тем же кругом Кету&nbsp;7 · Венера&nbsp;20 · Солнце&nbsp;6 ·
+  Луна&nbsp;10 · Марс&nbsp;7 · Раху&nbsp;18 · Юпитер&nbsp;16 · Сатурн&nbsp;19 · Меркурий&nbsp;17 =
+  120 лет; внутри периода счёт начинается с его же владыки, а доля каждого — его годы, делённые
+  на 120. Первый период идёт неполным: он начался до рождения, и прошедшую часть задаёт
+  положение Луны внутри её накшатры.</div>
+<div class="note">Отсюда чувствительность ко времени рождения: накшатра — всего 800′, минута
+  времени сдвигает границы примерно на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты —
+  на две недели. Если даты не сходятся с другой программой, сверяй сперва время рождения,
+  потом аянамшу, и только потом подозревай расчёт. Год даши здесь юлианский — 365,25 суток.</div>
 {/if}
 
 <style>
@@ -433,6 +668,9 @@
   .tag.exalted { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--glass-brd)); }
   .tag.debilitated { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 45%, var(--glass-brd)); }
   .tag.k { color: var(--neon-cyan); border-color: color-mix(in srgb, var(--neon-cyan) 40%, var(--glass-brd)); }
+  /* мритью бхага — та же «тревожная» краска, что у падения: смысловая плашка
+     одного веса, отдельного цвета под неё не заводим (правило темы) */
+  .tag.mbt { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 45%, var(--glass-brd)); }
   .nat { color: var(--ink-faint); font-size: 0.76rem; }
 
   .dasha { padding: 2px 6px; }
@@ -446,8 +684,55 @@
   .dashaTxt { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.5;
     padding: 4px 6px 8px; }
   .dashaTxt.sub2 { color: var(--ink-faint); font-size: 0.78rem; padding: 2px 10px 8px; }
-  .sub { display: flex; justify-content: space-between; gap: 8px; padding: 5px 6px; border-radius: 8px; }
+  /* Бхинна — широкая матрица 12×8: на узком экране едет вбок ВНУТРИ карточки,
+     страница по горизонтали не скроллится. */
+  .scrollx { overflow-x: auto; }
+  table.bav { border-collapse: collapse; width: 100%; font-size: 0.74rem; }
+  table.bav th, table.bav td { padding: 3px 5px; text-align: center; font-weight: 400;
+    color: var(--ink-dim); white-space: nowrap; }
+  table.bav thead th { color: var(--ink-faint); font-size: 0.68rem; }
+  table.bav .hcell { text-align: left; color: var(--ink-faint); }
+  table.bav .sg { font-size: 0.8rem; }
+  table.bav td.hi { color: var(--gold); }
+  table.bav td.lo { color: var(--rose); }
+  table.bav .sum { color: var(--ink); }
+  table.bav tr.tot th, table.bav tr.tot td { color: var(--ink-faint); font-size: 0.68rem;
+    border-top: 1px solid var(--glass-brd); padding-top: 5px; }
+
+  .row.pinda { grid-template-columns: 1fr 3.2rem 3.2rem 3.6rem; }
+  .row.upa { grid-template-columns: 6.4rem 1fr 2.6rem; }
+  .row.upa2 { grid-template-columns: 6.4rem 5.6rem 1fr 2.6rem; align-items: center; }
+  .un { color: var(--ink-dim); font-size: 0.82rem; }
+  .uv { color: var(--ink-dim); font-size: 0.8rem; }
+  .upart { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.25; }
+  .utime { font-size: 0.68rem; }
+  .empty { color: var(--ink-faint); font-size: 0.82rem; line-height: 1.5; padding: 6px 4px; }
+  /* мритью бхага: метка в таблице положений и строка разбора */
+  .mb { color: var(--rose); font-size: 0.62rem; letter-spacing: 0.4px; margin-left: 4px;
+    vertical-align: super; }
+  .row.mbrow { grid-template-columns: 5.6rem 1fr auto; align-items: center; }
+  .mbv { color: var(--rose); font-size: 0.76rem; text-align: right; }
+  .mbsrc { color: var(--ink-faint); font-size: 0.72rem; line-height: 1.4; padding: 0 6px 6px; }
+  .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
+  .row.ar.key .un { color: var(--ink); }
+  .dim { color: var(--ink-faint); }
+  .mark { color: var(--gold); }
+  .pn { display: flex; align-items: center; gap: 6px; }
+  .num { text-align: right; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+  .num.bold { color: var(--ink); }
+
+  /* антардаша — кнопка (раскрывает третий уровень), но выглядит как строка */
+  .sub { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    width: 100%; text-align: left; padding: 5px 6px; border-radius: 8px;
+    background: transparent; border: none; }
   .sub.cur { background: color-mix(in srgb, var(--glass) 80%, var(--gold) 8%); }
-  .sl { color: var(--ink-dim); font-size: 0.8rem; }
+  .sl { color: var(--ink-dim); font-size: 0.8rem; flex: 1; }
   .sd { color: var(--ink-faint); font-size: 0.76rem; }
+  /* третий уровень: пратьянтары — с отступом и мельче, чтобы вложенность читалась */
+  .prs { padding: 2px 0 6px 14px; border-left: 1px solid var(--glass-brd); margin-left: 8px; }
+  .pr { display: flex; justify-content: space-between; gap: 8px; padding: 3px 6px;
+    border-radius: 6px; }
+  .pr.cur { background: color-mix(in srgb, var(--glass) 80%, var(--gold) 10%); }
+  .pl { color: var(--ink-faint); font-size: 0.74rem; }
+  .pd { color: var(--ink-faint); font-size: 0.72rem; white-space: nowrap; }
 </style>

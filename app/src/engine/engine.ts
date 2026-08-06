@@ -35,6 +35,9 @@ export interface Engine {
   /** Дома: 12 куспидов (°) + Asc/MC на момент jd для места lat/lon (система домов).
    *  null, если swe_houses недоступна в этой сборке WASM (деградируем без домов). */
   houses(jd: number, lat: number, lon: number, system: string): HousesInfo | null;
+  /** Ближайший восход/закат Солнца ПОСЛЕ jd для места. JD или null (полярный
+   *  день/ночь — светило не пересекает горизонт). */
+  sunRiseSet(jd: number, lat: number, lon: number, kind: 'rise' | 'set'): number | null;
   /** Низкоуровневый доступ (для aspects.ts и расширений). */
   readonly flag: number;
   raw: any;
@@ -79,9 +82,10 @@ export async function createEngine(
     m.ccall('swe_set_sid_mode', null, ['number', 'number', 'number'],
       [ayanamsaMode(opts.ayanamsa), 0, 0]);
   }
-  // Узлы по умолчанию ИСТИННЫЕ — и по правилу ТЗ, и потому что джйотиш-сервис,
-  // по которому сверялись (эталон А), считает их же.
-  // Средний узел — опция: часть классической школы читает Раху только средним.
+  // Узлы: без указания — ИСТИННЫЕ (правило ТЗ для западной части; по ним же
+  // сверялся эталон А). В ведическом режиме приложение просит СРЕДНИЕ: так
+  // считает классика и так по умолчанию делает Jagannatha Hora (решение
+  // Георгия 2026-08-06), а истинные там — переключатель в настройках.
   const nodeCode = opts.nodes === 'mean' ? SWE_CODE.MEAN_NODE : SWE_CODE.TRUE_NODE;
 
   const toJD = (utc: Date): number => {
@@ -217,6 +221,29 @@ export async function createEngine(
     } catch { return null; }   // swe_houses не экспортирована в этой сборке — без домов
   };
 
+  // --- восход/закат (swe_rise_trans) ------------------------------------
+  // Флаг SE_BIT_HINDU_RISING = центр диска (256) + без рефракции (512) +
+  // геоцентрически без экл. широты (128) = 896. Это индийское соглашение:
+  // джйотиш считает восходом момент, когда ЦЕНТР Солнца на горизонте, без
+  // поправки на атмосферу. Западный «гражданский» восход (верхний край с
+  // рефракцией) даёт другую минуту — и другие границы частей дня у упаграх.
+  const HINDU_RISING = 128 + 256 + 512;
+  const sunRiseSet = (jd: number, lat: number, lon: number, kind: 'rise' | 'set'): number | null => {
+    try {
+      const geo = dblArr(3);
+      wr(geo, 0, lon); wr(geo, 1, lat); wr(geo, 2, 0);
+      const tret = dblArr(10), serr = m._malloc(256);
+      const rsmi = (kind === 'rise' ? 1 : 2) | HINDU_RISING;
+      const rf = m.ccall('swe_rise_trans', 'number',
+        ['number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number', 'number'],
+        [jd, SWE_CODE.SUN, 0, flag, rsmi, geo, 0, 0, tret, serr]);
+      const t = rd(tret, 0);
+      [geo, tret, serr].forEach((p) => m._free(p));
+      // -2 = светило вообще не пересекает горизонт в этих сутках (заполярье)
+      return rf < 0 || !isFinite(t) ? null : t;
+    } catch { return null; }   // swe_rise_trans не экспортирована в этой сборке
+  };
+
   return { mode, zodiac, ayanamsa, toJD, fromJD, lon, lonSpeed, positions, audit,
-    solEclipse, lunEclipse, houses, flag, raw: swe };
+    solEclipse, lunEclipse, houses, sunRiseSet, flag, raw: swe };
 }

@@ -37,6 +37,8 @@ export function getEngine(mode: EphemerisMode = 'swieph', opts: EngineOptions = 
   return p;
 }
 
-/** Сидерический движок для ведического режима (аянамша из настроек). */
-export const getVedicEngine = (ayanamsa?: string): Promise<Engine> =>
-  getEngine('swieph', { zodiac: 'sidereal', ayanamsa });
+/** Сидерический движок для ведического режима (аянамша из настроек). Узлы по
+ *  умолчанию СРЕДНИЕ — это правило джйотиша (решение Георгия 06.08.2026);
+ *  «истинные» приходят из настроек, а не из умолчания движка. */
+export const getVedicEngine = (ayanamsa?: string, nodes: 'mean' | 'true' = 'mean'): Promise<Engine> =>
+  getEngine('swieph', { zodiac: 'sidereal', ayanamsa, nodes });

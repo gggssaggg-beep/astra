@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict';
 import {
   nakshatraOf, tithiOf, dignityOf, charaKarakas, ruledHouses, wholeSignHouse,
-  vimshottari, currentDasha, buildVedicChart, SIGN_LORDS,
+  vimshottari, currentDasha, subPeriods, pratyantarDashas, buildVedicChart, SIGN_LORDS,
   navamshaSign, vargaSign, naturalRelation, temporalRelation, compoundRelation,
 } from '../src/lib/vedic.ts';
 
@@ -163,6 +163,32 @@ console.log('=== Вимшоттари ===');
     assert.ok(cur.maha && cur.antar && cur.pratyantar, 'не найден один из уровней');
     assert.ok(cur.antar.from >= cur.maha.from && cur.antar.to <= cur.maha.to);
     assert.ok(cur.pratyantar.from >= cur.antar.from && cur.pratyantar.to <= cur.antar.to);
+  });
+  ok('четвёртый уровень (сукшма) тоже определяется и лежит внутри пратьянтары', () => {
+    const cur = currentDasha(d, new Date(Date.UTC(2026, 6, 28)));
+    assert.ok(cur.sookshma, 'сукшма не найдена');
+    assert.ok(cur.sookshma.from >= cur.pratyantar.from && cur.sookshma.to <= cur.pratyantar.to);
+  });
+  ok('пратьянтары: 9 штук, первая — владыки антардаши, границы сходятся с ней', () => {
+    const antar = d[0].sub[3];
+    const pr = pratyantarDashas(antar);
+    assert.equal(pr.length, 9);
+    assert.equal(pr[0].lord, antar.lord);
+    assert.equal(+pr[0].from, +antar.from);
+    assert.equal(+pr[8].to, +antar.to);   // ровно, без наката ошибки округления
+  });
+  ok('доля подпериода пропорциональна годам владыки (Венера 20/120 от родителя)', () => {
+    const antar = d[0].sub[0];
+    const pr = subPeriods(antar);
+    const span = antar.to - antar.from;
+    const ve = pr.find((p) => p.lord === 'Венера');
+    assert.ok(Math.abs((ve.to - ve.from) / span - 20 / 120) < 1e-9);
+  });
+  ok('дробление не зависит от уровня: сукшма строится тем же subPeriods', () => {
+    const pr = pratyantarDashas(d[0].sub[0]);
+    const sk = subPeriods(pr[0]);
+    assert.equal(sk.length, 9);
+    assert.equal(+sk[8].to, +pr[0].to);
   });
 }
 

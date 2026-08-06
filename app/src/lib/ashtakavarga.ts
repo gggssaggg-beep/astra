@@ -122,6 +122,8 @@ export interface AshtakavargaResult {
   sav: number[];
   /** SAV, разложенная по ДОМАМ от лагны: [0] = 1-й дом */
   savByHouse: number[];
+  /** шодхья пинда каждой грахи: очищенная BAV + веса */
+  pinda: Record<string, ShodhyaPinda>;
   lagnaSign: number;
 }
 
@@ -131,19 +133,123 @@ export interface AshtakavargaResult {
  */
 export function ashtakavarga(signs: Record<string, number>, lagnaSign: number): AshtakavargaResult {
   const bav: Record<string, number[]> = {};
+  const pinda: Record<string, ShodhyaPinda> = {};
   const sav = Array(12).fill(0);
   for (const p of VEDIC_BODIES) {
     const row = bhinna(p, signs, lagnaSign);
     bav[p] = row;
+    pinda[p] = shodhyaPinda(row, signs);
     for (let i = 0; i < 12; i++) sav[i] += row[i];
   }
   const savByHouse = Array.from({ length: 12 }, (_, h) => sav[(lagnaSign + h) % 12]);
-  return { bav, sav, savByHouse, lagnaSign };
+  return { bav, sav, savByHouse, pinda, lagnaSign };
+}
+
+// ─── редукции (шодхана) и шодхья пинда ────────────────────────────────────
+// Второй слой аштакаварги: сырую BAV «очищают» двумя редукциями, и уже из
+// очищенной считают шодхья пинду — итоговый вес грахи. Правила — Парашара;
+// формулировки сверены со справочником argala.ru, множители оттуда же.
+
+/** Четыре тригона: знаки, стоящие друг к другу в 1-5-9. */
+const TRINES = [[0, 4, 8], [1, 5, 9], [2, 6, 10], [3, 7, 11]];
+
+/**
+ * Трикона-шодхана. По каждому тригону: ноль хоть в одном знаке — не трогаем;
+ * все три равны — все три в ноль; иначе вычитаем из всех троих наименьшее.
+ */
+export function trikonaShodhana(row: number[]): number[] {
+  const out = row.slice();
+  for (const t of TRINES) {
+    const v = t.map((i) => out[i]);
+    if (v.some((x) => x === 0)) continue;
+    const min = Math.min(...v);
+    if (v[0] === v[1] && v[1] === v[2]) { for (const i of t) out[i] = 0; continue; }
+    for (const i of t) out[i] -= min;
+  }
+  return out;
+}
+
+/** Пары знаков одного управителя. Рак и Лев одиночные — в редукции не входят. */
+const DUAL_RULED: [number, number][] = [
+  [0, 7],   // Марс: Овен / Скорпион
+  [1, 6],   // Венера: Телец / Весы
+  [2, 5],   // Меркурий: Близнецы / Дева
+  [8, 11],  // Юпитер: Стрелец / Рыбы
+  [9, 10],  // Сатурн: Козерог / Водолей
+];
+
+/**
+ * Экадхипатья-шодхана. `occupied` — какие знаки заняты грахами (семь грах,
+ * без узлов: они в системе не участвуют).
+ *
+ * Пара знаков одного управителя «делит» очки: если один из знаков пустой, он
+ * не может распорядиться своими бинду сам, и они срезаются до значения
+ * второго знака или обнуляются.
+ */
+export function ekadhipatyaShodhana(row: number[], occupied: boolean[]): number[] {
+  const out = row.slice();
+  for (const [a, b] of DUAL_RULED) {
+    if (out[a] === 0 || out[b] === 0) continue;        // ноль — редукции нет
+    if (occupied[a] && occupied[b]) continue;          // оба заняты — редукции нет
+    if (occupied[a] !== occupied[b]) {
+      // один занят, другой пуст: пустой обнуляется, если занятый не меньше;
+      // иначе пустой приравнивается к занятому
+      const full = occupied[a] ? a : b, empty = occupied[a] ? b : a;
+      out[empty] = out[full] >= out[empty] ? 0 : out[full];
+    } else {
+      // оба пусты: равные — оба в ноль, разные — большее до меньшего
+      if (out[a] === out[b]) { out[a] = 0; out[b] = 0; }
+      else if (out[a] > out[b]) out[a] = out[b];
+      else out[b] = out[a];
+    }
+  }
+  return out;
+}
+
+/** Раши-мана: множитель знака в шодхья пинде (индекс 0 = Овен). */
+export const RASHI_MANA = [7, 10, 8, 4, 10, 5, 7, 8, 9, 5, 11, 12];
+/** Граха-мана: множитель планеты в шодхья пинде. */
+export const GRAHA_MANA: Record<string, number> = {
+  'Солнце': 5, 'Луна': 5, 'Марс': 8, 'Меркурий': 5,
+  'Юпитер': 10, 'Венера': 7, 'Сатурн': 5,
+};
+
+export interface ShodhyaPinda {
+  /** BAV после обеих редукций (12 чисел по знакам) */
+  reduced: number[];
+  rashiPinda: number;
+  grahaPinda: number;
+  /** раши-пинда + граха-пинда */
+  total: number;
+}
+
+/**
+ * Шодхья пинда грахи: сначала обе редукции, потом два веса очищенных бинду —
+ * по знакам (раши-мана) и по знакам, занятым грахами (граха-мана той грахи,
+ * что там стоит).
+ */
+export function shodhyaPinda(
+  row: number[], signs: Record<string, number>,
+): ShodhyaPinda {
+  const occupied = Array(12).fill(false);
+  for (const p of Object.keys(GRAHA_MANA)) {
+    const s = signs[p];
+    if (s != null) occupied[s] = true;
+  }
+  const reduced = ekadhipatyaShodhana(trikonaShodhana(row), occupied);
+  let rashiPinda = 0;
+  for (let i = 0; i < 12; i++) rashiPinda += reduced[i] * RASHI_MANA[i];
+  let grahaPinda = 0;
+  for (const [p, mana] of Object.entries(GRAHA_MANA)) {
+    const s = signs[p];
+    if (s != null) grahaPinda += reduced[s] * mana;
+  }
+  return { reduced, rashiPinda, grahaPinda, total: rashiPinda + grahaPinda };
 }
 
 /**
  * Как читать число SAV в знаке. Средняя бинду по знаку — 337/12 ≈ 28: выше —
- * знак «поддержан», сильно ниже — territория, где дела идут туго.
+ * знак «поддержан», сильно ниже — территория, где дела идут туго.
  */
 export function savLabel(v: number): string {
   if (v >= 34) return 'очень сильный';

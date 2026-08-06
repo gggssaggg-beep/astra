@@ -45,6 +45,9 @@ export interface VedicPromptInput {
   natal: VedicNatal;
   ayanamsa?: string;          // id из AYANAMSAS
   ayanamsaDeg?: number;       // значение аянамши на момент рождения, °
+  /** узлы, которыми посчитана карта: средние (умолчание джйотиша) или истинные.
+   *  ИИ должен знать, с какими числами работает — разница до 1,5°. */
+  nodes?: 'mean' | 'true';
   /** транзитные позиции (сидерические) на момент запроса + сам момент */
   transit?: { at: Date; positions: BodyPosition[] } | null;
   /** горизонт разбора — задаёт формат выдачи (спецификация астролога):
@@ -88,7 +91,8 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
   L.push('');
   L.push('Ниже ТОЧНО РАССЧИТАННАЯ карта (Swiss Ephemeris, сидерический зодиак, аянамша '
     + `${ayLabel}${inp.ayanamsaDeg != null ? ` = ${inp.ayanamsaDeg.toFixed(4)}°` : ''}, `
-    + 'дома целознаковые, узлы истинные). НИЧЕГО не пересчитывай — работай с данными.');
+    + `дома целознаковые, узлы ${inp.nodes === 'true' ? 'истинные' : 'средние'}). `
+    + 'НИЧЕГО не пересчитывай — работай с данными.');
 
   // ── данные рождения ──
   L.push(`\n## КАРТА: ${person.name}`);

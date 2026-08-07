@@ -24,6 +24,19 @@ export const SIGN_STYLES: { id: SignStyle; label: string }[] = [
   { id: 'rainbow', label: 'Радуга' },
 ];
 
+/** Школа, по которой приходят уведомления.
+ *  'west' — западные аспекты по орбисам (☌ ⚹ □ △ ☍, истинные узлы, тропический круг);
+ *  'jyotish' — ведические поводы: гочара (переходы грах по знакам), панчанга
+ *  (накшатра/титхи/йога), вакри-марги, грахана, смены даш (сидерика, средние узлы).
+ *  Это ОТДЕЛЬНАЯ настройка от глобального режима: человек может смотреть кундали,
+ *  а пинги получать привычные западные — и наоборот. */
+export type NotifySchool = 'west' | 'jyotish';
+
+export const NOTIFY_SCHOOLS: { id: NotifySchool; label: string }[] = [
+  { id: 'west', label: 'Западная — аспекты по орбисам' },
+  { id: 'jyotish', label: 'Джйотиш — гочара, панчанга, даши' },
+];
+
 export interface Settings {
   tz: string;                 // часовой пояс вывода (IANA), напр. 'Europe/Moscow'
   defaultOrb: number;         // орбис по умолчанию, °
@@ -38,6 +51,10 @@ export interface Settings {
   dailyNotifyTime2?: string;  // 'HH:MM' — вечерняя сводка (режим 'twice')
   notifyAspects: boolean;     // уведомления в момент точного аспекта
   notifyTransits?: boolean;   // уведомления о транзитах к натальной карте
+  // ШКОЛА УВЕДОМЛЕНИЙ — по какой традиции считать и какими словами писать
+  // (правка владелицы 2026-08-07: «приходят несуществующие аспекты»). Нет
+  // значения = как глобальный режим приложения, см. notifySchoolOf().
+  notifySchool?: NotifySchool;
   quietEnabled?: boolean;     // «тихое время» — не слать точечные пинги ночью
   quietFrom?: string;         // 'HH:MM' начало тихого окна (по умолч. 22:00)
   quietTo?: string;           // 'HH:MM' конец тихого окна (по умолч. 08:00)
@@ -97,6 +114,22 @@ export const HOUSE_SYSTEMS: { id: string; label: string }[] = [
 export const zodiacOptions = (s: Settings):
 { zodiac: 'tropical' | 'sidereal'; ayanamsa?: string; nodes?: 'mean' | 'true' } =>
   s.zodiac === 'sidereal'
+    ? { zodiac: 'sidereal', ayanamsa: s.ayanamsa ?? 'lahiri', nodes: s.vedicNodes ?? 'mean' }
+    : { zodiac: 'tropical' };
+
+/** Школа уведомлений. Явного выбора нет → берём глобальный режим приложения:
+ *  у тех, кто настройку ещё не видел, ничего не меняется молча. */
+export const notifySchoolOf = (s: Settings): NotifySchool =>
+  s.notifySchool ?? (s.zodiac === 'sidereal' ? 'jyotish' : 'west');
+
+/** Профиль движка ДЛЯ УВЕДОМЛЕНИЙ — по школе уведомлений, а не по тому, что
+ *  открыто на экране. Западная школа = тропический круг и ИСТИННЫЕ узлы (правило
+ *  ТЗ), джйотиш = сидерика с аянамшей и СРЕДНИМИ узлами. Разница узлов до ~1,7°
+ *  при орбисе 1° — это ровно те «несуществующие аспекты», из-за которых настройка
+ *  и появилась: считали на ведическом движке, а называли западными словами. */
+export const notifyZodiacOptions = (s: Settings):
+{ zodiac: 'tropical' | 'sidereal'; ayanamsa?: string; nodes?: 'mean' | 'true' } =>
+  notifySchoolOf(s) === 'jyotish'
     ? { zodiac: 'sidereal', ayanamsa: s.ayanamsa ?? 'lahiri', nodes: s.vedicNodes ?? 'mean' }
     : { zodiac: 'tropical' };
 

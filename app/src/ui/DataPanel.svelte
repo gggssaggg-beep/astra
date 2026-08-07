@@ -2,7 +2,8 @@
   import { db, file as dataFile, importText, onChange } from '../lib/db.ts';
   import { exportBackup } from '../lib/backup.ts';
   import { APP_VERSION } from '../lib/version.ts';
-  import { SIGN_STYLES, DEFAULT_ORBS, HOUSE_SYSTEMS, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
+  import { SIGN_STYLES, DEFAULT_ORBS, HOUSE_SYSTEMS, NOTIFY_SCHOOLS, notifySchoolOf,
+    type NotifySchool, type SignStyle, type Settings, type ThemeMode } from '../lib/models.ts';
   import { sendTest, requestPermission, reminderLog } from '../lib/reminders.ts';
   import { bottomSheet } from '../lib/sheet.ts';
   import { PLANET_GLYPH, AYANAMSAS } from '../engine/index.ts';
@@ -30,6 +31,11 @@
     onchanged();
   }
   const vedic = $derived((cfg.zodiac ?? 'tropical') === 'sidereal');
+  // ШКОЛА УВЕДОМЛЕНИЙ — своя, отдельная от того, что открыто на экране. Пока
+  // выбора не было, она равна режиму приложения: у старых настроек ничего не
+  // меняется молча.
+  const nSchool = $derived(notifySchoolOf(cfg));
+  const nVedic = $derived(nSchool === 'jyotish');
   const setSign = (id: SignStyle) => save({ signStyle: id });
   const setTheme = (t: ThemeMode) => save({ theme: t });
 
@@ -416,7 +422,9 @@
       <!-- П.8 онбординга: контекст ПЕРЕД системным запросом разрешения -->
       <div class="whycard">
         <b>Включить напоминания?</b>
-        <p>Напоминания приходят в момент точного аспекта и сводкой по расписанию.
+        <p>{nVedic
+          ? 'Напоминания приходят в момент ведического повода (переход грахи, грахана) и сводкой по расписанию.'
+          : 'Напоминания приходят в момент точного аспекта и сводкой по расписанию.'}
           Android спросит разрешение — согласись, иначе ничего не придёт.</p>
         <div class="row">
           <button class="btn primary" onclick={confirmNotify}>Дальше →</button>
@@ -424,7 +432,29 @@
         </div>
       </div>
     {/if}
-    <label class="toggle">
+    <!-- ШКОЛА уведомлений (правка владелицы 2026-08-07: «приходили несуществующие
+         аспекты»). Раньше уведомления считались на движке того режима, что открыт
+         на экране, а писались всегда западными словами. Теперь школа выбирается
+         явно и задаёт И расчёт, И словарь. -->
+    <div class="lbl">Школа уведомлений</div>
+    <select class="select" value={nSchool}
+      onchange={(e) => save({ notifySchool: (e.target as HTMLSelectElement).value as NotifySchool })}>
+      {#each NOTIFY_SCHOOLS as s}<option value={s.id}>{s.label}</option>{/each}
+    </select>
+    <div class="hint small" style="margin-top:8px">
+      {#if nVedic}Приходят ведические поводы: переход грахи в знак (гочара), разворот хода
+        (вакри/марги), грахана, панчанга и смены периодов твоей кундали. Считается на
+        сидерическом круге со средними узлами — как весь ведический режим.
+      {:else}Приходят западные аспекты по орбисам (☌ ⚹ □ △ ☍) — те же, что в списке дня.
+        Считается на тропическом круге с истинными узлами.{/if}
+      {#if nVedic !== vedic}
+        <br /><b>Внимание:</b> школа уведомлений отличается от режима приложения
+        ({vedic ? 'на экране — джйотиш' : 'на экране — западная'}). Так можно: считать будем
+        честно по выбранной школе, но привычных экранных строк в уведомлениях не жди.
+      {/if}
+    </div>
+
+    <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyDaily}
         onchange={(e) => onNotifyToggle('notifyDaily', (e.target as HTMLInputElement).checked)} />
       Ежедневная сводка неба
@@ -449,44 +479,45 @@
         {/if}
       </div>
       {#if (cfg.dailyDigestMode ?? 'once') === 'twice'}
-        <div class="hint small" style="margin-top:6px">Каждая сводка перечисляет аспекты до следующей —
-          вечерняя так забирает ночные.</div>
+        <div class="hint small" style="margin-top:6px">Каждая сводка перечисляет
+          {nVedic ? 'поводы' : 'аспекты'} до следующей — вечерняя так забирает ночные.</div>
       {/if}
     {/if}
     <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyAspects}
         onchange={(e) => onNotifyToggle('notifyAspects', (e.target as HTMLInputElement).checked)} />
-      В момент точного аспекта (планеты)
+      {nVedic ? 'В момент ведического повода (гочара, грахана)' : 'В момент точного аспекта (планеты)'}
     </label>
+    {#if nVedic}
+      <div class="hint small" style="margin-top:6px">Переход грахи в знак, разворот хода
+        (вакри/марги), грахана, новолуние и полнолуние. Смены накшатры, титхи и йоги
+        будят слишком часто — они идут только в сводку.</div>
+    {/if}
 
     <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyTransits}
         onchange={(e) => onNotifyToggle('notifyTransits', (e.target as HTMLInputElement).checked)} />
-      {vedic ? 'Гочара к моей карте' : 'Транзиты к моей натальной карте'}
+      {nVedic ? 'Смены периодов моей кундали (даши)' : 'Транзиты к моей натальной карте'}
     </label>
     {#if cfg.notifyTransits}
       <div style="margin-top:8px">
         <select class="select" value={cfg.transitSelfId ?? ''}
           onchange={(e) => save({ transitSelfId: (e.target as HTMLSelectElement).value || undefined })}>
-          <option value="">— выбери человека («моя карта») —</option>
+          <option value="">— выбери человека ({nVedic ? '«моя кундали»' : '«моя карта»'}) —</option>
           {#each people as p}<option value={p.id}>{p.name}</option>{/each}
         </select>
-        <label class="toggle" style="margin-top:8px">
-          <input type="checkbox" checked={cfg.transitCusps}
-            onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
-          + куспиды домов (нужны место и время рождения)
-        </label>
+        {#if !nVedic}
+          <label class="toggle" style="margin-top:8px">
+            <input type="checkbox" checked={cfg.transitCusps}
+              onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
+            + куспиды домов (нужны место и время рождения)
+          </label>
+        {:else}
+          <div class="hint small" style="margin-top:6px">Махадаша и антардаша на год вперёд.
+            Даша — событие месяцев, поэтому приходит утром того дня, а не в точную минуту.</div>
+        {/if}
         {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека в нижнем меню «Добавить».</div>{/if}
       </div>
-    {/if}
-    {#if vedic}
-      <!-- честность: сами пинги моментов считаются по западной механике (орбисы).
-           Ведических поводов (вход грахи в знак, смена даши) пока нет — не
-           выдаём одно за другое (правило «два интерфейса не путать») -->
-      <div class="hint small" style="margin-top:8px">Точечные пинги ловят момент, когда угол
-        между грахами становится точным, — это западный способ считать. Ведические поводы
-        (вход грахи в знак, смена периода) в уведомления пока не заведены: их видно
-        на экране дня в «Переходах» и в разборе карты.</div>
     {/if}
 
     <label class="toggle" style="margin-top:12px">

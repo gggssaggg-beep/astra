@@ -152,3 +152,27 @@ export function vedicDayEvents(E: Engine, dayStart: Date, opts: VedicEventsOpts 
 
   return out.sort((x, y) => +x.at - +y.at);
 }
+
+/** Как назвать повод в уведомлении — СЛОВАРЬ ДЖЙОТИША. Ни «аспекта», ни
+ *  «транзита», ни «натала»: гочара, панчанга, вакри-марги, грахана, даша
+ *  (правило «два интерфейса, не путать»). */
+export const VEDIC_EVENT_KIND_TITLE: Record<VedicEventKind, string> = {
+  ingress: 'Гочара',
+  station: 'Ход грахи',
+  eclipse: 'Грахана',
+  nakshatra: 'Панчанга · накшатра',
+  tithi: 'Панчанга · титхи',
+  yoga: 'Панчанга · йога',
+  dasha: 'Даша',
+};
+
+/** Текст ведического уведомления: заголовок с глифом грахи и вид повода,
+ *  тело — что именно меняется (и дом моей кундали, если лагна известна).
+ *  Разделитель «·», а не тире: в самой пояснительной строке тире уже есть
+ *  («входит в 12-й дом — траты, уход, сон»), два подряд читаются кашей. */
+export function vedicNotifyText(ev: VedicDayEvent): { title: string; body: string } {
+  return {
+    title: `${ev.glyph} ${VEDIC_EVENT_KIND_TITLE[ev.kind]}`,
+    body: ev.note ? `${ev.title} · ${ev.note}` : ev.title,
+  };
+}

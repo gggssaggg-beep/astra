@@ -1,10 +1,10 @@
 <script lang="ts">
   /** «Сообщество»: обсуждения аспектов с лайками и комментариями (Supabase).
    *  Три состояния: не подключено (нет ключей) → тёплая заглушка; не вошли →
-   *  вход через Google; вошли → лента / тред. `signature` фильтрует по аспекту. */
+   *  вход по ссылке на почту; вошли → лента / тред. `signature` фильтрует по аспекту. */
   import type { Session } from '@supabase/supabase-js';
   import {
-    configured, initCommunityAuth, signInGoogle, signInEmail, signOut, ensureProfile,
+    configured, initCommunityAuth, signInEmail, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     removeDiscussion, removeComment, isAdmin,
     follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
@@ -80,13 +80,7 @@
     });
   });
 
-  async function login() {
-    err = null;
-    try { await signInGoogle(); }
-    catch (e) { err = human(e); }
-  }
-
-  // вход по почте — запасная дверь, пока Google-клиент не настроен
+  // вход по почте — единственная дверь (Google убран 2026-08-07)
   let email = $state('');
   let mailSent = $state(false);
   let mailBusy = $state(false);
@@ -297,11 +291,8 @@
     <div class="stub">
       <div class="stubstar">✧</div>
       <b>Вход в сообщество</b>
-      <p>Обсуждения видны только вошедшим.</p>
-      <button class="gbtn" onclick={login}>Войти через Google</button>
-      <p class="hint" style="margin:6px 0 0">Откроется системный браузер — войди там,
-        и он сам вернёт в приложение.</p>
-      <div class="or">или по ссылке на почту</div>
+      <p>Обсуждения видны только вошедшим. Вход — по ссылке на почту: пароль
+        придумывать не нужно.</p>
       {#if mailSent}
         <p class="sentok">Письмо отправлено ✓<br />Открой его на этом телефоне и
           коснись ссылки — она вернёт в приложение уже с входом.</p>
@@ -477,10 +468,7 @@
   .stub { text-align: center; padding: 26px 14px; color: var(--ink-dim); }
   .stubstar { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
   .stub p { font-size: 0.9rem; line-height: 1.55; }
-  .gbtn { margin-top: 10px; background: var(--accent); border: none; color: var(--on-accent);
-    border-radius: 14px; padding: 12px 22px; font-weight: 600; }
-  .or { margin: 14px 0 8px; color: var(--ink-faint); font-size: 0.78rem; }
-  .mailrow { display: flex; gap: 8px; max-width: 360px; margin: 0 auto; }
+  .mailrow { display: flex; gap: 8px; max-width: 360px; margin: 10px auto 0; }
   .mailrow input { flex: 1; min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd);
     color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }
   .sentok { color: var(--gold); font-size: 0.88rem; line-height: 1.5; }

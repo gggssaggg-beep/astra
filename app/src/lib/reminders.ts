@@ -135,9 +135,9 @@ async function engineForSchool(ui: Engine, settings: Settings): Promise<Engine> 
  *  смену периода. Лагна требует места рождения и ТОЧНОГО времени (она проходит
  *  знак за ~2 часа); даши считаются от одной Луны — им место не нужно. */
 function myVedicChart(E: Engine, settings: Settings):
-{ lagnaSign: number | null; dashas: DashaPeriod[] | null; name: string | null } {
+{ lagnaSign: number | null; dashas: DashaPeriod[] | null } {
   const me = settings.transitSelfId ? db.people.get(settings.transitSelfId) : null;
-  if (!me) return { lagnaSign: null, dashas: null, name: null };
+  if (!me) return { lagnaSign: null, dashas: null };
   const when = birthInstantUTC(me);
   let lagnaSign: number | null = null, dashas: DashaPeriod[] | null = null;
   try {
@@ -148,7 +148,7 @@ function myVedicChart(E: Engine, settings: Settings):
   } catch { /* без лагны просто не называем дома */ }
   try { dashas = vimshottari(E.lon(E.toJD(when), 'Луна'), when); }
   catch { /* без даш остаётся одно небо */ }
-  return { lagnaSign, dashas, name: me.name };
+  return { lagnaSign, dashas };
 }
 
 let syncGen = 0;

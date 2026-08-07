@@ -167,10 +167,12 @@ export const VEDIC_EVENT_KIND_TITLE: Record<VedicEventKind, string> = {
 };
 
 /** Текст ведического уведомления: заголовок с глифом грахи и вид повода,
- *  тело — что именно меняется (и дом моей кундали, если лагна известна). */
+ *  тело — что именно меняется (и дом моей кундали, если лагна известна).
+ *  Разделитель «·», а не тире: в самой пояснительной строке тире уже есть
+ *  («входит в 12-й дом — траты, уход, сон»), два подряд читаются кашей. */
 export function vedicNotifyText(ev: VedicDayEvent): { title: string; body: string } {
   return {
     title: `${ev.glyph} ${VEDIC_EVENT_KIND_TITLE[ev.kind]}`,
-    body: ev.note ? `${ev.title} — ${ev.note}` : ev.title,
+    body: ev.note ? `${ev.title} · ${ev.note}` : ev.title,
   };
 }

@@ -30,6 +30,7 @@
     "test:aspectpoint": "node test/aspectpoint.mjs",
     "test:quiet": "node test/quiet.mjs",
     "test:digest": "node test/digest.mjs",
+    "test:notifyschool": "node test/notifyschool.mjs",
     "test:inputmask": "node test/inputmask.mjs",
     "test:fixedtz": "node test/fixedtz.mjs",
     "test:notesdir": "node test/notesdir.mjs",

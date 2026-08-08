@@ -59,6 +59,7 @@
   import { drishtiSigns } from '../lib/drishti.ts';
   import { buildVedicPrompt } from '../lib/vedicPrompt.ts';
   import { kutaMatch, manglik } from '../lib/kuta.ts';
+  import { KUTA_LORE, TOTAL_LORE, DOSHA_LORE, MANGLIK_LORE, KUTA_NOTE } from '../lib/kutaLore.ts';
   import { nakshatraOf, signIndexOf, VEDIC_ORDER_SET } from '../lib/vedic.ts';
   import { taraOf, chandraHouse, CHANDRA_LORE, CHANDRA_GOOD } from '../lib/panchangaLore.ts';
   import { antarWindows, sidIngresses, stationsInWindow, monthlyGochara } from '../lib/vedicForecast.ts';
@@ -159,6 +160,10 @@
   let selKey = $state<string | null>(fromNotify
     ? `${fromNotify.nName}|${fromNotify.tName}|${fromNotify.aspect}` : null);
   let openPos = $state<string | null>(null);    // развёрнутое «Положение» (рамка активна)
+  // раскрытые пояснения гуна-милана: строка куты, итог, манглик
+  let openKuta = $state<string | null>(null);
+  let openKutaTotal = $state(false);
+  let openKutaMang = $state(false);
   // запоминаем выбор для следующего открытия (память сессии, не диск)
   $effect(() => { lastMode = mode; lastPair = pair.slice(); lastView = view === 'chart' ? 'chart' : 'list'; });
 
@@ -930,23 +935,40 @@
             <div><b>{personA?.name}</b> — Луна {kutaData.a.sign} · {kutaData.a.nak.name} (пада {kutaData.a.nak.pada})</div>
             <div><b>{personB?.name}</b> — Луна {kutaData.b.sign} · {kutaData.b.nak.name} (пада {kutaData.b.nak.pada})</div>
           </div>
+          <!-- Каждая кута раскрывается: что меряет и что значит именно этот балл
+               (правка владелицы 2026-08-07 — в блоке не было ни одного пояснения).
+               Приём тот же, что у ведических аспектов: «Что это значит» в строке. -->
           {#each kutaData.res.scores as s (s.name)}
-            <div class="krow">
+            {@const lore = KUTA_LORE[s.name]}
+            <button class="krow" class:open={openKuta === s.name}
+              onclick={() => (openKuta = openKuta === s.name ? null : s.name)}>
               <span class="kn">{s.name}</span>
               <span class="knote">{s.note ?? ''}</span>
               <span class="kv" class:zero={s.got === 0}>{s.got}/{s.max}</span>
-            </div>
+            </button>
+            {#if openKuta === s.name && lore}
+              {@const verdict = s.got === 0 ? lore.zero : s.got >= s.max ? lore.full : (lore.part || lore.full)}
+              <div class="kexpl">{lore.what}<span class="kexpl2">{verdict}</span></div>
+            {/if}
           {/each}
           <div class="ktotal">Итог: <b>{kutaData.res.total} из 36</b> — {kutaData.res.verdict}</div>
+          <button class="lorebtn" onclick={() => (openKutaTotal = !openKutaTotal)}>
+            {openKutaTotal ? 'Свернуть' : 'Что это значит'} {openKutaTotal ? '▴' : '▾'}</button>
+          {#if openKutaTotal}<div class="kexpl">{TOTAL_LORE}</div>{/if}
           {#if kutaData.res.doshas.length}
             <div class="kdosha">⚠ {kutaData.res.doshas.join('; ')}</div>
+            <div class="kexpl">{DOSHA_LORE}</div>
           {/if}
           {#if kutaData.mangA || kutaData.mangB}
             <div class="kmang">Манглик: {personA?.name} — {kutaData.mangA ? (kutaData.mangA.any ? 'да' : 'нет') : '(нет лагны)'};
               {personB?.name} — {kutaData.mangB ? (kutaData.mangB.any ? 'да' : 'нет') : '(нет лагны)'}.
               {#if kutaData.mangA?.any && kutaData.mangB?.any}Оба — доша взаимно погашена.{/if}</div>
+            <button class="lorebtn" onclick={() => (openKutaMang = !openKutaMang)}>
+              {openKutaMang ? 'Свернуть' : 'Что это значит'} {openKutaMang ? '▴' : '▾'}</button>
+            {#if openKutaMang}<div class="kexpl">{MANGLIK_LORE}</div>{/if}
           {/if}
         </div>
+        <div class="vnote">{KUTA_NOTE}</div>
         <div class="vnote">Кута считается от Луны первого выбранного ({personA?.name} = «невеста»
           в направленных кутах — поменяй порядок выбора, если наоборот). Вашья и йони в v1
           упрощены — сверить с программой астролога.</div>
@@ -1511,8 +1533,17 @@
   .krow { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr) 3.2rem; gap: 6px; padding: 5px 0;
     align-items: baseline; font-size: 0.82rem; border-top: 1px solid var(--glass-brd); }
   .krow > * { min-width: 0; overflow-wrap: anywhere; }
+  /* строка куты — кнопка: раскрывает пояснение, поэтому гасим вид кнопки */
+  .krow { background: transparent; border: none; border-top: 1px solid var(--glass-brd);
+    width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+  .krow.open .kn { color: var(--ink); }
   .kn { color: var(--ink-dim); }
   .knote { color: var(--ink-faint); font-size: 0.74rem; }
+  /* пояснение куты: что меряет + что значит именно этот балл */
+  .kexpl { color: var(--ink-dim); font-size: 0.8rem; line-height: 1.5; padding: 2px 0 8px; }
+  .kexpl2 { display: block; margin-top: 6px; color: var(--ink-faint); }
+  .lorebtn { background: transparent; border: none; padding: 6px 0 2px; text-align: left;
+    color: var(--ink-dim); font-size: 0.78rem; }
   .kv { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
   .kv.zero { color: var(--rose); }
   .ktotal { margin-top: 10px; font-size: 0.9rem; color: var(--ink); }

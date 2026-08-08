@@ -64,9 +64,16 @@ const lonMap = (pos: BodyPosition[]) => {
   return { lons, retro };
 };
 
+/** Место годится для лагны. Ровно 0,0 — не место рождения, а след старого бага
+ *  формы (координаты молча сохранялись нулями, Гвинейский залив). Такие записи
+ *  ещё лежат на устройствах: лучше честно сказать «нет места», чем нарисовать
+ *  кундали с чужой лагной. */
+export const placeUsable = (place: Person['place']): place is NonNullable<Person['place']> =>
+  !!place && (place.lat !== 0 || place.lon !== 0);
+
 /** Натальная карта D1 + периоды Вимшоттари. null — нет места рождения (нет лагны). */
 export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNatal | null {
-  if (!p.place) return null;
+  if (!placeUsable(p.place)) return null;
   const when = birthInstantUTC(p);
   const jd = E.toJD(when);
   const h = E.houses(jd, p.place.lat, p.place.lon, 'wholeSign');

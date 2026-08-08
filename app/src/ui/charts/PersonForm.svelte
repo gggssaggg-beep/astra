@@ -9,7 +9,8 @@
   import type { Person } from '../../lib/models.ts';
   import { maskDate, maskTime, maskWithCaret, isoFromMasked, maskedFromIso, normTime } from '../../lib/inputmask.ts';
   import { searchCities, type City } from '../../lib/cities.ts';
-  import { fixedTzMinutes, fixedTzId, tzLabel, tzValid } from '../../lib/format.ts';
+  import { fixedTzMinutes, fixedTzId, tzLabel, tzValid, zonedTimeUTC } from '../../lib/format.ts';
+  import { parseCoord, fmtCoord, fmtDegDecimal, checkPlace, nearestCity } from '../../lib/geo.ts';
   import Hint from '../Hint.svelte';
 
   let { person, defaultTz, onsaved, ondeleted, oncancel, onclose,
@@ -50,9 +51,29 @@
   let fSlowOnly = $state(p0?.slowOnly ?? false);
   let fTz = $state(p0?.birthTz ?? dtz);
   let fPlaceName = $state(p0?.place?.name ?? '');
-  let fLat = $state<number | null>(p0?.place?.lat ?? null);
-  let fLon = $state<number | null>(p0?.place?.lon ?? null);
+  // Координаты живут СТРОКАМИ: человек пишет и «59.9391», и «59N56» — форма
+  // обязана принять обе записи и показать, как поняла (правка §1 раунда 2).
+  let fLatRaw = $state(p0?.place ? String(p0.place.lat) : '');
+  let fLonRaw = $state(p0?.place ? String(p0.place.lon) : '');
+  const latP = $derived(parseCoord(fLatRaw, 'lat'));
+  const lonP = $derived(parseCoord(fLonRaw, 'lon'));
+  const fLat = $derived(latP.deg);
+  const fLon = $derived(lonP.deg);
+  // буква полушария в чужом поле («28E19» в широте) — прямая улика перепутанных полей
+  const axisMixed = $derived((latP.axis === 'lon') || (lonP.axis === 'lat'));
+  const coordsShown = $derived(fLat != null && fLon != null
+    ? `${fmtCoord(fLat, 'lat')} = ${fmtDegDecimal(fLat)} · ${fmtCoord(fLon, 'lon')} = ${fmtDegDecimal(fLon)}`
+    : '');
+  const nearHint = $derived.by(() => {
+    if (fLat == null || fLon == null) return '';
+    const n = nearestCity(fLat, fLon);
+    return n ? `Ближайший город справочника — ${n.city.ru}, ${Math.round(n.km)} км.` : '';
+  });
   let fErr = $state<string | null>(null);
+  // предупреждение о правдоподобии места: не запрещает сохранить, но требует
+  // second tap — «да, координаты верны» (посёлка может не быть в справочнике)
+  let placeWarn = $state<string | null>(null);
+  let placeWarnSwap = $state(false);
   let tzBad = $state(false);
   let cityQuery = $state(p0?.place?.name ?? '');
   let citySug = $state<City[]>([]);
@@ -61,10 +82,18 @@
   // каким способом задаётся пояс вручную: городом (IANA) или числом (GMT±ч)
   let tzMode = $state<'city' | 'gmt'>(fixedTzMinutes(untrack(() => p0?.birthTz ?? dtz)) != null ? 'gmt' : 'city');
 
-  function onCityInput(v: string): void { cityQuery = v; citySug = searchCities(v); }
+  function onCityInput(v: string): void {
+    cityQuery = v; citySug = searchCities(v); placeWarn = null; fErr = null;
+  }
   function pickCity(c: City): void {
-    fPlaceName = c.ru; cityQuery = c.ru; fLat = c.lat; fLon = c.lon; fTz = c.tz; citySug = [];
-    tzBad = false; tzMode = 'city';
+    fPlaceName = c.ru; cityQuery = c.ru; fLatRaw = String(c.lat); fLonRaw = String(c.lon);
+    fTz = c.tz; citySug = [];
+    tzBad = false; tzMode = 'city'; placeWarn = null; placeWarnSwap = false; fErr = null;
+  }
+  /** Поменять широту с долготой местами — одним нажатием, когда форма это заметила. */
+  function swapCoords(): void {
+    const a = fLatRaw; fLatRaw = fLonRaw; fLonRaw = a;
+    placeWarn = null; placeWarnSwap = false; fErr = null;
   }
   // Маска + ВОЗВРАТ КУРСОРА на место (правка в середине поля больше не швыряет
   // его в конец). Значение полю выставляем сами и сразу ставим курсор: Svelte
@@ -79,6 +108,15 @@
   }
   const onDate = (e: Event) => { fDate = masked(e, maskDate, fDate); };
   const onTime = (e: Event) => { fTime = masked(e, maskTime, fTime); };
+
+  /** Человеческое объяснение, почему координата не принята. */
+  function coordErr(err: string | null, kind: 'lat' | 'lon'): string {
+    if (err === 'range') return kind === 'lat' ? 'Широта — от −90 до 90.' : 'Долгота — от −180 до 180.';
+    if (err === 'sexagesimal') return 'В минутах и секундах не бывает 60 и больше.';
+    return kind === 'lat'
+      ? 'Широту не разобрала. Пиши дробью (59.9391) или как в справочнике (59N56).'
+      : 'Долготу не разобрала. Пиши дробью (30.3159) или как в справочнике (30E19).';
+  }
 
   function save(): void {
     fErr = null; tzBad = false;
@@ -95,10 +133,31 @@
     if (!tzValid(tzv)) {
       tzBad = true; fErr = 'Не узнаю такой часовой пояс — выбери город, зону или смещение GMT.'; return;
     }
-    if (fLat != null && (fLat < -90 || fLat > 90)) { fErr = 'Широта — от −90 до 90.'; return; }
-    if (fLon != null && (fLon < -180 || fLon > 180)) { fErr = 'Долгота — от −180 до 180.'; return; }
-    const place = (fPlaceName.trim() || fLat != null || fLon != null)
-      ? { name: fPlaceName.trim() || cityQuery.trim(), lat: fLat ?? 0, lon: fLon ?? 0 } : null;
+    // --- место: раньше тут был тихий провал в 0,0 (Гвинейский залив) ---
+    if (fLatRaw.trim() && fLat == null) { fErr = coordErr(latP.err, 'lat'); return; }
+    if (fLonRaw.trim() && fLon == null) { fErr = coordErr(lonP.err, 'lon'); return; }
+    const placeName = fPlaceName.trim() || cityQuery.trim();
+    const hasCoords = fLat != null && fLon != null;
+    if (!hasCoords && (fLatRaw.trim() || fLonRaw.trim())) {
+      fErr = 'Нужны обе координаты — и широта, и долгота.'; manualPlace = true; return;
+    }
+    if (!hasCoords && placeName) {
+      // молча считать такую карту нельзя: без координат нет ни лагны, ни домов
+      fErr = 'У места нет координат — карта выйдет неверной. Выбери город из списка, '
+        + 'впиши координаты вручную или очисти поле места.';
+      manualPlace = true; return;
+    }
+    const place = hasCoords ? { name: placeName, lat: fLat!, lon: fLon! } : null;
+    if (place) {
+      // правдоподобие: далеко от одноимённого города или долгота против пояса.
+      // Не запрет — предупреждение с повторным нажатием (посёлка может не быть).
+      const when = time ? zonedTimeUTC(iso, time, tzv) : new Date(`${iso}T12:00:00Z`);
+      const chk = checkPlace(place.name, place.lat, place.lon, tzv, when);
+      if (chk.level === 'warn' && placeWarn !== chk.text) {
+        placeWarn = chk.text; placeWarnSwap = chk.swap; return;
+      }
+    }
+    placeWarn = null;
     const prev = editId ? db.people.get(editId) : null;
     const newId = editId ?? uid();
     db.people.put({
@@ -189,11 +248,28 @@
 <details class="place" bind:open={manualPlace}>
   <summary>Координаты и пояс вручную</summary>
   <div class="two">
-    <label class="fld"><span>Широта (−90…90)</span>
-      <input type="number" step="0.0001" bind:value={fLat} placeholder="59.9391" /></label>
-    <label class="fld"><span>Долгота (−180…180)</span>
-      <input type="number" step="0.0001" bind:value={fLon} placeholder="30.3159" /></label>
+    <label class="fld"><span>Широта · N/S (−90…90)</span>
+      <input type="text" inputmode="text" bind:value={fLatRaw} placeholder="59.9391 или 59N56"
+        autocomplete="off" spellcheck="false" /></label>
+    <label class="fld"><span>Долгота · E/W (−180…180)</span>
+      <input type="text" inputmode="text" bind:value={fLonRaw} placeholder="30.3159 или 30E19"
+        autocomplete="off" spellcheck="false" /></label>
   </div>
+  <!-- «Как поняли» — главная страховка от `47N28`, набранного как «47.28»
+       (это 47,467°, а не 47,28°): человек видит разбор своими глазами. -->
+  {#if coordsShown}
+    <div class="coordread">Поняла так: {coordsShown}<br />{nearHint}</div>
+  {/if}
+  {#if fLatRaw.trim() && fLat == null}<div class="err">⚠ {coordErr(latP.err, 'lat')}</div>{/if}
+  {#if fLonRaw.trim() && fLon == null}<div class="err">⚠ {coordErr(lonP.err, 'lon')}</div>{/if}
+  {#if axisMixed}
+    <div class="warn">В поле стоит координата другой оси (N/S — широта, E/W — долгота).
+      <button type="button" class="swapbtn" onclick={swapCoords}>Поменять местами</button></div>
+  {/if}
+  <div class="hint small">Порядок полей у программ разный: у нас
+    <b>широта → долгота</b>, во многих западных — наоборот. Своего посёлка в справочнике
+    нет — бери ближайший город: несколько километров сдвигают лагну на минуты дуги,
+    а перепутанные местами координаты — на целый знак.</div>
   <!-- пояс двумя способами: зоной-городом или ЧИСЛОМ (GMT±ч). Второй — правка
        астролога 2026-07-29: когда города в списке нет, смещение он знает точно,
        а какую зону выбрать — нет. -->
@@ -221,6 +297,13 @@
 </details>
 
 {#if fErr}<div class="err">⚠ {fErr}</div>{/if}
+{#if placeWarn}
+  <div class="warn">{placeWarn}
+    {#if placeWarnSwap}
+      <button type="button" class="swapbtn" onclick={swapCoords}>Поменять местами</button>
+    {/if}
+    <small>Если координаты верны — нажми «{saveLabel ?? 'Сохранить'}» ещё раз.</small></div>
+{/if}
 <div class="formbtns">
   {#if editId}<button class="btn danger" onclick={del}>{confirmDel ? 'Точно удалить?' : 'Удалить'}</button>{/if}
   <button class="btn primary" onclick={save}>{saveLabel ?? 'Сохранить'}</button>
@@ -280,6 +363,18 @@
   .tzsel { background: #ffffff10; border: 1px solid var(--glass-brd); color: var(--ink);
     border-radius: 12px; padding: 10px 12px; font: inherit; }
   .err { color: var(--rose); font-size: 0.84rem; margin-bottom: 10px; }
+  /* разбор координат обратно человеку — спокойным тоном подсказки */
+  .coordread { color: var(--ink-dim); font-size: 0.8rem; line-height: 1.45;
+    background: #ffffff0c; border: 1px solid var(--glass-brd); border-radius: 10px;
+    padding: 7px 10px; margin: 0 0 8px; }
+  /* предупреждение — не запрет: рамка тёплая, кнопка действия внутри */
+  .warn { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.45;
+    background: #ffffff0c; border: 1px solid var(--rose); border-radius: 12px;
+    padding: 9px 11px; margin-bottom: 10px; }
+  .warn small { display: block; color: var(--ink-faint); margin-top: 6px; font-size: 0.78rem; }
+  .swapbtn { display: inline-block; margin-top: 6px; background: #ffffff14;
+    border: 1px solid var(--glass-brd); color: var(--ink); border-radius: 10px;
+    padding: 6px 10px; font: inherit; font-size: 0.8rem; }
   /* три кнопки одинаковой высоты в один ряд, надписи не переносятся */
   .formbtns { display: flex; gap: 8px; }
   .formbtns .btn { flex: 1; white-space: nowrap; padding: 11px 8px; text-align: center; }

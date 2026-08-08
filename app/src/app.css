@@ -289,7 +289,10 @@ section.sheet.glass { max-height: 90vh; }
 .sheet-backdrop { position: fixed; inset: 0; background: #0009; }
 .sheet-base {
   position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
-  width: min(560px, 100%); max-height: 90vh; overflow-y: auto;
+  /* Шторка не ездит вбок НИКОГДА (жалоба владелицы 2026-08-07: из-за таблицы
+     «Грахи в гочаре» страница начала прокручиваться горизонтально). Широкое
+     содержимое обязано скроллиться в СВОЁМ контейнере — см. .vtable. */
+  width: min(560px, 100%); max-height: 90vh; overflow-y: auto; overflow-x: hidden;
   padding: 16px 16px calc(18px + var(--safe-bottom));
   border-radius: 22px 22px 0 0;
   animation: sheet-up 0.34s cubic-bezier(0.215, 0.61, 0.355, 1);

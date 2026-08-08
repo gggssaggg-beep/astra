@@ -1298,11 +1298,12 @@
       <details class="fold" open>
         <summary class="grp">✧ Грахи в гочаре · {transitLabel}</summary>
         <div class="vtable glass">
-          <div class="vrow th"><span>Граха</span><span>Знак</span><span>Накшатра</span><span>Дом</span></div>
+          <div class="vrow th"><span class="vn">Граха</span><span class="vsign">Знак</span>
+            <span class="vnak">Накшатра</span><span class="vh">Дом</span></div>
           {#each gocharaRows as r (r.name)}
             <div class="vrow">
               <span class="vn"><span class="glyph">{r.glyph}</span> {r.name}{r.retro ? ' R' : ''}</span>
-              <span>{degMin(r.deg)} {ZODIAC[r.signIndex]}</span>
+              <span class="vsign">{degMin(r.deg)} {ZODIAC[r.signIndex]}</span>
               <span class="vnak">{r.nak} ({r.pada})</span>
               <span class="vh">{r.house}-й</span>
             </div>
@@ -1478,8 +1479,26 @@
   .pfrom { color: var(--ink-faint); font-size: 0.76rem; line-height: 1.5; }
   /* таблица грах гочары: знак · накшатра · дом от лагны */
   .vtable { padding: 4px 6px; margin: 6px 0 10px; border-radius: 12px; }
-  .vrow { display: grid; grid-template-columns: 5.4rem 7rem 1fr 2.2rem; gap: 6px;
-    padding: 7px 6px; align-items: center; font-size: 0.82rem; color: var(--ink); }
+  /* Жалоба владелицы 2026-08-07: «Грахи в гочаре» вылезали за рамки, страница
+     ездила вбок. Причина — четыре колонки в фиксированных долях: «Пурва
+     Бхадрапада (4)» не влезает, а у grid-детей min-width по умолчанию auto, и
+     колонка распирала таблицу шире экрана.
+     Решение — не сжимать текст, а разложить строку на ДВЕ линии (мерено в
+     браузере на 320 px: сжатие давало столбик по две буквы). Накшатра уходит
+     под первую линию во всю ширину. От 430 px, где всё влезает, строка
+     собирается обратно в один ряд из четырёх колонок. */
+  .vrow { display: grid; gap: 2px 6px; padding: 7px 6px; font-size: 0.82rem; color: var(--ink);
+    grid-template-columns: minmax(0, 7.4rem) minmax(0, 1fr) 2.4rem;
+    grid-template-areas: 'nm sg hs' 'nk nk nk'; align-items: baseline; }
+  .vrow > span { min-width: 0; overflow-wrap: anywhere; }
+  .vn { grid-area: nm; }
+  .vsign { grid-area: sg; }
+  .vnak { grid-area: nk; }
+  .vh { grid-area: hs; }
+  @media (min-width: 430px) {
+    .vrow { grid-template-columns: 5.4rem minmax(0, 7rem) minmax(0, 1fr) 2.4rem;
+      grid-template-areas: 'nm sg nk hs'; align-items: center; gap: 6px; }
+  }
   .vrow + .vrow { border-top: 1px solid var(--glass-brd); }
   .vrow.th { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
   .vn { display: flex; align-items: baseline; gap: 6px; color: var(--ink-dim); }
@@ -1489,8 +1508,9 @@
   .kuta { padding: 12px 14px; margin: 8px 0 6px; border-radius: 16px; }
   .kmoons { display: flex; flex-direction: column; gap: 4px; font-size: 0.84rem;
     color: var(--ink); margin-bottom: 10px; }
-  .krow { display: grid; grid-template-columns: 7.2rem 1fr 3.2rem; gap: 6px; padding: 5px 0;
+  .krow { display: grid; grid-template-columns: 7.2rem minmax(0, 1fr) 3.2rem; gap: 6px; padding: 5px 0;
     align-items: baseline; font-size: 0.82rem; border-top: 1px solid var(--glass-brd); }
+  .krow > * { min-width: 0; overflow-wrap: anywhere; }
   .kn { color: var(--ink-dim); }
   .knote { color: var(--ink-faint); font-size: 0.74rem; }
   .kv { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }

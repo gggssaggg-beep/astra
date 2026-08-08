@@ -627,8 +627,11 @@
   .v { color: var(--ink); font-size: 0.86rem; line-height: 1.4; }
 
   .table { padding: 4px 6px; }
-  .row { display: grid; grid-template-columns: 3.2rem 1fr 1fr 3.2rem; gap: 6px;
+  .row { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) minmax(0, 1fr) 3.2rem; gap: 6px;
     padding: 7px 6px; align-items: center; font-size: 0.82rem; color: var(--ink); }
+  /* min-width у grid-детей по умолчанию auto: длинное имя накшатры распирало
+     строку шире экрана, и вбок ехала вся страница. Перенос вместо распирания. */
+  .row > * { min-width: 0; overflow-wrap: anywhere; }
   .row + .row { border-top: 1px solid var(--glass-brd); }
   .row.th { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
   /* аштакаварга: число бинду + полоска-индикатор */

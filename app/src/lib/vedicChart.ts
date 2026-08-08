@@ -35,6 +35,13 @@ export interface VedicNatal {
   upagrahas: UpagrahaResult;
   /** пояс МЕСТА рождения: границы частей суток лежат в нём, не в поясе показа */
   birthTz: string;
+  /** Исходные данные расчёта — их и сверяют построчно с другой программой,
+   *  когда «даты даш не сходятся» (раунд 2, §2: расхождение почти всегда в
+   *  часовом поясе или координатах, а не в математике даш). */
+  birthUTC: Date;
+  place: { lat: number; lon: number };
+  /** аянамша на момент рождения, градусы */
+  ayanamsa: number;
 }
 
 /** Дни недели en-US → индекс (0 = вс): вара берётся по МЕСТНОЙ дате места
@@ -86,7 +93,8 @@ export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNa
   const sky = skyFor(E, p.place.lat, p.place.lon, p.birthTz);
   return { chart, dashas, now: currentDasha(dashas, at),
     dashaDaysPerMinute: dashaSensitivity(moonSpeed, first),
-    upagrahas: upagrahas(when, lons['Солнце'], sky), birthTz: p.birthTz };
+    upagrahas: upagrahas(when, lons['Солнце'], sky), birthTz: p.birthTz,
+    birthUTC: when, place: { lat: p.place.lat, lon: p.place.lon }, ayanamsa: E.ayanamsa(jd) };
 }
 
 /** «Сейчас на небе» в сидерических знаках — карта без домов и без лагны:

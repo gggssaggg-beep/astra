@@ -26,6 +26,8 @@
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
   import { grahaSignText } from '../lib/grahaSignLore.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
+  import { fmtCoord } from '../lib/geo.ts';
+  import { tzLabel } from '../lib/format.ts';
   import Hint from './Hint.svelte';
 
   let { engine, tz, natal, simple = false }:
@@ -103,6 +105,24 @@
 
   // короткое имя карты — {@const} на верхнем уровне разметки Svelte не разрешён
   const c = $derived(natal.chart);
+
+  // --- исходные данные даш (сверка с чужой программой, раунд 2 §2) ---
+  const moonLon = $derived(natal.chart.planets.find((p) => p.name === 'Луна')?.lon ?? 0);
+  const stamp = (t: Date, zone: string): string => new Intl.DateTimeFormat('ru-RU', {
+    timeZone: zone, day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(t);
+  const birthLocal = $derived(stamp(natal.birthUTC, natal.birthTz));
+  const birthUTCStr = $derived(stamp(natal.birthUTC, 'UTC'));
+  /** Остаток первой махадаши на момент рождения — «6 л 4 мес 12 дн»: именно эту
+   *  строку печатают джйотиш-программы, с неё и начинают сверку. */
+  const balanceStr = $derived.by(() => {
+    const days = (natal.dashas[0].to.getTime() - natal.birthUTC.getTime()) / 86_400_000;
+    const y = Math.floor(days / 365.25);
+    const m = Math.floor((days - y * 365.25) / 30.4375);
+    const d = Math.round(days - y * 365.25 - m * 30.4375);
+    return `${y} л ${m} мес ${d} дн`;
+  });
 
   // «я не астролог»: дришти и аштакаварга — специальные слои, вкладок под них нет
   const tabs = $derived.by(() => {
@@ -499,6 +519,29 @@
 {/if}
 
 
+<!-- Исходные данные расчёта. Когда даты даш не сходятся с другой программой,
+     спор «у кого правильнее» решается не результатами, а входом: момент в UTC,
+     координаты, аянамша, долгота Луны и пройденная доля накшатры. Сверяется
+     построчно — расхождение видно сразу и обычно сидит в поясе (раунд 2, §2). -->
+{#if !simple}
+<div class="hdr">Из чего посчитаны даши</div>
+<div class="card glass grid">
+  <div><span class="k">Рождение</span><span class="v">{birthLocal} ({tzLabel(natal.birthTz)})
+    · {birthUTCStr} UTC</span></div>
+  <div><span class="k">Координаты</span><span class="v">{fmtCoord(natal.place.lat, 'lat')},
+    {fmtCoord(natal.place.lon, 'lon')}</span></div>
+  <div><span class="k">Аянамша</span><span class="v">Лахири {degMin(natal.ayanamsa)}</span></div>
+  <div><span class="k">Луна</span><span class="v">{degMin(moonLon % 30)}
+    {ZODIAC[natal.chart.moonSign]} · сидерическая ({moonLon.toFixed(4)}°)</span></div>
+  <div><span class="k">Накшатра</span><span class="v">{natal.chart.moonNakshatra.name},
+    пада {natal.chart.moonNakshatra.pada} · пройдено
+    {(natal.chart.moonNakshatra.fraction * 100).toFixed(1)}% · владыка
+    {natal.chart.moonNakshatra.lord}</span></div>
+  <div><span class="k">Баланс даши</span><span class="v">{natal.dashas[0].lord}, на момент рождения
+    оставалось {balanceStr}</span></div>
+</div>
+{/if}
+
 <div class="hdr">Периоды Вимшоттари <Hint k="dasha" /></div>
 {#each natal.dashas as d}
   {@const cur = natal.now.maha?.from.getTime() === d.from.getTime()}
@@ -552,8 +595,12 @@
   положение Луны внутри её накшатры.</div>
 <div class="note">Отсюда чувствительность ко времени рождения: накшатра — всего 800′, минута
   времени сдвигает границы примерно на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты —
-  на две недели. Если даты не сходятся с другой программой, сверяй сперва время рождения,
-  потом аянамшу, и только потом подозревай расчёт. Год даши здесь юлианский — 365,25 суток.</div>
+  на две недели. Если даты не сходятся с другой программой, сверяй по блоку «Из чего посчитаны
+  даши» сверху — построчно: сначала момент в UTC (в нём сидит часовой пояс) и координаты,
+  потом аянамшу и долготу Луны, и только если сошлось всё это — подозревай расчёт периодов.
+  Час разницы в поясе двигает Луну примерно на полградуса — это 4% накшатры, то есть около
+  трёх с половиной месяцев сдвига при первой махадаше в семь лет и почти год при двадцатилетней;
+  и уезжают потом ВСЕ границы, а не только первая. Год даши здесь юлианский — 365,25 суток.</div>
 {/if}
 
 <style>

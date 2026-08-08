@@ -38,6 +38,12 @@ export interface Settings {
   dailyNotifyTime2?: string;  // 'HH:MM' — вечерняя сводка (режим 'twice')
   notifyAspects: boolean;     // уведомления в момент точного аспекта
   notifyTransits?: boolean;   // уведомления о транзитах к натальной карте
+  // — джйотиш: свои поводы и свой словарь (раунд 2, §5). Школы независимы:
+  //   можно включить и западные, и ведические уведомления одновременно —
+  //   ведические помечены словом «Джйотиш» в заголовке.
+  notifyPanchanga?: boolean;  // сводка панчанги дня (вара/титхи/накшатра/йога/карана)
+  panchangaTime?: string;     // 'HH:MM' — когда приходит панчанга (по умолч. 08:00)
+  notifyVedicDates?: boolean; // важные даты карты: смены даш, заходы грах, Саде Сати
   quietEnabled?: boolean;     // «тихое время» — не слать точечные пинги ночью
   quietFrom?: string;         // 'HH:MM' начало тихого окна (по умолч. 22:00)
   quietTo?: string;           // 'HH:MM' конец тихого окна (по умолч. 08:00)
@@ -209,6 +215,9 @@ export const DEFAULT_SETTINGS: Settings = {
   dailyNotifyTime2: '21:00',
   notifyAspects: false,
   notifyTransits: false,
+  notifyPanchanga: false,
+  panchangaTime: '08:00',
+  notifyVedicDates: false,
   quietEnabled: true,
   quietFrom: '22:00',
   quietTo: '09:00',   // тихое время по умолчанию 22:00–09:00 (просьба владелицы 2026-07-10)

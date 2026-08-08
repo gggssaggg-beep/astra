@@ -80,7 +80,8 @@
     return () => clearTimeout(t);
   });
 
-  type NotifyField = 'notifyDaily' | 'notifyAspects' | 'notifyTransits';
+  type NotifyField = 'notifyDaily' | 'notifyAspects' | 'notifyTransits'
+    | 'notifyPanchanga' | 'notifyVedicDates';
   // какой тумблер ждёт пояснения перед первым запросом разрешения (П.8 онбординга):
   // при первом включении любого уведомления показываем свою карточку «зачем»,
   // и только по «Дальше →» дёргаем системный диалог. Повторные включения — сразу.
@@ -416,7 +417,8 @@
       <!-- П.8 онбординга: контекст ПЕРЕД системным запросом разрешения -->
       <div class="whycard">
         <b>Включить напоминания?</b>
-        <p>Напоминания приходят в момент точного аспекта и сводкой по расписанию.
+        <p>Приходят сводкой по расписанию и в момент события — что именно считать
+          событием, выбираешь ниже отдельно для западной школы и для джйотиша.
           Android спросит разрешение — согласись, иначе ничего не придёт.</p>
         <div class="row">
           <button class="btn primary" onclick={confirmNotify}>Дальше →</button>
@@ -424,6 +426,17 @@
         </div>
       </div>
     {/if}
+    <!-- Школы — двумя отдельными блоками (правка владелицы 2026-08-08). Раньше
+         тумблеры были одни на всё приложение и говорили западным языком, из-за
+         чего в джйотише приходили «несуществующие аспекты». Теперь видно, что
+         именно включаешь, и обе школы можно держать включёнными разом. -->
+    <div class="hint small" style="margin-bottom:10px">Школы независимы: можно включить обе.
+      Западные уведомления говорят про аспекты и градусы, ведические — про панчангу, даши и
+      гочару; ведические помечены словом «Джйотиш» в заголовке.</div>
+
+    <div class="lbl">Западная школа</div>
+    <div class="hint small" style="margin-bottom:8px">Аспекты по градусам с орбисом, ретро-станции,
+      транзиты к натальной карте.</div>
     <label class="toggle">
       <input type="checkbox" checked={cfg.notifyDaily}
         onchange={(e) => onNotifyToggle('notifyDaily', (e.target as HTMLInputElement).checked)} />
@@ -462,31 +475,56 @@
     <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyTransits}
         onchange={(e) => onNotifyToggle('notifyTransits', (e.target as HTMLInputElement).checked)} />
-      {vedic ? 'Гочара к моей карте' : 'Транзиты к моей натальной карте'}
+      Транзиты к моей натальной карте
     </label>
     {#if cfg.notifyTransits}
-      <div style="margin-top:8px">
-        <select class="select" value={cfg.transitSelfId ?? ''}
-          onchange={(e) => save({ transitSelfId: (e.target as HTMLSelectElement).value || undefined })}>
-          <option value="">— выбери человека («моя карта») —</option>
-          {#each people as p}<option value={p.id}>{p.name}</option>{/each}
-        </select>
-        <label class="toggle" style="margin-top:8px">
-          <input type="checkbox" checked={cfg.transitCusps}
-            onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
-          + куспиды домов (нужны место и время рождения)
-        </label>
-        {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека в нижнем меню «Добавить».</div>{/if}
+      <label class="toggle" style="margin-top:8px">
+        <input type="checkbox" checked={cfg.transitCusps}
+          onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
+        + куспиды домов (нужны место и время рождения)
+      </label>
+    {/if}
+
+    <!-- ── джйотиш: СВОИ поводы, не перевод западных ── -->
+    <div class="lbl" style="margin-top:18px">Джйотиш</div>
+    <div class="hint small" style="margin-bottom:8px">Панчанга дня и крупные даты карты.
+      Считается по сидерическому зодиаку и правилам джйотиша — независимо от того,
+      какая школа сейчас выбрана на главном экране.</div>
+    <label class="toggle">
+      <input type="checkbox" checked={cfg.notifyPanchanga}
+        onchange={(e) => onNotifyToggle('notifyPanchanga', (e.target as HTMLInputElement).checked)} />
+      Панчанга дня
+    </label>
+    <div class="hint small" style="margin-top:4px">Пять членов дня: вара, титхи, накшатра Луны,
+      йога, карана — с часом, до которого держатся титхи и накшатра.</div>
+    {#if cfg.notifyPanchanga}
+      <div class="orb" style="margin-top:8px">
+        <span class="small">в</span>
+        <input type="time" value={cfg.panchangaTime ?? '08:00'}
+          onchange={(e) => save({ panchangaTime: (e.target as HTMLInputElement).value })} />
       </div>
     {/if}
-    {#if vedic}
-      <!-- честность: сами пинги моментов считаются по западной механике (орбисы).
-           Ведических поводов (вход грахи в знак, смена даши) пока нет — не
-           выдаём одно за другое (правило «два интерфейса не путать») -->
-      <div class="hint small" style="margin-top:8px">Точечные пинги ловят момент, когда угол
-        между грахами становится точным, — это западный способ считать. Ведические поводы
-        (вход грахи в знак, смена периода) в уведомления пока не заведены: их видно
-        на экране дня в «Переходах» и в разборе карты.</div>
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.notifyVedicDates}
+        onchange={(e) => onNotifyToggle('notifyVedicDates', (e.target as HTMLInputElement).checked)} />
+      Важные даты моей карты
+    </label>
+    <div class="hint small" style="margin-top:4px">Смена махадаши и антардаши, заход Юпитера,
+      Сатурна и узлов в новый знак, фазы Саде Сати, узловые возвращения. Событий немного —
+      это не ежедневный поток. Нужна выбранная «моя карта» с местом и временем рождения.</div>
+
+    <!-- ── общее для обеих школ ── -->
+    <div class="lbl" style="margin-top:18px">Общее</div>
+    {#if cfg.notifyTransits || cfg.notifyVedicDates}
+      <div class="hint small" style="margin-bottom:6px">«Моя карта» — чей натал отслеживаем
+        (её берут и транзиты, и ведические даты).</div>
+      <select class="select" value={cfg.transitSelfId ?? ''}
+        onchange={(e) => save({ transitSelfId: (e.target as HTMLSelectElement).value || undefined })}>
+        <option value="">— выбери человека («моя карта») —</option>
+        {#each people as p}<option value={p.id}>{p.name}</option>{/each}
+      </select>
+      {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека
+        в нижнем меню «Добавить».</div>{/if}
     {/if}
 
     <label class="toggle" style="margin-top:12px">
@@ -504,7 +542,9 @@
           onchange={(e) => save({ quietTo: (e.target as HTMLInputElement).value })} />
       </div>
       <div class="hint small" style="margin-top:6px">В это время точечные пинги аспектов и транзитов
-        не приходят. Сводка приходит по своему расписанию.</div>
+        не приходят. Сводки (западная и панчанга) идут по своему расписанию. Крупные ведические
+        даты не пропадают: смена даши или заход грахи, выпавшие на ночь, придут утром, когда
+        тихое время кончится.</div>
     {/if}
 
     <div style="margin-top:10px">

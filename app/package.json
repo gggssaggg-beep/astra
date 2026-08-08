@@ -35,6 +35,7 @@
     "test:geo": "node test/geo.mjs",
     "test:notesdir": "node test/notesdir.mjs",
     "test:vedicevents": "node test/vedicevents.mjs",
+    "test:vedicnotify": "node test/vedicnotify.mjs",
     "test:gocharatexts": "node test/gocharatexts.mjs"
   },
   "dependencies": {

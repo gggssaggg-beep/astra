@@ -15,6 +15,7 @@ import { buildVedicChart, vimshottari, currentDasha,
   type VedicChart, type DashaPeriod } from './vedic.ts';
 import { vargaSignAt, type VargaId } from './vargas.ts';
 import { upagrahas, type SkyForUpagraha, type UpagrahaResult } from './upagraha.ts';
+import { mrityuCheck } from './mrityu.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
 /** Латиница — международный стандарт джйотиш-программ; выбор владелицы
@@ -126,6 +127,12 @@ export function vedicSky(E: Engine, when: Date = new Date()): VedicSky {
 }
 
 /** Клетки для VedicChart.svelte (северо-индийский ромб). */
+/** Пометка мритью бхаги для клетки чертежа: в орбисе / близко к точке. */
+const mbMark = (name: string, lon: number): 'hit' | 'strong' | undefined => {
+  const h = mrityuCheck(name, lon);
+  return h ? (h.strong ? 'strong' : 'hit') : undefined;
+};
+
 export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
   house: h.house,
   signIndex: h.signIndex,
@@ -133,12 +140,15 @@ export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
     // As в первом доме: без метки лагны непонятно, где начало карты —
     // во всех джйотиш-программах она стоит
     ...(h.house === 1
-      ? [{ short: LAGNA_SHORT, deg: Math.floor(c.lagnaLon % 30), retro: false }]
+      ? [{ short: LAGNA_SHORT, deg: Math.floor(c.lagnaLon % 30), retro: false,
+          mb: mbMark('Лагна', c.lagnaLon) }]
       : []),
     ...h.planets.map((p) => ({
       short: SHORT[p.name] ?? p.name.slice(0, 2),
       deg: Math.floor(p.degInSign),
       retro: p.retro,
+      // красным — попавшие в мритью бхагу (правка астролога, раунд 2 §3)
+      mb: mbMark(p.name, p.lon),
     })),
   ],
 }));

@@ -17,8 +17,11 @@
     signIndex: number;  // 0..11 — знак в этом доме (0=Овен … 11=Рыбы)
     // short — краткая метка; kind — чья это граха: транзитная (гочара) или
     // рождения (кундали). Нет поля = один общий цвет, как было до совмещения.
+    // mb — мритью бхага: 'hit' — в орбисе (1°), 'strong' — ближе половины
+    // орбиса. Правка астролога 2026-08-07: сила зависит от расстояния до точки,
+    // и видно это должно быть прямо на карте раши, а не только в таблице.
     planets: { short: string; deg: number; retro: boolean;
-      kind?: 'natal' | 'transit' }[];
+      kind?: 'natal' | 'transit'; mb?: 'hit' | 'strong' }[];
   }
 
   type P = [number, number];
@@ -204,7 +207,7 @@
       // тогда надстрочника нет вовсе, и точку вверх никто не уводит
       const deg = p.deg < 0 ? null : String(Math.max(0, Math.floor(p.deg)));
       debt = deg !== null && !p.retro ? m.rise : 0;
-      return { dy, short: p.short, deg, retro: p.retro, kind: p.kind };
+      return { dy, short: p.short, deg, retro: p.retro, kind: p.kind, mb: p.mb };
     });
     return {
       key: g.key, points: g.points, sx: g.sx, sy: g.sy, tx: g.tx, ty: g.ty,
@@ -252,7 +255,7 @@
       <!-- tspan'ы держим В ОДНУ строку без пробелов: перевод строки в разметке
            SVG превратился бы в реальный пробел между меткой и градусом -->
       <text x={g.tx} y={g.ty} class="planets" font-size={g.fs}>
-        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro} class:natal={l.kind === 'natal'} class:transit={l.kind === 'transit'}>{l.short}</tspan>{#if l.deg !== null}<tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{/if}{#if l.retro}<tspan dy={l.deg !== null ? g.rise : 0} class="retro">R</tspan>{/if}{/each}
+        {#each g.lines as l, i (i)}<tspan x={g.tx} dy={l.dy} class:retro={l.retro} class:natal={l.kind === 'natal'} class:transit={l.kind === 'transit'} class:mb={!!l.mb} class:mbstrong={l.mb === 'strong'}>{l.short}</tspan>{#if l.deg !== null}<tspan dy={-g.rise} font-size={g.sup} class="deg">{l.deg}</tspan>{/if}{#if l.retro}<tspan dy={l.deg !== null ? g.rise : 0} class="retro">R</tspan>{/if}{/each}
       </text>
     {/if}
   {/each}
@@ -288,6 +291,11 @@
      побеждала принадлежность; золотой остаётся сама буква «R». */
   .planets .transit { fill: var(--neon-cyan); }
   .planets .natal { fill: var(--ink-dim); }
+  /* Мритью бхага — правка астролога 2026-08-07: попавшая граха красная прямо на
+     карте раши, а ближе половины орбиса ещё и жирная. Правило стоит ПОСЛЕ
+     transit/natal, чтобы перебивать их цвет: попадание важнее принадлежности. */
+  .planets .mb { fill: var(--rose); }
+  .planets .mbstrong { font-weight: 700; }
   /* метка лагны южного стиля — та же кромка, что у рамки */
   .lagna {
     stroke-width: 0.5; stroke-linecap: round;

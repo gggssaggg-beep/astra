@@ -19,7 +19,7 @@
     pratyantarDashas } from '../lib/vedic.ts';
   import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
-  import { mrityuCheck, mrityuLabel, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
+  import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
@@ -88,7 +88,7 @@
 
   // мритью бхага: критический градус грахи в её знаке. Проверяем лагну, семь
   // грах, узлы и Манди (у неё в таблице своя строка) — карта чаще всего без
-  // попаданий, и это нормально: точка узкая, орбис полградуса-градус.
+  // попаданий, и это нормально: точка узкая, орбис — градус до и после.
   const mrityu = $derived.by(() => {
     const map: Record<string, MrityuHit> = {};
     const lag = mrityuCheck('Лагна', natal.chart.lagnaLon);
@@ -362,8 +362,9 @@
         <span class="un">{h.name}</span>
         <span class="uv">{degMin(h.deg)} <span class="glyph">{SIGN_GLYPH[h.signIndex]}</span>
           {ZODIAC[h.signIndex]}</span>
-        <span class="mbv">{mrityuLabel(h)}</span>
+        <span class="mbv" class:strong={h.strong}>{mrityuLabel(h)}</span>
       </div>
+      <div class="mbforce">{mrityuForce(h)}</div>
       {#if h.variant === 'parijata'}
         <div class="mbsrc">Совпало по трактату «{MRITYU_SOURCE[h.variant]}»: у Луны трактаты
           дают разные градусы, и по «Пхаладипике» попадания здесь нет.</div>
@@ -374,9 +375,10 @@
     Граха, попавшая в него, считается лишённой сил: классика читает это не как смерть, а как
     жёсткие уроки по её темам, и ярче всего — в её же периоды даш. Смягчается соединением или
     дришти сильного благодетеля и хорошим положением в навамше. Таблица — «Пхаладипика»
-    (гл. 13, шл. 10–11), орбисы по д-ру Чараку: лагна 1°, Солнце, Луна и Меркурий 40′,
-    остальные 30′. Метод спорный — Георгий сам это отметил; смотреть его стоит вместе с
-    остальной картой, а не отдельно.</div>
+    (гл. 13, шл. 10–11). Орбис — один градус до и после точки, и сила зависит от расстояния:
+    чем ближе граха к самому градусу, тем жёстче звучит. На карте раши такие грахи красные,
+    а те, что ближе половины орбиса, — ещё и жирные. Метод спорный — астролог сам это отметил;
+    смотреть его стоит вместе с остальной картой, а не отдельно.</div>
 {/if}
 {#each c.planets as p}
   <div class="card glass pcard reveal" use:reveal>
@@ -762,6 +764,9 @@
     vertical-align: super; }
   .row.mbrow { grid-template-columns: 5.6rem 1fr auto; align-items: center; }
   .mbv { color: var(--rose); font-size: 0.76rem; text-align: right; }
+  /* ближе половины орбиса — жирным, как на карте раши (правка астролога) */
+  .mbv.strong { font-weight: 700; }
+  .mbforce { color: var(--ink-faint); font-size: 0.72rem; padding: 0 6px 6px; }
   .mbsrc { color: var(--ink-faint); font-size: 0.72rem; line-height: 1.4; padding: 0 6px 6px; }
   .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
   .row.ar.key .un { color: var(--ink); }

@@ -19,13 +19,15 @@
     pratyantarDashas } from '../lib/vedic.ts';
   import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
-  import { mrityuCheck, mrityuLabel, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
+  import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
   import { grahaSignText } from '../lib/grahaSignLore.ts';
   import { grahaDrishti } from '../lib/drishti.ts';
+  import { fmtCoord } from '../lib/geo.ts';
+  import { tzLabel } from '../lib/format.ts';
   import Hint from './Hint.svelte';
 
   let { engine, tz, natal, simple = false }:
@@ -43,7 +45,7 @@
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
   // остаётся НАД вкладками — это шапка кундали, а не раздел.
-  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'upa' | 'arudha' | 'dashas';
+  type TabId = 'grahas' | 'houses' | 'drishti' | 'av' | 'upa' | 'arudha' | 'dashas' | 'dates';
   let tab = $state<TabId>('grahas');
 
   // небо «сейчас» нужно только для станции Сатурна от Луны (Саде Сати)
@@ -86,7 +88,7 @@
 
   // мритью бхага: критический градус грахи в её знаке. Проверяем лагну, семь
   // грах, узлы и Манди (у неё в таблице своя строка) — карта чаще всего без
-  // попаданий, и это нормально: точка узкая, орбис полградуса-градус.
+  // попаданий, и это нормально: точка узкая, орбис — градус до и после.
   const mrityu = $derived.by(() => {
     const map: Record<string, MrityuHit> = {};
     const lag = mrityuCheck('Лагна', natal.chart.lagnaLon);
@@ -104,6 +106,24 @@
   // короткое имя карты — {@const} на верхнем уровне разметки Svelte не разрешён
   const c = $derived(natal.chart);
 
+  // --- исходные данные даш (сверка с чужой программой, раунд 2 §2) ---
+  const moonLon = $derived(natal.chart.planets.find((p) => p.name === 'Луна')?.lon ?? 0);
+  const stamp = (t: Date, zone: string): string => new Intl.DateTimeFormat('ru-RU', {
+    timeZone: zone, day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  }).format(t);
+  const birthLocal = $derived(stamp(natal.birthUTC, natal.birthTz));
+  const birthUTCStr = $derived(stamp(natal.birthUTC, 'UTC'));
+  /** Остаток первой махадаши на момент рождения — «6 л 4 мес 12 дн»: именно эту
+   *  строку печатают джйотиш-программы, с неё и начинают сверку. */
+  const balanceStr = $derived.by(() => {
+    const days = (natal.dashas[0].to.getTime() - natal.birthUTC.getTime()) / 86_400_000;
+    const y = Math.floor(days / 365.25);
+    const m = Math.floor((days - y * 365.25) / 30.4375);
+    const d = Math.round(days - y * 365.25 - m * 30.4375);
+    return `${y} л ${m} мес ${d} дн`;
+  });
+
   // «я не астролог»: дришти и аштакаварга — специальные слои, вкладок под них нет
   const tabs = $derived.by(() => {
     const out: { id: TabId; label: string }[] = [
@@ -115,6 +135,7 @@
     if (!simple) out.push({ id: 'upa', label: 'Упаграхи' });
     if (!simple) out.push({ id: 'arudha', label: 'Арудхи' });
     out.push({ id: 'dashas', label: 'Даши' });
+    out.push({ id: 'dates', label: 'Важные даты' });
     return out;
   });
   // если открытая вкладка исчезла (включили упрощённый вид) — возвращаемся к грахам
@@ -342,8 +363,9 @@
         <span class="un">{h.name}</span>
         <span class="uv">{degMin(h.deg)} <span class="glyph">{SIGN_GLYPH[h.signIndex]}</span>
           {ZODIAC[h.signIndex]}</span>
-        <span class="mbv">{mrityuLabel(h)}</span>
+        <span class="mbv" class:strong={h.strong}>{mrityuLabel(h)}</span>
       </div>
+      <div class="mbforce">{mrityuForce(h)}</div>
       {#if h.variant === 'parijata'}
         <div class="mbsrc">Совпало по трактату «{MRITYU_SOURCE[h.variant]}»: у Луны трактаты
           дают разные градусы, и по «Пхаладипике» попадания здесь нет.</div>
@@ -354,9 +376,10 @@
     Граха, попавшая в него, считается лишённой сил: классика читает это не как смерть, а как
     жёсткие уроки по её темам, и ярче всего — в её же периоды даш. Смягчается соединением или
     дришти сильного благодетеля и хорошим положением в навамше. Таблица — «Пхаладипика»
-    (гл. 13, шл. 10–11), орбисы по д-ру Чараку: лагна 1°, Солнце, Луна и Меркурий 40′,
-    остальные 30′. Метод спорный — Георгий сам это отметил; смотреть его стоит вместе с
-    остальной картой, а не отдельно.</div>
+    (гл. 13, шл. 10–11). Орбис — один градус до и после точки, и сила зависит от расстояния:
+    чем ближе граха к самому градусу, тем жёстче звучит. На карте раши такие грахи красные,
+    а те, что ближе половины орбиса, — ещё и жирные. Метод спорный — астролог сам это отметил;
+    смотреть его стоит вместе с остальной картой, а не отдельно.</div>
 {/if}
 {#each c.planets as p}
   <div class="card glass pcard reveal" use:reveal>
@@ -475,9 +498,12 @@
     классические: Скорпион у Марса, Водолей у Сатурна.</div>
 {/if}
 
-{#if active === 'dashas'}
-<!-- Что и когда — без похода к ИИ: смены даш, заходы медленных грах,
-     Саде Сати, узловые возвращения. Ближайшее сверху. -->
+<!-- «Важные даты» — ОТДЕЛЬНАЯ вкладка (правка астролога 2026-08-07: «отличная
+     идея, этого пока нет в других приложениях, развивать»). Раньше блок стоял
+     внутри «Даш», перед таблицей периодов, и терялся в ней. Что и когда — без
+     похода к ИИ: смены даш, заходы медленных грах, Саде Сати, узловые
+     возвращения. Ближайшее сверху. -->
+{#if active === 'dates'}
 {#if timeline.length}
   <div class="hdr">Важные даты</div>
   <div class="card glass reveal" use:reveal>
@@ -495,9 +521,37 @@
   </div>
   <div class="note">Даты рассчитаны движком: смены периодов, заходы Юпитера и Сатурна
     в новый знак, фазы Саде Сати, узловые возвращения. Быстрые грахи сюда не идут —
-    они на экране дня.</div>
+    они на экране дня. Сами периоды и их границы — во вкладке «Даши».</div>
+{:else}
+  <div class="note">На ближайшие три года крупных смен не выпало: ни смены периода, ни
+    захода Юпитера, Сатурна или узлов в новый знак. Это нормально — такие события редкие.</div>
+{/if}
 {/if}
 
+{#if active === 'dashas'}
+
+<!-- Исходные данные расчёта. Когда даты даш не сходятся с другой программой,
+     спор «у кого правильнее» решается не результатами, а входом: момент в UTC,
+     координаты, аянамша, долгота Луны и пройденная доля накшатры. Сверяется
+     построчно — расхождение видно сразу и обычно сидит в поясе (раунд 2, §2). -->
+{#if !simple}
+<div class="hdr">Из чего посчитаны даши</div>
+<div class="card glass grid">
+  <div><span class="k">Рождение</span><span class="v">{birthLocal} ({tzLabel(natal.birthTz)})
+    · {birthUTCStr} UTC</span></div>
+  <div><span class="k">Координаты</span><span class="v">{fmtCoord(natal.place.lat, 'lat')},
+    {fmtCoord(natal.place.lon, 'lon')}</span></div>
+  <div><span class="k">Аянамша</span><span class="v">Лахири {degMin(natal.ayanamsa)}</span></div>
+  <div><span class="k">Луна</span><span class="v">{degMin(moonLon % 30)}
+    {ZODIAC[natal.chart.moonSign]} · сидерическая ({moonLon.toFixed(4)}°)</span></div>
+  <div><span class="k">Накшатра</span><span class="v">{natal.chart.moonNakshatra.name},
+    пада {natal.chart.moonNakshatra.pada} · пройдено
+    {(natal.chart.moonNakshatra.fraction * 100).toFixed(1)}% · владыка
+    {natal.chart.moonNakshatra.lord}</span></div>
+  <div><span class="k">Баланс даши</span><span class="v">{natal.dashas[0].lord}, на момент рождения
+    оставалось {balanceStr}</span></div>
+</div>
+{/if}
 
 <div class="hdr">Периоды Вимшоттари <Hint k="dasha" /></div>
 {#each natal.dashas as d}
@@ -552,8 +606,12 @@
   положение Луны внутри её накшатры.</div>
 <div class="note">Отсюда чувствительность ко времени рождения: накшатра — всего 800′, минута
   времени сдвигает границы примерно на {natal.dashaDaysPerMinute.toFixed(1)} сут, три минуты —
-  на две недели. Если даты не сходятся с другой программой, сверяй сперва время рождения,
-  потом аянамшу, и только потом подозревай расчёт. Год даши здесь юлианский — 365,25 суток.</div>
+  на две недели. Если даты не сходятся с другой программой, сверяй по блоку «Из чего посчитаны
+  даши» сверху — построчно: сначала момент в UTC (в нём сидит часовой пояс) и координаты,
+  потом аянамшу и долготу Луны, и только если сошлось всё это — подозревай расчёт периодов.
+  Час разницы в поясе двигает Луну примерно на полградуса — это 4% накшатры, то есть около
+  трёх с половиной месяцев сдвига при первой махадаше в семь лет и почти год при двадцатилетней;
+  и уезжают потом ВСЕ границы, а не только первая. Год даши здесь юлианский — 365,25 суток.</div>
 {/if}
 
 <style>
@@ -580,8 +638,11 @@
   .v { color: var(--ink); font-size: 0.86rem; line-height: 1.4; }
 
   .table { padding: 4px 6px; }
-  .row { display: grid; grid-template-columns: 3.2rem 1fr 1fr 3.2rem; gap: 6px;
+  .row { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) minmax(0, 1fr) 3.2rem; gap: 6px;
     padding: 7px 6px; align-items: center; font-size: 0.82rem; color: var(--ink); }
+  /* min-width у grid-детей по умолчанию auto: длинное имя накшатры распирало
+     строку шире экрана, и вбок ехала вся страница. Перенос вместо распирания. */
+  .row > * { min-width: 0; overflow-wrap: anywhere; }
   .row + .row { border-top: 1px solid var(--glass-brd); }
   .row.th { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; }
   /* аштакаварга: число бинду + полоска-индикатор */
@@ -712,6 +773,9 @@
     vertical-align: super; }
   .row.mbrow { grid-template-columns: 5.6rem 1fr auto; align-items: center; }
   .mbv { color: var(--rose); font-size: 0.76rem; text-align: right; }
+  /* ближе половины орбиса — жирным, как на карте раши (правка астролога) */
+  .mbv.strong { font-weight: 700; }
+  .mbforce { color: var(--ink-faint); font-size: 0.72rem; padding: 0 6px 6px; }
   .mbsrc { color: var(--ink-faint); font-size: 0.72rem; line-height: 1.4; padding: 0 6px 6px; }
   .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
   .row.ar.key .un { color: var(--ink); }

@@ -100,6 +100,14 @@ function tzOffsetMs(instant: Date, tz: string): number {
   return Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - instant.getTime();
 }
 
+/** То же смещение в МИНУТАХ и без броска: null, если пояс не опознан.
+ *  Нужно проверке правдоподобия координат (`lib/geo.ts`): у пояса есть свой
+ *  средний меридиан, и долгота, промахнувшаяся мимо него на часы, — повод
+ *  переспросить человека. */
+export function tzOffsetMinutes(instant: Date, tz: string): number | null {
+  try { return tzOffsetMs(instant, tz) / 60_000; } catch { return null; }
+}
+
 /** UTC-инстант, соответствующий 00:00 пояса tz на гражданскую дату-якорь civil. */
 export function zonedDayStartUTC(civil: Date, tz: string): Date {
   const guess = Date.UTC(civil.getUTCFullYear(), civil.getUTCMonth(), civil.getUTCDate());

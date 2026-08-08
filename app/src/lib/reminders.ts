@@ -19,10 +19,16 @@ import type { Settings } from './models.ts';
 import { orbResolver } from './models.ts';
 import { aspectSignature } from './signature.ts';
 import { inQuietHours, hmToMinutes, localMinutes } from './quiet.ts';
-import { IDS, digestSlots, inSlot, digestTitle } from './digestSlots.ts';
+import { IDS, digestSlots, inSlot, digestTitle, isManagedId } from './digestSlots.ts';
 import { db } from './db.ts';
 import { natalPositions, birthInstantUTC } from './charts.ts';
 import { forecastTransits } from './forecast.ts';
+import { getVedicEngine } from './engineStore.ts';
+import { vedicNatal } from './vedicChart.ts';
+import { vedicTimeline } from './vedicTimeline.ts';
+import { panchangaOf, nextNakshatraEnd, nextTithiEnd } from './panchanga.ts';
+import { panchangaBody, panchangaTitle, pickVedicEvents, vedicEventTitle, vedicEventBody }
+  from './vedicNotify.ts';
 
 const NATIVE = Capacitor.isNativePlatform();
 const CH = 'care';
@@ -30,17 +36,35 @@ const CH = 'care';
 const ID_DAILY_FROM = IDS.dailyFrom, ID_DAILY_TO = IDS.dailyTo;      // сводки-слоты
 const ID_ASPECT_FROM = IDS.aspectFrom, ID_ASPECT_TO = IDS.aspectTo;  // точные аспекты
 const ID_TRANSIT_FROM = IDS.transitFrom, ID_TRANSIT_TO = IDS.transitTo; // транзиты к наталу
-const ID_MANAGED_TO = IDS.managedTo;     // наш управляемый диапазон 1000..1229
 const ID_TEST_NOW = 9001;
 const ID_TEST_DELAYED = 9002;
 const ID_VERSION = 1250;        // «доступна новая версия» — вне диапазона отмены 1000..1229
 const DAILY_DAYS = 7;           // на сколько дней вперёд ставим сводки
 const SCAN_DAYS = 10;          // горизонт скана аспектов
+// Ведические поводы редкие (смена антардаши — месяцы, заход Сатурна — годы),
+// поэтому горизонт у них шире: иначе между запусками приложения их можно
+// проспать целиком.
+const VEDIC_HORIZON_DAYS = 45;
 
 // тихое время + разбор HH:MM — чистые функции в lib/quiet.ts (тестируемы в Node)
 const inQuiet = (at: Date, tz: string, s: Settings): boolean =>
   inQuietHours(at, tz, { enabled: s.quietEnabled, from: s.quietFrom, to: s.quietTo });
 const hm = hmToMinutes;
+
+/**
+ * Ведические события редкие и крупные (смена махадаши бывает раз в годы) —
+ * терять их из-за ночи нельзя. Поэтому попавшее в тихое время не выбрасываем,
+ * как точечный аспект, а переносим на конец тихого окна: событие уже случилось,
+ * человек узнаёт о нём утром.
+ */
+function deferPastQuiet(at: Date, tz: string, s: Settings): Date {
+  if (!inQuiet(at, tz, s)) return at;
+  const toMin = hm(s.quietTo, '09:00');
+  const dayAnchor = civilOf(at, tz);
+  const morning = zonedDayStartUTC(dayAnchor, tz).getTime() + toMin * 60_000;
+  // вечернее событие (после начала тишины) ждёт утра СЛЕДУЮЩИХ суток
+  return new Date(morning > at.getTime() ? morning : morning + 86_400_000);
+}
 
 // — журнал шагов: каждый нативный вызов оставляет след —
 const MAX_LOG = 30;
@@ -121,7 +145,7 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
     try {
       const pd = await withTimeout(LocalNotifications.getPending(), 8000, 'getPending');
       const ours = pd.notifications
-        .filter(n => n.id >= ID_DAILY_FROM && n.id <= ID_MANAGED_TO)
+        .filter(n => isManagedId(n.id))
         .map(n => ({ id: n.id }));
       if (ours.length) {
         await withTimeout(LocalNotifications.cancel({ notifications: ours }), 6000, 'cancel');
@@ -129,7 +153,8 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
       }
     } catch (e) { push('cancel warn: ' + (e instanceof Error ? e.message : String(e))); }
 
-    const want = settings.notifyDaily || settings.notifyAspects || settings.notifyTransits;
+    const want = settings.notifyDaily || settings.notifyAspects || settings.notifyTransits
+      || settings.notifyPanchanga || settings.notifyVedicDates;
     if (!want || stale()) { push('skip: ничего не включено'); return; }
 
     const ok = await granted();
@@ -285,6 +310,69 @@ export async function rescheduleAll(engine: Engine, settings: Settings, tz: stri
           tcount++;
         }
         push(`транзитов запланировано: ${tcount}`);
+      }
+    }
+
+    // ── ДЖЙОТИШ: свои поводы и свой словарь (раунд 2, §5) ──────────────────
+    // Не перевод западных уведомлений, а панчанга дня и важные даты карты.
+    // Считает ОТДЕЛЬНЫЙ сидерический движок: западный тумблер школы на это не
+    // влияет — обе школы включаются независимо и могут работать разом.
+    if ((settings.notifyPanchanga || settings.notifyVedicDates) && !stale()) {
+      try {
+        const VE = await getVedicEngine(settings.ayanamsa, settings.vedicNodes ?? 'mean');
+
+        if (settings.notifyPanchanga) {
+          const pMin = hm(settings.panchangaTime, '08:00');
+          let pid = IDS.panchangaFrom, pcount = 0;
+          for (let d = 0; d < DAILY_DAYS && pid <= IDS.panchangaTo; d++) {
+            const civil = todayCivil(tz); civil.setUTCDate(civil.getUTCDate() + d);
+            const at = new Date(zonedDayStartUTC(civil, tz).getTime() + pMin * 60_000);
+            if (at.getTime() <= now + 60_000) continue;
+            const jd = VE.toJD(at);
+            const p = panchangaOf(VE.lon(jd, 'Солнце'), VE.lon(jd, 'Луна'),
+              civilOf(at, tz).getUTCDay());
+            const body = panchangaBody(p, {
+              nakshatra: nextNakshatraEnd(VE, at), tithi: nextTithiEnd(VE, at),
+            }, (t) => fmtTime(t, tz));
+            list.push({
+              id: pid++, title: panchangaTitle(), body, channelId: CH,
+              extra: { dayAnchor: civilOf(at, tz).toISOString(), vedic: true },
+              schedule: { at, allowWhileIdle: true },
+            });
+            pcount++;
+          }
+          push(`панчанга запланирована: ${pcount}`);
+        }
+
+        if (settings.notifyVedicDates && !stale()) {
+          const self = settings.transitSelfId ? db.people.get(settings.transitSelfId) : null;
+          const natal = self ? vedicNatal(VE, self) : null;
+          if (!self) push('джйотиш-даты: не выбрана «моя карта»');
+          else if (!natal) push('джйотиш-даты: у карты нет места рождения — нет лагны и даш');
+          else {
+            const from = new Date(now);
+            const rahu = natal.chart.planets.find((x) => x.name === 'Раху');
+            const events = vedicTimeline(VE, natal.dashas, {
+              lagnaSign: natal.chart.lagnaSign, moonSign: natal.chart.moonSign,
+              rahuSign: rahu?.signIndex ?? 0,
+            }, from, VEDIC_HORIZON_DAYS / 365.25);
+            let vid = IDS.vedicFrom, vcount = 0;
+            const limit = IDS.vedicTo - IDS.vedicFrom + 1;
+            for (const e of pickVedicEvents(events, from, VEDIC_HORIZON_DAYS, limit)) {
+              if (vid > IDS.vedicTo) break;
+              list.push({
+                id: vid++, title: vedicEventTitle(e), body: vedicEventBody(e), channelId: CH,
+                extra: { dayAnchor: civilOf(e.at, tz).toISOString(), vedic: true,
+                  selfId: settings.transitSelfId },
+                schedule: { at: deferPastQuiet(e.at, tz, settings), allowWhileIdle: true },
+              });
+              vcount++;
+            }
+            push(`джйотиш-дат запланировано: ${vcount}`);
+          }
+        }
+      } catch (e) {
+        push('ОШИБКА джйотиш-уведомлений: ' + (e instanceof Error ? e.message : String(e)));
       }
     }
 

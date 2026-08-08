@@ -15,6 +15,7 @@ import { buildVedicChart, vimshottari, currentDasha,
   type VedicChart, type DashaPeriod } from './vedic.ts';
 import { vargaSignAt, type VargaId } from './vargas.ts';
 import { upagrahas, type SkyForUpagraha, type UpagrahaResult } from './upagraha.ts';
+import { mrityuCheck } from './mrityu.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
 /** Латиница — международный стандарт джйотиш-программ; выбор владелицы
@@ -35,6 +36,13 @@ export interface VedicNatal {
   upagrahas: UpagrahaResult;
   /** пояс МЕСТА рождения: границы частей суток лежат в нём, не в поясе показа */
   birthTz: string;
+  /** Исходные данные расчёта — их и сверяют построчно с другой программой,
+   *  когда «даты даш не сходятся» (раунд 2, §2: расхождение почти всегда в
+   *  часовом поясе или координатах, а не в математике даш). */
+  birthUTC: Date;
+  place: { lat: number; lon: number };
+  /** аянамша на момент рождения, градусы */
+  ayanamsa: number;
 }
 
 /** Дни недели en-US → индекс (0 = вс): вара берётся по МЕСТНОЙ дате места
@@ -64,9 +72,16 @@ const lonMap = (pos: BodyPosition[]) => {
   return { lons, retro };
 };
 
+/** Место годится для лагны. Ровно 0,0 — не место рождения, а след старого бага
+ *  формы (координаты молча сохранялись нулями, Гвинейский залив). Такие записи
+ *  ещё лежат на устройствах: лучше честно сказать «нет места», чем нарисовать
+ *  кундали с чужой лагной. */
+export const placeUsable = (place: Person['place']): place is NonNullable<Person['place']> =>
+  !!place && (place.lat !== 0 || place.lon !== 0);
+
 /** Натальная карта D1 + периоды Вимшоттари. null — нет места рождения (нет лагны). */
 export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNatal | null {
-  if (!p.place) return null;
+  if (!placeUsable(p.place)) return null;
   const when = birthInstantUTC(p);
   const jd = E.toJD(when);
   const h = E.houses(jd, p.place.lat, p.place.lon, 'wholeSign');
@@ -79,7 +94,8 @@ export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNa
   const sky = skyFor(E, p.place.lat, p.place.lon, p.birthTz);
   return { chart, dashas, now: currentDasha(dashas, at),
     dashaDaysPerMinute: dashaSensitivity(moonSpeed, first),
-    upagrahas: upagrahas(when, lons['Солнце'], sky), birthTz: p.birthTz };
+    upagrahas: upagrahas(when, lons['Солнце'], sky), birthTz: p.birthTz,
+    birthUTC: when, place: { lat: p.place.lat, lon: p.place.lon }, ayanamsa: E.ayanamsa(jd) };
 }
 
 /** «Сейчас на небе» в сидерических знаках — карта без домов и без лагны:
@@ -111,6 +127,12 @@ export function vedicSky(E: Engine, when: Date = new Date()): VedicSky {
 }
 
 /** Клетки для VedicChart.svelte (северо-индийский ромб). */
+/** Пометка мритью бхаги для клетки чертежа: в орбисе / близко к точке. */
+const mbMark = (name: string, lon: number): 'hit' | 'strong' | undefined => {
+  const h = mrityuCheck(name, lon);
+  return h ? (h.strong ? 'strong' : 'hit') : undefined;
+};
+
 export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
   house: h.house,
   signIndex: h.signIndex,
@@ -118,12 +140,15 @@ export const chartCells = (c: VedicChart) => c.houses.map((h) => ({
     // As в первом доме: без метки лагны непонятно, где начало карты —
     // во всех джйотиш-программах она стоит
     ...(h.house === 1
-      ? [{ short: LAGNA_SHORT, deg: Math.floor(c.lagnaLon % 30), retro: false }]
+      ? [{ short: LAGNA_SHORT, deg: Math.floor(c.lagnaLon % 30), retro: false,
+          mb: mbMark('Лагна', c.lagnaLon) }]
       : []),
     ...h.planets.map((p) => ({
       short: SHORT[p.name] ?? p.name.slice(0, 2),
       deg: Math.floor(p.degInSign),
       retro: p.retro,
+      // красным — попавшие в мритью бхагу (правка астролога, раунд 2 §3)
+      mb: mbMark(p.name, p.lon),
     })),
   ],
 }));

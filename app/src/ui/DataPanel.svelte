@@ -80,7 +80,8 @@
     return () => clearTimeout(t);
   });
 
-  type NotifyField = 'notifyDaily' | 'notifyAspects' | 'notifyTransits';
+  type NotifyField = 'notifyDaily' | 'notifyAspects' | 'notifyTransits'
+    | 'notifyPanchanga' | 'notifyVedicDates';
   // какой тумблер ждёт пояснения перед первым запросом разрешения (П.8 онбординга):
   // при первом включении любого уведомления показываем свою карточку «зачем»,
   // и только по «Дальше →» дёргаем системный диалог. Повторные включения — сразу.
@@ -194,64 +195,65 @@
   </header>
 
   <details class="sec">
-    <summary class="group">Внешний вид</summary>
+    <summary class="group">Расчёты</summary>
+
   <div class="block">
-    <div class="lbl">Тема</div>
-    <div class="seg">
-      {#each [['aurora', 'Аврора'], ['dawn', 'Рассвет ✨'], ['auto', 'Авто']] as [id, label]}
-        <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
-      {/each}
-    </div>
-
-    <div class="lbl" style="margin-top:14px">Символы знаков</div>
-    <div class="styles">
-      {#each SIGN_STYLES as st}
-        <button class="style st-{st.id}" class:on={cfg.signStyle === st.id} onclick={() => setSign(st.id)}>
-          <span class="sw"></span>{st.label}
-        </button>
-      {/each}
-    </div>
-
-    <label class="toggle" style="margin-top:14px">
-      <input type="checkbox" checked={cfg.largeFont}
-        onchange={(e) => save({ largeFont: (e.target as HTMLInputElement).checked })} />
-      Крупный шрифт
-    </label>
-
-    <div class="lbl" style="margin-top:14px">Экономия аккумулятора</div>
-    <div class="seg">
-      {#each [['off', 'Выкл'], ['auto', 'Авто'], ['on', 'Вкл']] as [id, label]}
-        <button class:on={(cfg.batterySaver ?? 'auto') === id}
-          onclick={() => save({ batterySaver: id as 'off' | 'auto' | 'on' })}>{label}</button>
-      {/each}
-    </div>
-    <div class="hint small" style="margin-top:6px">
-      Гасит блёстки, сполохи фона, размытие и анимации — заметно бережёт батарею
-      на слабых телефонах. «Авто» включается сам при низком заряде.
-    </div>
-  </div>
-
-  </details>
-  <details class="sec">
-    <summary class="group">Обучение</summary>
-  <div class="block">
-    {#if onstarttour}<button class="btn" onclick={() => onstarttour?.()} style="margin-bottom:8px">🎓 Тур по приложению</button>{/if}
-    {#if onCourse}<button class="btn" onclick={() => onCourse?.()} style="margin-bottom:8px">📖 Курс астрологии{#if vedic} (западная школа){/if}</button>{/if}
-    <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
-    <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
-      Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
-      и получить разбор.</div>
+    <!-- Школа (западная/джйотиш) переключается ЧИПАМИ вверху главного экрана —
+         второй такой же переключатель в настройках убран по правке владелицы
+         2026-07-29: два места для одного тумблера путают. Здесь остаются только
+         настройки выбранной школы. -->
+    <div class="lbl">Зодиак</div>
+    <div class="hint small">Сейчас: <b>{vedic ? 'ведический · джйотиш' : 'западный · тропический'}</b>.
+      Школа переключается кнопками «Западная / Джйотиш» вверху главного экрана.</div>
     {#if vedic}
-      <div class="hint small" style="margin-top:8px">Тур по приложению говорит словами
-        джйотиша. А вот курс написан про западную школу: там знаки, дома по градусам и
-        аспекты по орбисам — в джйотише это устроено иначе. Ведический курс пока
-        не написан.</div>
+      <div class="lbl" style="margin-top:10px">Аянамша</div>
+      <select class="select" value={cfg.ayanamsa ?? 'lahiri'}
+        onchange={(e) => save({ ayanamsa: (e.target as HTMLSelectElement).value })}>
+        {#each AYANAMSAS as a}<option value={a.id}>{a.label}</option>{/each}
+      </select>
+      <div class="hint small" style="margin-top:8px">Ведический режим меняет весь расчёт: знаки и
+        градусы сдвигаются на аянамшу (сейчас около 24°), дома становятся целознаковыми.
+        Углы между грахами остаются те же — сдвиг одинаков для всех.</div>
+      <!-- Узлы: средние по умолчанию (решение Георгия 2026-08-06). Истинные —
+           опцией: разница до 1,5°, и на границе знака/накшатры она решает. -->
+      <div class="lbl" style="margin-top:12px">Раху и Кету</div>
+      <div class="seg" role="group" aria-label="Узлы: средние или истинные">
+        <button class:on={(cfg.vedicNodes ?? 'mean') === 'mean'}
+          onclick={() => save({ vedicNodes: 'mean' })}>Средние</button>
+        <button class:on={cfg.vedicNodes === 'true'}
+          onclick={() => save({ vedicNodes: 'true' })}>Истинные</button>
+      </div>
+      <div class="hint small" style="margin-top:8px">Средние узлы идут ровно назад, истинные
+        колеблются вокруг них. Классика джйотиша и Jagannatha Hora по умолчанию считают
+        <b>средние</b> — на них и сверяемся. Разница доходит до 1,5°: у границы знака или
+        накшатры она меняет дом и владыку периода, поэтому переключатель тут, а не спрятан.</div>
+      <!-- стиль чертежа кундали: ромб (север) или квадратная сетка (юг).
+           Расчёт один и тот же — меняется только раскладка клеток. -->
+      <div class="lbl" style="margin-top:12px">Стиль карты</div>
+      <div class="seg" role="group" aria-label="Стиль ведической карты">
+        <button class:on={(cfg.chartStyle ?? 'north') === 'north'}
+          onclick={() => save({ chartStyle: 'north' })}>Северный · ромб</button>
+        <button class:on={cfg.chartStyle === 'south'}
+          onclick={() => save({ chartStyle: 'south' })}>Южный · квадрат</button>
+      </div>
+      <div class="hint small" style="margin-top:8px">В северном стиле места закреплены за
+        домами, а знаки по ним переезжают (в углу клетки — номер знака). В южном наоборот:
+        знак стоит на своём месте, переезжают дома (в углу — номер дома), а лагна помечена
+        чертой в углу клетки.</div>
+      <!-- по умолчанию вид ПОЛНЫЙ (приложение делалось для астролога); тумблер
+           убирает специальные слои для того, кто джйотиш только смотрит -->
+      <label class="toggle" style="margin-top:12px">
+        <input type="checkbox" checked={!!cfg.vedicSimple}
+          onchange={(e) => save({ vedicSimple: (e.target as HTMLInputElement).checked })} />
+        Я не астролог — упрощённый вид
+      </label>
+      <div class="hint small">Скрывает варги, навамшу, отношения грах, дришти и аштакаваргу —
+        остаются дома, знаки, грахи с градусами, караки, важные даты и периоды.</div>
+    {:else}
+      <div class="hint small" style="margin-top:8px">Западный зодиак отсчитывается от точки весеннего
+        равноденствия, ведический — от неподвижных звёзд. Одна и та же планета попадает в разные знаки.</div>
     {/if}
   </div>
-
-  </details>
-  <details class="sec">
-    <summary class="group">Расчёты</summary>
 
   <div class="block">
     <div class="lbl">Часовой пояс</div>
@@ -269,6 +271,18 @@
     </select>
     <div class="hint small">Все времена и положения (колесо, планеты, точные аспекты, события)
       показываются в этом поясе; можно изменить вручную.</div>
+  </div>
+
+  <div class="block">
+    <div class="lbl">Дома <Hint k="house-system" /></div>
+    <select class="select" value={vedic ? 'wholeSign' : (cfg.houseSystem ?? 'horizontal')}
+      disabled={vedic}
+      onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
+      {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
+    </select>
+    <div class="hint small" style="margin-top:8px">{#if vedic}В ведическом режиме дома всегда
+      целознаковые: дом = знак целиком, первый дом начинается со знака лагны.{:else}Дома рисуются
+      в натальных картах, где задано место рождения (координаты). Без места — колесо без домов.{/if}</div>
   </div>
 
   <div class="block">
@@ -338,76 +352,6 @@
     </div>
   </div>
 
-  <div class="block">
-    <!-- Школа (западная/джйотиш) переключается ЧИПАМИ вверху главного экрана —
-         второй такой же переключатель в настройках убран по правке владелицы
-         2026-07-29: два места для одного тумблера путают. Здесь остаются только
-         настройки выбранной школы. -->
-    <div class="lbl">Зодиак</div>
-    <div class="hint small">Сейчас: <b>{vedic ? 'ведический · джйотиш' : 'западный · тропический'}</b>.
-      Школа переключается кнопками «Западная / Джйотиш» вверху главного экрана.</div>
-    {#if vedic}
-      <div class="lbl" style="margin-top:10px">Аянамша</div>
-      <select class="select" value={cfg.ayanamsa ?? 'lahiri'}
-        onchange={(e) => save({ ayanamsa: (e.target as HTMLSelectElement).value })}>
-        {#each AYANAMSAS as a}<option value={a.id}>{a.label}</option>{/each}
-      </select>
-      <div class="hint small" style="margin-top:8px">Ведический режим меняет весь расчёт: знаки и
-        градусы сдвигаются на аянамшу (сейчас около 24°), дома становятся целознаковыми.
-        Углы между грахами остаются те же — сдвиг одинаков для всех.</div>
-      <!-- Узлы: средние по умолчанию (решение Георгия 2026-08-06). Истинные —
-           опцией: разница до 1,5°, и на границе знака/накшатры она решает. -->
-      <div class="lbl" style="margin-top:12px">Раху и Кету</div>
-      <div class="seg" role="group" aria-label="Узлы: средние или истинные">
-        <button class:on={(cfg.vedicNodes ?? 'mean') === 'mean'}
-          onclick={() => save({ vedicNodes: 'mean' })}>Средние</button>
-        <button class:on={cfg.vedicNodes === 'true'}
-          onclick={() => save({ vedicNodes: 'true' })}>Истинные</button>
-      </div>
-      <div class="hint small" style="margin-top:8px">Средние узлы идут ровно назад, истинные
-        колеблются вокруг них. Классика джйотиша и Jagannatha Hora по умолчанию считают
-        <b>средние</b> — на них и сверяемся. Разница доходит до 1,5°: у границы знака или
-        накшатры она меняет дом и владыку периода, поэтому переключатель тут, а не спрятан.</div>
-      <!-- стиль чертежа кундали: ромб (север) или квадратная сетка (юг).
-           Расчёт один и тот же — меняется только раскладка клеток. -->
-      <div class="lbl" style="margin-top:12px">Стиль карты</div>
-      <div class="seg" role="group" aria-label="Стиль ведической карты">
-        <button class:on={(cfg.chartStyle ?? 'north') === 'north'}
-          onclick={() => save({ chartStyle: 'north' })}>Северный · ромб</button>
-        <button class:on={cfg.chartStyle === 'south'}
-          onclick={() => save({ chartStyle: 'south' })}>Южный · квадрат</button>
-      </div>
-      <div class="hint small" style="margin-top:8px">В северном стиле места закреплены за
-        домами, а знаки по ним переезжают (в углу клетки — номер знака). В южном наоборот:
-        знак стоит на своём месте, переезжают дома (в углу — номер дома), а лагна помечена
-        чертой в углу клетки.</div>
-      <!-- по умолчанию вид ПОЛНЫЙ (приложение делалось для астролога); тумблер
-           убирает специальные слои для того, кто джйотиш только смотрит -->
-      <label class="toggle" style="margin-top:12px">
-        <input type="checkbox" checked={!!cfg.vedicSimple}
-          onchange={(e) => save({ vedicSimple: (e.target as HTMLInputElement).checked })} />
-        Я не астролог — упрощённый вид
-      </label>
-      <div class="hint small">Скрывает варги, навамшу, отношения грах, дришти и аштакаваргу —
-        остаются дома, знаки, грахи с градусами, караки, важные даты и периоды.</div>
-    {:else}
-      <div class="hint small" style="margin-top:8px">Западный зодиак отсчитывается от точки весеннего
-        равноденствия, ведический — от неподвижных звёзд. Одна и та же планета попадает в разные знаки.</div>
-    {/if}
-  </div>
-
-  <div class="block">
-    <div class="lbl">Дома <Hint k="house-system" /></div>
-    <select class="select" value={vedic ? 'wholeSign' : (cfg.houseSystem ?? 'horizontal')}
-      disabled={vedic}
-      onchange={(e) => save({ houseSystem: (e.target as HTMLSelectElement).value })}>
-      {#each HOUSE_SYSTEMS as h}<option value={h.id}>{h.label}</option>{/each}
-    </select>
-    <div class="hint small" style="margin-top:8px">{#if vedic}В ведическом режиме дома всегда
-      целознаковые: дом = знак целиком, первый дом начинается со знака лагны.{:else}Дома рисуются
-      в натальных картах, где задано место рождения (координаты). Без места — колесо без домов.{/if}</div>
-  </div>
-
   </details>
   <details class="sec">
     <summary class="group">Уведомления</summary>
@@ -416,7 +360,8 @@
       <!-- П.8 онбординга: контекст ПЕРЕД системным запросом разрешения -->
       <div class="whycard">
         <b>Включить напоминания?</b>
-        <p>Напоминания приходят в момент точного аспекта и сводкой по расписанию.
+        <p>Приходят сводкой по расписанию и в момент события — что именно считать
+          событием, выбираешь ниже отдельно для западной школы и для джйотиша.
           Android спросит разрешение — согласись, иначе ничего не придёт.</p>
         <div class="row">
           <button class="btn primary" onclick={confirmNotify}>Дальше →</button>
@@ -424,6 +369,17 @@
         </div>
       </div>
     {/if}
+    <!-- Школы — двумя отдельными блоками (правка владелицы 2026-08-08). Раньше
+         тумблеры были одни на всё приложение и говорили западным языком, из-за
+         чего в джйотише приходили «несуществующие аспекты». Теперь видно, что
+         именно включаешь, и обе школы можно держать включёнными разом. -->
+    <div class="hint small" style="margin-bottom:10px">Школы независимы: можно включить обе.
+      Западные уведомления говорят про аспекты и градусы, ведические — про панчангу, даши и
+      гочару; ведические помечены словом «Джйотиш» в заголовке.</div>
+
+    <div class="lbl">Западная школа</div>
+    <div class="hint small" style="margin-bottom:8px">Аспекты по градусам с орбисом, ретро-станции,
+      транзиты к натальной карте.</div>
     <label class="toggle">
       <input type="checkbox" checked={cfg.notifyDaily}
         onchange={(e) => onNotifyToggle('notifyDaily', (e.target as HTMLInputElement).checked)} />
@@ -462,31 +418,56 @@
     <label class="toggle" style="margin-top:12px">
       <input type="checkbox" checked={cfg.notifyTransits}
         onchange={(e) => onNotifyToggle('notifyTransits', (e.target as HTMLInputElement).checked)} />
-      {vedic ? 'Гочара к моей карте' : 'Транзиты к моей натальной карте'}
+      Транзиты к моей натальной карте
     </label>
     {#if cfg.notifyTransits}
-      <div style="margin-top:8px">
-        <select class="select" value={cfg.transitSelfId ?? ''}
-          onchange={(e) => save({ transitSelfId: (e.target as HTMLSelectElement).value || undefined })}>
-          <option value="">— выбери человека («моя карта») —</option>
-          {#each people as p}<option value={p.id}>{p.name}</option>{/each}
-        </select>
-        <label class="toggle" style="margin-top:8px">
-          <input type="checkbox" checked={cfg.transitCusps}
-            onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
-          + куспиды домов (нужны место и время рождения)
-        </label>
-        {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека в нижнем меню «Добавить».</div>{/if}
+      <label class="toggle" style="margin-top:8px">
+        <input type="checkbox" checked={cfg.transitCusps}
+          onchange={(e) => save({ transitCusps: (e.target as HTMLInputElement).checked })} />
+        + куспиды домов (нужны место и время рождения)
+      </label>
+    {/if}
+
+    <!-- ── джйотиш: СВОИ поводы, не перевод западных ── -->
+    <div class="lbl" style="margin-top:18px">Джйотиш</div>
+    <div class="hint small" style="margin-bottom:8px">Панчанга дня и крупные даты карты.
+      Считается по сидерическому зодиаку и правилам джйотиша — независимо от того,
+      какая школа сейчас выбрана на главном экране.</div>
+    <label class="toggle">
+      <input type="checkbox" checked={cfg.notifyPanchanga}
+        onchange={(e) => onNotifyToggle('notifyPanchanga', (e.target as HTMLInputElement).checked)} />
+      Панчанга дня
+    </label>
+    <div class="hint small" style="margin-top:4px">Пять членов дня: вара, титхи, накшатра Луны,
+      йога, карана — с часом, до которого держатся титхи и накшатра.</div>
+    {#if cfg.notifyPanchanga}
+      <div class="orb" style="margin-top:8px">
+        <span class="small">в</span>
+        <input type="time" value={cfg.panchangaTime ?? '08:00'}
+          onchange={(e) => save({ panchangaTime: (e.target as HTMLInputElement).value })} />
       </div>
     {/if}
-    {#if vedic}
-      <!-- честность: сами пинги моментов считаются по западной механике (орбисы).
-           Ведических поводов (вход грахи в знак, смена даши) пока нет — не
-           выдаём одно за другое (правило «два интерфейса не путать») -->
-      <div class="hint small" style="margin-top:8px">Точечные пинги ловят момент, когда угол
-        между грахами становится точным, — это западный способ считать. Ведические поводы
-        (вход грахи в знак, смена периода) в уведомления пока не заведены: их видно
-        на экране дня в «Переходах» и в разборе карты.</div>
+    <label class="toggle" style="margin-top:12px">
+      <input type="checkbox" checked={cfg.notifyVedicDates}
+        onchange={(e) => onNotifyToggle('notifyVedicDates', (e.target as HTMLInputElement).checked)} />
+      Важные даты моей карты
+    </label>
+    <div class="hint small" style="margin-top:4px">Смена махадаши и антардаши, заход Юпитера,
+      Сатурна и узлов в новый знак, фазы Саде Сати, узловые возвращения. Событий немного —
+      это не ежедневный поток. Нужна выбранная «моя карта» с местом и временем рождения.</div>
+
+    <!-- ── общее для обеих школ ── -->
+    <div class="lbl" style="margin-top:18px">Общее</div>
+    {#if cfg.notifyTransits || cfg.notifyVedicDates}
+      <div class="hint small" style="margin-bottom:6px">«Моя карта» — чей натал отслеживаем
+        (её берут и транзиты, и ведические даты).</div>
+      <select class="select" value={cfg.transitSelfId ?? ''}
+        onchange={(e) => save({ transitSelfId: (e.target as HTMLSelectElement).value || undefined })}>
+        <option value="">— выбери человека («моя карта») —</option>
+        {#each people as p}<option value={p.id}>{p.name}</option>{/each}
+      </select>
+      {#if !people.length}<div class="hint small" style="margin-top:6px">Сначала добавь человека
+        в нижнем меню «Добавить».</div>{/if}
     {/if}
 
     <label class="toggle" style="margin-top:12px">
@@ -504,7 +485,9 @@
           onchange={(e) => save({ quietTo: (e.target as HTMLInputElement).value })} />
       </div>
       <div class="hint small" style="margin-top:6px">В это время точечные пинги аспектов и транзитов
-        не приходят. Сводка приходит по своему расписанию.</div>
+        не приходят. Сводки (западная и панчанга) идут по своему расписанию. Крупные ведические
+        даты не пропадают: смена даши или заход грахи, выпавшие на ночь, придут утром, когда
+        тихое время кончится.</div>
     {/if}
 
     <div style="margin-top:10px">
@@ -518,6 +501,63 @@
         «Без ограничений» для Astra — иначе телефон молча убивает уведомления.</div>
       <div class="msg small" style="margin-top:6px;font-family:var(--font-mono);white-space:pre-wrap;font-size:0.72rem">{reminderLog().join('\n') || '(пусто)'}</div>
     </details>
+  </div>
+
+  </details>
+  <details class="sec">
+    <summary class="group">Внешний вид</summary>
+  <div class="block">
+    <div class="lbl">Тема</div>
+    <div class="seg">
+      {#each [['aurora', 'Аврора'], ['dawn', 'Рассвет ✨'], ['auto', 'Авто']] as [id, label]}
+        <button class:on={cfg.theme === id} onclick={() => setTheme(id as ThemeMode)}>{label}</button>
+      {/each}
+    </div>
+
+    <div class="lbl" style="margin-top:14px">Символы знаков</div>
+    <div class="styles">
+      {#each SIGN_STYLES as st}
+        <button class="style st-{st.id}" class:on={cfg.signStyle === st.id} onclick={() => setSign(st.id)}>
+          <span class="sw"></span>{st.label}
+        </button>
+      {/each}
+    </div>
+
+    <label class="toggle" style="margin-top:14px">
+      <input type="checkbox" checked={cfg.largeFont}
+        onchange={(e) => save({ largeFont: (e.target as HTMLInputElement).checked })} />
+      Крупный шрифт
+    </label>
+
+    <div class="lbl" style="margin-top:14px">Экономия аккумулятора</div>
+    <div class="seg">
+      {#each [['off', 'Выкл'], ['auto', 'Авто'], ['on', 'Вкл']] as [id, label]}
+        <button class:on={(cfg.batterySaver ?? 'auto') === id}
+          onclick={() => save({ batterySaver: id as 'off' | 'auto' | 'on' })}>{label}</button>
+      {/each}
+    </div>
+    <div class="hint small" style="margin-top:6px">
+      Гасит блёстки, сполохи фона, размытие и анимации — заметно бережёт батарею
+      на слабых телефонах. «Авто» включается сам при низком заряде.
+    </div>
+  </div>
+
+  </details>
+  <details class="sec">
+    <summary class="group">Обучение</summary>
+  <div class="block">
+    {#if onstarttour}<button class="btn" onclick={() => onstarttour?.()} style="margin-bottom:8px">🎓 Тур по приложению</button>{/if}
+    {#if onCourse}<button class="btn" onclick={() => onCourse?.()} style="margin-bottom:8px">📖 Курс астрологии{#if vedic} (западная школа){/if}</button>{/if}
+    <button class="btn" onclick={() => onhelp?.()}>Приветствие и правила школы</button>
+    <div class="hint small" style="margin-top:8px">Какой школы держимся и как считаем.
+      Подсказка: в колесе можно коснуться любого символа — планеты или линии аспекта —
+      и получить разбор.</div>
+    {#if vedic}
+      <div class="hint small" style="margin-top:8px">Тур по приложению говорит словами
+        джйотиша. А вот курс написан про западную школу: там знаки, дома по градусам и
+        аспекты по орбисам — в джйотише это устроено иначе. Ведический курс пока
+        не написан.</div>
+    {/if}
   </div>
 
   </details>

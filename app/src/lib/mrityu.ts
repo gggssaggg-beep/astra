@@ -60,20 +60,36 @@ export const MRITYU_SOURCE: Record<MrityuVariant, string> = {
 };
 
 /**
- * Орбис в МИНУТАХ дуги — по д-ру К. С. Чараку. Мритью бхага это точка, а не
- * целый градус, поэтому важно, насколько близко граха подошла.
- * ⚠ Встречается и другое чтение: «весь табличный градус» (26° Луны = отрезок
- * 25°00′–26°00′). Оно шире нашего и ловит больше карт; какой вариант ближе
- * школе Георгия — вопрос к нему, меняется одной таблицей.
+ * Орбис в МИНУТАХ дуги — ОДИН ГРАДУС до и после точки, для всех точек одинаково.
+ *
+ * Правка астролога 2026-08-07 (раунд 2, §3), источник его же — sudarshana.ru:
+ * «действие мритью-бхаги распространяется на нахождение планеты на расстоянии
+ * 1° до и после указанных градусов», и «чем ближе Граха расположена к точному
+ * градусу, тем сильнее воздействие». Отсюда же — подсветка красным и жирным.
+ *
+ * Прежний вариант (д-р К. С. Чарак: лагна 60′, Солнце/Луна/Меркурий 40′,
+ * прочие 30′) оставлен ниже: он уже, ловит меньше карт, и если школа вернётся
+ * к нему — меняется одной строкой в `mrityuOrbMin`.
  */
-export const MRITYU_ORB_MIN: Record<string, number> = {
+export const MRITYU_ORB_MIN_DEFAULT = 60;
+
+/** Узкие орбисы д-ра Чарака — НЕ действуют, оставлены для переключения. */
+export const MRITYU_ORB_CHARAK: Record<string, number> = {
   'Лагна': 60, 'Солнце': 40, 'Луна': 40, 'Меркурий': 40,
 };
-/** Все прочие грахи (Марс, Юпитер, Венера, Сатурн, Раху, Кету, Манди). */
-export const MRITYU_ORB_MIN_DEFAULT = 30;
 
-export const mrityuOrbMin = (name: string): number =>
-  MRITYU_ORB_MIN[name] ?? MRITYU_ORB_MIN_DEFAULT;
+export const mrityuOrbMin = (_name: string): number => MRITYU_ORB_MIN_DEFAULT;
+
+/**
+ * Сила воздействия по близости к точке: 1 — точное попадание, 0 — край орбиса.
+ * Линейно, как и читает правило («чем ближе, тем сильнее»); шкалу школа не
+ * задаёт, поэтому не выдумываем кривых.
+ */
+export const mrityuStrength = (offMin: number, orbMin: number): number =>
+  Math.max(0, 1 - Math.abs(offMin) / orbMin);
+
+/** Порог «жирного» выделения: ближе половины орбиса, то есть 30′ и точнее. */
+export const MRITYU_STRONG = 0.5;
 
 export interface MrityuHit {
   name: string;
@@ -89,6 +105,10 @@ export interface MrityuHit {
   orbMin: number;
   /** по какому трактату совпало (различается только у Луны) */
   variant: MrityuVariant;
+  /** сила: 1 — точно в градусе, 0 — на краю орбиса */
+  strength: number;
+  /** ближе половины орбиса — выделяем жирным (правка астролога) */
+  strong: boolean;
 }
 
 const norm = (x: number): number => ((x % 360) + 360) % 360;
@@ -118,7 +138,9 @@ export function mrityuCheck(name: string, lon: number): MrityuHit | null {
     if (degree == null) return null;
     const offMin = (deg - degree) * 60;
     if (Math.abs(offMin) <= orbMin) {
-      return { name, signIndex, degree, deg, offMin, orbMin, variant };
+      const strength = mrityuStrength(offMin, orbMin);
+      return { name, signIndex, degree, deg, offMin, orbMin, variant,
+        strength, strong: strength >= MRITYU_STRONG };
     }
   }
   return null;
@@ -141,3 +163,9 @@ export const mrityuLabel = (h: MrityuHit): string => {
     : `${h.offMin < 0 ? 'не дошла' : 'прошла'} ${off}′`;
   return `${h.degree}° — ${where}`;
 };
+
+/** Насколько сильно звучит попадание — словами, по расстоянию до точки. */
+export const mrityuForce = (h: MrityuHit): string =>
+  h.strength >= 0.9 ? 'в самой точке — предельно сильно'
+    : h.strong ? 'близко к точке — сильно'
+    : 'у края орбиса — слабее';

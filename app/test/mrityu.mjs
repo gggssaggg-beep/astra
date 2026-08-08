@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict';
 import {
   MRITYU_BHAGA, MRITYU_MOON_PARIJATA, mrityuDegree, mrityuCheck, mrityuHits,
-  mrityuOrbMin, mrityuLabel,
+  mrityuOrbMin, mrityuLabel, mrityuForce,
 } from '../src/lib/mrityu.ts';
 
 let n = 0;
@@ -80,14 +80,28 @@ console.log('=== контрольные значения источников ==
 
 console.log('=== попадание и орбис ===');
 {
-  ok('орбисы Чарака: лагна 60′, Солнце/Луна/Меркурий 40′, прочие 30′', () => {
-    assert.equal(mrityuOrbMin('Лагна'), 60);
-    assert.equal(mrityuOrbMin('Солнце'), 40);
-    assert.equal(mrityuOrbMin('Луна'), 40);
-    assert.equal(mrityuOrbMin('Меркурий'), 40);
-    for (const p of ['Марс', 'Юпитер', 'Венера', 'Сатурн', 'Раху', 'Кету', 'Манди']) {
-      assert.equal(mrityuOrbMin(p), 30);
+  // Правка астролога 2026-08-07 (раунд 2, §3, источник sudarshana.ru): орбис
+  // ОДИН ГРАДУС до и после точки — одинаково для всех, включая лагну и Манди.
+  // Узкие орбисы Чарака (40′/30′) больше не действуют.
+  ok('орбис — один градус у всех точек', () => {
+    for (const p of ['Лагна', 'Солнце', 'Луна', 'Меркурий', 'Марс', 'Юпитер',
+      'Венера', 'Сатурн', 'Раху', 'Кету', 'Манди']) {
+      assert.equal(mrityuOrbMin(p), 60);
     }
+  });
+  ok('сила растёт к точке: 1 в градусе, 0 на краю, половина на 30′', () => {
+    assert.equal(mrityuCheck('Марс', at(0, 19)).strength, 1);
+    assert.equal(Math.round(mrityuCheck('Марс', at(0, 19, 30)).strength * 100), 50);
+    assert.ok(mrityuCheck('Марс', at(0, 19, 59)).strength < 0.02);
+  });
+  ok('жирным — ближе половины орбиса', () => {
+    assert.equal(mrityuCheck('Марс', at(0, 19, 20)).strong, true);
+    assert.equal(mrityuCheck('Марс', at(0, 19, 45)).strong, false);
+  });
+  ok('сила словами — от точки к краю', () => {
+    assert.match(mrityuForce(mrityuCheck('Марс', at(0, 19))), /предельно/);
+    assert.match(mrityuForce(mrityuCheck('Марс', at(0, 19, 20))), /сильно/);
+    assert.match(mrityuForce(mrityuCheck('Марс', at(0, 19, 50))), /слабее/);
   });
   ok('Марс 19°00′ Овна — точное попадание', () => {
     const h = mrityuCheck('Марс', at(0, 19));
@@ -96,14 +110,14 @@ console.log('=== попадание и орбис ===');
     assert.equal(Math.round(h.offMin), 0);
     assert.equal(h.variant, 'phaladeepika');
   });
-  ok('Марс 19°29′ Овна — ещё в орбисе, 19°31′ — уже нет', () => {
-    assert.ok(mrityuCheck('Марс', at(0, 19, 29)));
-    assert.equal(mrityuCheck('Марс', at(0, 19, 31)), null);
+  ok('Марс 19°59′ Овна — ещё в орбисе, 20°01′ — уже нет', () => {
+    assert.ok(mrityuCheck('Марс', at(0, 19, 59)));
+    assert.equal(mrityuCheck('Марс', at(0, 20, 1)), null);
   });
-  ok('орбис двусторонний: Марс 18°31′ — попадание, 18°29′ — нет', () => {
-    assert.ok(mrityuCheck('Марс', at(0, 18, 31)));
-    assert.equal(mrityuCheck('Марс', at(0, 18, 29)), null);
-    assert.ok(mrityuCheck('Марс', at(0, 18, 31)).offMin < 0);   // не дошла
+  ok('орбис двусторонний: Марс 18°01′ — попадание, 17°59′ — нет', () => {
+    assert.ok(mrityuCheck('Марс', at(0, 18, 1)));
+    assert.equal(mrityuCheck('Марс', at(0, 17, 59)), null);
+    assert.ok(mrityuCheck('Марс', at(0, 18, 1)).offMin < 0);   // не дошла
   });
   ok('Солнце в другом знаке смотрит СВОЮ клетку (Дева 24°, не 20°)', () => {
     assert.equal(mrityuCheck('Солнце', at(5, 20)), null);
@@ -143,9 +157,9 @@ console.log('=== список попаданий по карте ===');
 {
   ok('из карты выбираются только попавшие точки', () => {
     const hits = mrityuHits([
-      { name: 'Солнце', lon: at(0, 20, 10) },    // попал (орбис 40′)
+      { name: 'Солнце', lon: at(0, 20, 10) },    // попал
       { name: 'Марс', lon: at(0, 5) },           // мимо
-      { name: 'Сатурн', lon: at(8, 28, 20) },    // попал (орбис 30′)
+      { name: 'Сатурн', lon: at(8, 28, 20) },    // попал
       { name: 'Дхума', lon: at(2, 12) },         // не в таблице
     ]);
     assert.deepEqual(hits.map((h) => h.name), ['Солнце', 'Сатурн']);

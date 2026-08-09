@@ -43,7 +43,11 @@ test {
     useJUnitPlatform()
     // золотые файлы и эфемериды ищем по путям, заданным сборкой
     systemProperty 'astra.golden', file('golden').absolutePath
-    systemProperty 'astra.ephe', file('../ephe').absolutePath
+    // Эфемериды ищем СНАЧАЛА внутри папки (так бывает, когда её отдали в
+    // другой проект целиком), потом рядом в репозитории Astra. Нет ни там,
+    // ни там — тесты движка пропустятся с внятным сообщением.
+    systemProperty 'astra.ephe',
+            (file('ephe').isDirectory() ? file('ephe') : file('../ephe')).absolutePath
     testLogging { events 'passed', 'failed', 'skipped'; showStandardStreams = true }
 }
 

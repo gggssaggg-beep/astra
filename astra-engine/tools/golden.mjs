@@ -187,4 +187,14 @@ save('figures', { meta, cases: MOMENTS.map(([t, why]) => {
     })) };
 }) });
 
+// 12. ΔT (разница земного и всемирного времени). Отдельным файлом, потому что
+// именно он объясняет расхождение с портом: версии Swiss Ephemeris по-разному
+// экстраполируют ΔT на будущее, а Луна проходит 0,55″ за секунду времени —
+// шестнадцать секунд ΔT дают почти десять угловых секунд по Луне.
+save('deltat', { meta, cases: MOMENTS.map(([t, why]) => {
+  const jd = E.toJD(new Date(t));
+  const dt = E.raw.SweModule.ccall('swe_deltat', 'number', ['number'], [jd]);
+  return { utc: t, why, jd: r9(jd), deltaTdays: r9(dt), deltaTsec: r9(dt * 86400) };
+}) });
+
 console.log('готово.');

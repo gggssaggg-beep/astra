@@ -78,7 +78,7 @@ public class SwissData implements java.io.Serializable {
 	 */
 	public String ODEGREE_CHAR = "" + '\u00b0'; // Unicode degree character 176
 	// // Identical in most ISO-8859 sets
-	public String ODEGREE_STRING = "Âø"; /* degree as string, utf8 encoding */
+	public String ODEGREE_STRING = "Ã‚Ã¸"; /* degree as string, utf8 encoding */
 
 	public static final String ayanamsa_name[] = { "Fagan/Bradley", "Lahiri", "De Luce", "Raman", "Ushashashi",
 			"Krishnamurti", "Djwhal Khul", "Yukteshwar", "J.N. Bhasin", "Babylonian/Kugler 1", "Babylonian/Kugler 2",

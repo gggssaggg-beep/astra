@@ -231,10 +231,10 @@ class SwephData implements java.io.Serializable {
 			new AyaInit(1903396.8128654,
 					-0.79167046), /*
 									 * 25: SS, Revati/zePsc at polar long.
-									 * 359Âø50'
+									 * 359Ã‚Ã¸50'
 									 */
 			new AyaInit(1903396.8128654,
-					2.11070444), /* 26: SS, Citra/Spica at polar long. 180Âø */
+					2.11070444), /* 26: SS, Citra/Spica at polar long. 180Ã‚Ã¸ */
 			new AyaInit(0, 0), /* 27: True Citra (Spica exactly at 0 Libra) */
 			new AyaInit(0,
 					0), /* 28: True Revati (zeta Psc exactly at 0 Aries) */

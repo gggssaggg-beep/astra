@@ -101,8 +101,8 @@ package de.thmac.swisseph;
  * position of mean Sun at same epoch
  * <LI>23: Aryabhata, same date, but UT 6:56:55.57 analogous 21
  * <LI>24: Aryabhata, analogous 22
- * <LI>25: SS, Revati/zePsc at polar long. 359Âø50'
- * <LI>26: SS, Citra/Spica at polar long. 180Âø
+ * <LI>25: SS, Revati/zePsc at polar long. 359Ã‚Ã¸50'
+ * <LI>26: SS, Citra/Spica at polar long. 180Ã‚Ã¸
  * </UL>
  * <P>
  * <I><B>You will find the complete documentation for the original

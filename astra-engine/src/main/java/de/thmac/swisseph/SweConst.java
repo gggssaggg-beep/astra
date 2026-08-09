@@ -858,14 +858,14 @@ public class SweConst implements java.io.Serializable {
 	public static final int SE_SIDM_ARYABHATA_MSUN = 24;
 	/**
 	 * A constant to be used for specifying the sidereal mode (ayanamsha) as
-	 * SE_SIDM_SS_REVATI (SS, Revati/zePsc at polar long. 359��50').
+	 * SE_SIDM_SS_REVATI (SS, Revati/zePsc at polar long. 359Âø50').
 	 * 
 	 * @see SwissEph#swe_set_sid_mode(int, double, double)
 	 */
 	public static final int SE_SIDM_SS_REVATI = 25;
 	/**
 	 * A constant to be used for specifying the sidereal mode (ayanamsha) as
-	 * SE_SIDM_SS_CITRA (SS, Citra/Spica at polar long. 180��).
+	 * SE_SIDM_SS_CITRA (SS, Citra/Spica at polar long. 180Âø).
 	 * 
 	 * @see SwissEph#swe_set_sid_mode(int, double, double)
 	 */
@@ -1000,7 +1000,7 @@ public class SweConst implements java.io.Serializable {
 	 * for setGlobalTidalAcc() and ephemeris-dependent delta t: intrinsic tidal
 	 * acceleration in the mean motion of the moon, not given in the parameters
 	 * list of the ephemeris files but computed by
-	 * Chapront/Chapront-Touzé/Francou A&A 387 (2002), p. 705.
+	 * Chapront/Chapront-TouzÃ©/Francou A&A 387 (2002), p. 705.
 	 */
 	public static final double SE_TIDAL_DE200 = (-23.8946);
 	public static final double SE_TIDAL_DE403 = (-25.580); /*
@@ -1033,7 +1033,7 @@ public class SweConst implements java.io.Serializable {
 															 */
 	public static final double SE_TIDAL_DE431 = (-25.80); /*
 															 * IPN Progress Report
-															 * 42-196 �Ǜ
+															 * 42-196 Ç
 															 * February 15,
 															 * 2014, p. 15
 															 */

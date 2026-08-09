@@ -605,7 +605,7 @@ public class SwissLib implements java.io.Serializable {
 	}
 
 	/*
-	 * functions for precession and ecliptic obliquity according to Vondr k et
+	 * functions for precession and ecliptic obliquity according to VondrÂ k et
 	 * alii, 2011
 	 */
 	static final double AS2R = (SwissData.DEGTORAD / 3600.0);
@@ -924,7 +924,7 @@ public class SwissLib implements java.io.Serializable {
 	 * Original program by Steve Moshier. Changes in program structure and
 	 * implementation of IAU 2003 (P03) and Vondrak 2011 by Dieter Koch.
 	 * 
-	 * SEMOD_PREC_VONDRAK_2011 1 J. Vondr k, N. Capitaine, and P. Wallace, "New
+	 * SEMOD_PREC_VONDRAK_2011 1 J. VondrÂ k, N. Capitaine, and P. Wallace, "New
 	 * precession expressions, valid for long time intervals", A&A 534, A22
 	 * (2011)
 	 * 

@@ -204,7 +204,7 @@ public class Extlib implements java.io.Serializable {
 	/**
 	 * Returns the index in the formatter pattern of the given pattern 'what'
 	 * recalculated to the APPLIED pattern of the formatter. E.g. for locale
-	 * zh_HK the pattern is: yyyy'†¹´'MM'‘·ê'dd'‘ù?' ahh:mm:ss The index of 'ss'
+	 * zh_HK the pattern is: yyyy'Â†Â¹Â´'MM'Â‘Â·Ãª'dd'Â‘Ã¹?' ahh:mm:ss The index of 'ss'
 	 * would NOT be 25, which we would get when simply counting in the pattern
 	 * string, but rather 20, when counting in the resulting string.
 	 */

@@ -17,6 +17,12 @@ repositories {
     mavenCentral()   // только для тестовых зависимостей (JUnit, Jackson)
 }
 
+// Кириллица в наших исходниках и градусы в комментариях порта — фиксируем UTF-8
+// явно, иначе javac берёт кодировку системы и на другой машине сборка падает.
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
 java {
     // 17 — работает и на обычной JVM, и в Android (desugaring для java.time не нужен с API 26+)
     toolchain { languageVersion = JavaLanguageVersion.of(17) }

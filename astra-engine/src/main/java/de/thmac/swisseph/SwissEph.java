@@ -1961,7 +1961,7 @@ public class SwissEph implements java.io.Serializable {
 	 * @param attemp
 	 *            Atmospheric temperature in degrees Celsius.
 	 * @param lapse_rate
-	 *            (dattemp/dgeoalt) = [ÂøK/m]
+	 *            (dattemp/dgeoalt) = [Ã‚Ã¸K/m]
 	 * @param calc_flag
 	 *            SweConst.SE_TRUE_TO_APP or SweConst.SE_APP_TO_TRUE
 	 * @param dret

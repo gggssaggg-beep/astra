@@ -12,23 +12,19 @@
 ## 1. Подключение
 
 Библиотека собирается Gradle и кладётся в `build/libs/astra-engine-0.1.0.jar`.
-Ей нужны две вещи снаружи: **зависимость эфемерид** и **каталог файлов
-эфемерид**.
+Снаружи ей нужно ровно одно: **каталог файлов эфемерид**.
 
 ### Gradle
 
 ```groovy
-repositories {
-    mavenCentral()
-    maven { url = 'https://jitpack.io' }   // отсюда берётся Java-порт Swiss Ephemeris
-}
-
 dependencies {
     implementation files('libs/astra-engine-0.1.0.jar')
-    // тот же порт эфемерид, что использует библиотека
-    implementation 'com.github.krishnact:swisseph:6000e46cf8fc57e15444154018af176304f39ec2'
 }
 ```
+
+Больше ничего добавлять не нужно: эфемериды уже внутри jar — порт Swiss
+Ephemeris собирается из исходников самой библиотеки (почему так, а не
+зависимостью, — в [THIRD-PARTY.md](../THIRD-PARTY.md)).
 
 ### Файлы эфемерид
 

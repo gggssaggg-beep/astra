@@ -6,7 +6,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-import de.thmac.swisseph.SweConst;
 import de.thmac.swisseph.SweDate;
 import de.thmac.swisseph.SwissEph;
 
@@ -152,7 +151,4 @@ public final class SwissEphemeris implements Ephemeris, AutoCloseable {
     public SwissEph raw() {
         return swe;
     }
-
-    @SuppressWarnings("unused")
-    private static final int UNUSED_KEEPS_IMPORT = SweConst.SEFLG_SWIEPH;
 }

@@ -37,12 +37,17 @@ Swiss Ephemeris распространяется Astrodienst на условия
 документация лежат здесь же — её можно отдать в другой проект целиком.
 
     astra-engine/
-      src/main/java/…   код библиотеки
-      src/test/java/…   парити-тесты против эталона
-      golden/           эталонные JSON, снятые с JS-движка
-      tools/golden.mjs  генератор эталона (Node, читает движок из ../app)
-      docs/USAGE.md     документация по использованию
-      build.gradle      сборка
+      src/main/java/ru/svcode/astra/    наш код
+      src/main/java/de/thmac/swisseph/  порт Swiss Ephemeris (чужой, см. THIRD-PARTY.md)
+      src/test/java/…                  парити-тесты против эталона
+      golden/                          эталонные JSON, снятые с JS-движка
+      tools/golden.mjs                 генератор эталона (Node, читает движок из ../app)
+      docs/USAGE.md                    документация по использованию
+      THIRD-PARTY.md                   происхождение стороннего кода
+      build.gradle                     сборка
+
+Внешних зависимостей у самой библиотеки нет: эфемериды собираются из исходников
+здесь же, Maven Central нужен только тестам (JUnit и Jackson).
 
     Ephemeris            интерфейс поставщика положений (§2.3 ТЗ)
       └ SwissEphemeris   реализация: Java-порт Swiss Ephemeris, режим SWIEPH

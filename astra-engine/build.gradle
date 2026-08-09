@@ -1,9 +1,10 @@
 // astra-engine — расчётное ядро Astra на Java (западная школа).
 //
-// Зависимость эфемерид: Java-порт Swiss Ephemeris (Томас Мак). На Maven Central
-// его нет, поэтому берём с JitPack по зеркалу на GitHub. Если зеркало окажется
-// недоступным, запасной путь — положить исходники порта в src/main/java
-// (лицензия AGPL это позволяет, см. README).
+// Эфемериды — Java-порт Swiss Ephemeris (Томас Мак), исходники лежат ЗДЕСЬ ЖЕ,
+// в src/main/java/de/thmac/swisseph. Внешней зависимости нет намеренно: ни
+// Maven Central, ни JitPack этот порт не отдают (JitPack публикует метаданные,
+// но сами файлы возвращает 404 — проверено), а библиотека должна собираться
+// офлайн и целиком. Происхождение и лицензия — в THIRD-PARTY.md.
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -13,8 +14,7 @@ group = 'ru.svcode.astra'
 version = '0.1.0'
 
 repositories {
-    mavenCentral()
-    maven { url = 'https://jitpack.io' }
+    mavenCentral()   // только для тестовых зависимостей (JUnit, Jackson)
 }
 
 java {
@@ -24,10 +24,7 @@ java {
 }
 
 dependencies {
-    // эфемериды: порт Swiss Ephemeris на Java
-    // Пин по КОММИТУ, а не по ветке: master-SNAPSHOT на JitPack не разрешается,
-    // а сборка этого коммита там уже лежит готовой (проверено запросом к их API).
-    implementation 'com.github.krishnact:swisseph:6000e46cf8fc57e15444154018af176304f39ec2'
+    // эфемерид в зависимостях НЕТ — порт собирается из исходников этой же папки
 
     // только для тестов: чтение золотых файлов
     testImplementation 'com.fasterxml.jackson.core:jackson-databind:2.17.2'

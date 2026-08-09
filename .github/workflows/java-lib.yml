@@ -1,0 +1,45 @@
+name: Java-библиотека движка (парити)
+
+# Сборка и парити-проверка astra-engine против золотых файлов JS-движка.
+# Локально JDK нет, поэтому единственная честная проверка — здесь.
+on:
+  push:
+    paths: ['java/**', 'ephe/**', '.github/workflows/java-lib.yml']
+  pull_request:
+    paths: ['java/**', 'ephe/**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Сборка и парити
+        working-directory: java
+        run: gradle --no-daemon test build
+
+      - name: Отчёт тестов
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-report
+          path: java/build/reports/tests/test
+          if-no-files-found: ignore
+
+      - name: Артефакт библиотеки
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: astra-engine-jar
+          path: java/build/libs/*.jar
+          if-no-files-found: ignore

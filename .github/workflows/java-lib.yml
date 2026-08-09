@@ -4,9 +4,9 @@ name: Java-библиотека движка (парити)
 # Локально JDK нет, поэтому единственная честная проверка — здесь.
 on:
   push:
-    paths: ['java/**', 'ephe/**', '.github/workflows/java-lib.yml']
+    paths: ['astra-engine/**', 'ephe/**', '.github/workflows/java-lib.yml']
   pull_request:
-    paths: ['java/**', 'ephe/**']
+    paths: ['astra-engine/**', 'ephe/**']
   workflow_dispatch:
 
 jobs:
@@ -25,7 +25,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Сборка и парити
-        working-directory: java
+        working-directory: astra-engine
         run: gradle --no-daemon test build
 
       - name: Отчёт тестов
@@ -33,7 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: java-test-report
-          path: java/build/reports/tests/test
+          path: astra-engine/build/reports/tests/test
           if-no-files-found: ignore
 
       - name: Артефакт библиотеки
@@ -41,5 +41,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: astra-engine-jar
-          path: java/build/libs/*.jar
+          path: astra-engine/build/libs/*.jar
           if-no-files-found: ignore

@@ -118,11 +118,22 @@ public final class SwissEphemeris implements Ephemeris, AutoCloseable {
     public Houses houses(double jd, double lat, double lon, String system) {
         double[] cusps = new double[13];
         double[] ascmc = new double[10];
-        int rc = swe.swe_houses(jd, flags, lat, lon, houseChar(system), cusps, ascmc);
-        if (rc < 0) return null;
+        // Код возврата НЕ проверяем — так же, как в JS-движке. Swiss Ephemeris
+        // возвращает ошибку для Плацидуса и Коха в заполярье, но куспиды при
+        // этом заполняет запасной системой (Порфирий). Отвергать такой ответ
+        // значило бы расходиться с приложением на всех полярных картах.
+        // Признак негодности здесь один: нечисловые Asc/MC.
+        // iflag = 0, а не флаги эфемерид: у C-функции swe_houses этого
+        // параметра нет вовсе, порт добавил его для сидерического режима.
+        swe.swe_houses(jd, 0, lat, lon, houseChar(system), cusps, ascmc);
+        double asc = ascmc[0], mc = ascmc[1];
+        if (!Double.isFinite(asc) || !Double.isFinite(mc)) return null;
         double[] out = new double[12];
         System.arraycopy(cusps, 1, out, 0, 12);   // порт нумерует куспиды с 1
-        return new Houses(out, ascmc[0], ascmc[1]);
+        if ("equalMC".equals(system)) {           // равнодомная от MC — считаем сами, как в JS
+            for (int i = 0; i < 12; i++) out[i] = Angles.norm(mc + (i + 1 - 10) * 30);
+        }
+        return new Houses(out, asc, mc);
     }
 
     /**

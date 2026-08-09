@@ -33,23 +33,52 @@ import org.junit.jupiter.api.Test;
  */
 class EngineGoldenTest {
 
-    /** Долготы планет: 1e-4° = 0,36″. */
-    private static final double LON_TOL = 1e-4;
     /**
-     * Луне — свой допуск, 4e-3° (около 14″). Она движется в тридцать раз быстрее
-     * далёких планет, поэтому разница ΔT между версиями (до ~16 с на будущих
-     * датах) бьёт по ней сильнее всего. Величина измерена, а не назначена:
-     * см. DeltaTGoldenTest, который печатает и саму разницу ΔT, и её цену.
+     * Разница DeltaT между версиями — ИЗМЕРЕНА, а не назначена: до 14,4 секунды
+     * на будущих датах (см. DeltaTGoldenTest, там же печатается сам замер).
      */
-    private static final double MOON_TOL = 4e-3;
-    /** Куспиды домов: расходятся заметнее — они считаются из долгот и наклона. */
+    private static final double DELTA_T_DAYS = 14.4 / 86400.0;
+
+    /**
+     * Допуск по объекту = сколько он проходит за эту разницу DeltaT, плюс
+     * полуторный запас и шум арифметики.
+     *
+     * <p>Это главная мысль всей сверки: расхождение с приложением не
+     * произвольное, оно РОВНО такое, какое даёт разное DeltaT. Поэтому у Луны
+     * допуск в триста раз шире, чем у Нептуна, — не потому что «Луна плохо
+     * считается», а потому что за одну и ту же секунду она проходит в триста
+     * раз большую дугу. Вылезло за эту границу — значит дело уже НЕ в DeltaT,
+     * и это настоящая ошибка порта.
+     */
+    private static double tolFor(String body) {
+        return maxSpeed(body) * DELTA_T_DAYS * 1.5 + 5e-6;
+    }
+
+    /** Наибольшая суточная скорость объекта, градусов в сутки (округлено вверх). */
+    private static double maxSpeed(String body) {
+        return switch (body) {
+            case "Луна" -> 15.4;
+            case "Меркурий" -> 2.2;
+            case "Венера" -> 1.3;
+            case "Солнце" -> 1.02;
+            case "Марс" -> 0.8;
+            case "Юпитер" -> 0.25;
+            case "Сатурн" -> 0.14;
+            case "Уран" -> 0.06;
+            case "Нептун" -> 0.04;
+            case "Раху", "Кету" -> 0.06;
+            default -> 1.0;
+        };
+    }
+
+    /** Куспиды считаются из UT напрямую, DeltaT на них не влияет — тут чистая разница версий. */
     private static final double HOUSE_TOL = 1e-3;
-    /** Скорости, °/сут. */
+    /** Скорости, градусов в сутки. */
     private static final double SPEED_TOL = 1e-4;
-    /** Юлианские даты — чистая арифметика календаря, тут совпадение обязано быть точным. */
+    /** Юлианские даты — арифметика календаря, совпадение обязано быть точным. */
     private static final double JD_TOL = 1e-9;
-    /** Моменты: обе стороны ищут корень делением пополам. */
-    private static final long TIME_TOL_MS = 2000;
+    /** Моменты: обе стороны ищут корень делением пополам, плюс сдвиг от DeltaT. */
+    private static final long TIME_TOL_MS = 30_000;
 
     private static SwissEphemeris eph;
 
@@ -60,23 +89,31 @@ class EngineGoldenTest {
         eph = new SwissEphemeris(path);
     }
 
-    /** Копит максимальное расхождение по разделу и печатает его в конце. */
+    /**
+     * Копит расхождения по разделу. У каждого сравнения СВОЙ допуск (у Луны он
+     * шире, чем у Нептуна), поэтому итог меряется отношением к допуску:
+     * «во сколько раз вылезли». Печатается всегда — цифра должна быть на виду.
+     */
     private static final class Dev {
         private final String what;
-        private double max;
+        private double maxAbs, worstRatio;
         private String where = "—";
         Dev(String what) { this.what = what; }
 
-        void put(double want, double got, String where) {
+        void put(double want, double got, double tol, String where) {
             double d = Math.abs(want - got);
-            if (d > max) { max = d; this.where = where; }
+            if (d > maxAbs) maxAbs = d;
+            double ratio = d / tol;
+            if (ratio > worstRatio) { worstRatio = ratio; this.where = where; }
         }
 
-        void report(double tol) {
-            System.out.printf("  %s: максимум расхождения %.3e (допуск %.0e) — %s%n",
-                    what, max, tol, where);
-            assertTrue(max <= tol, String.format(
-                    "%s разошлось на %.3e при допуске %.0e — %s", what, max, tol, where));
+        void report() {
+            System.out.printf("  %s: максимум %.3e, это %.0f%% допуска — %s%n",
+                    what, maxAbs, worstRatio * 100, where);
+            assertTrue(worstRatio <= 1.0, String.format(
+                    "%s вылезло за допуск в %.1f раза — %s (расхождение %.3e). "
+                    + "Разницей DeltaT это уже не объясняется, ищи ошибку порта",
+                    what, worstRatio, where, maxAbs));
         }
     }
 
@@ -87,19 +124,18 @@ class EngineGoldenTest {
         Dev back = new Dev("обратный перевод, мс");
         for (JsonNode c : Golden.cases("jd")) {
             Instant utc = Instant.parse(c.get("utc").asText());
-            jd.put(c.get("jd").asDouble(), eph.toJD(utc), "" + utc);
+            jd.put(c.get("jd").asDouble(), eph.toJD(utc), JD_TOL, "" + utc);
             back.put(Instant.parse(c.get("backToUtc").asText()).toEpochMilli(),
-                    eph.fromJD(c.get("jd").asDouble()).toEpochMilli(), "" + utc);
+                    eph.fromJD(c.get("jd").asDouble()).toEpochMilli(), 2000, "" + utc);
         }
-        jd.report(JD_TOL);
-        back.report(TIME_TOL_MS);
+        jd.report();
+        back.report();
     }
 
     @Test
     @DisplayName("положения объектов: долгота, знак, градус, скорость, ретро")
     void positions() {
-        Dev lon = new Dev("долгота планет"), moonLon = new Dev("долгота Луны");
-        Dev speed = new Dev("скорость");
+        Dev lon = new Dev("долготы"), speed = new Dev("скорости");
         int n = 0;
         for (JsonNode c : Golden.cases("positions")) {
             Instant utc = Instant.parse(c.get("utc").asText());
@@ -111,9 +147,8 @@ class EngineGoldenTest {
                 JsonNode want = c.get("bodies").get(i);
                 Ephemeris.BodyPosition p = got.get(i);
                 String who = want.get("name").asText() + " на " + utc;
-                boolean isMoon = Constants.MOON.equals(p.name());
-                (isMoon ? moonLon : lon).put(want.get("lon").asDouble(), p.lon(), who);
-                speed.put(want.get("speed").asDouble(), p.speed(), who);
+                lon.put(want.get("lon").asDouble(), p.lon(), tolFor(p.name()), who);
+                speed.put(want.get("speed").asDouble(), p.speed(), SPEED_TOL, who);
                 // знак и ретроградность — качественные, обязаны совпадать ТОЧНО
                 assertEquals(want.get("sign").asText(), p.sign(), "знак " + who);
                 assertEquals(want.get("retro").asBoolean(), p.retro(), "ретро " + who);
@@ -121,9 +156,8 @@ class EngineGoldenTest {
             }
         }
         System.out.println("  положений сверено: " + n);
-        lon.report(LON_TOL);
-        moonLon.report(MOON_TOL);
-        speed.report(SPEED_TOL);
+        lon.report();
+        speed.report();
     }
 
     @Test
@@ -138,42 +172,39 @@ class EngineGoldenTest {
                     c.get("lon").asDouble(), c.get("system").asText());
             String who = c.get("system").asText() + " @ " + c.get("why").asText();
             assertNotNull(h, "дома не посчитались: " + who);
-            cusp.put(c.get("asc").asDouble(), h.asc(), "Asc " + who);
-            cusp.put(c.get("mc").asDouble(), h.mc(), "MC " + who);
+            cusp.put(c.get("asc").asDouble(), h.asc(), HOUSE_TOL, "Asc " + who);
+            cusp.put(c.get("mc").asDouble(), h.mc(), HOUSE_TOL, "MC " + who);
             for (int i = 0; i < 12; i++) {
-                cusp.put(c.get("cusps").get(i).asDouble(), h.cusps()[i], "куспид " + (i + 1) + " " + who);
+                cusp.put(c.get("cusps").get(i).asDouble(), h.cusps()[i], HOUSE_TOL,
+                        "куспид " + (i + 1) + " " + who);
             }
             n++;
         }
         System.out.println("  систем домов сверено: " + n + (skipped > 0 ? ", пропущено " + skipped : ""));
-        cusp.report(HOUSE_TOL);
+        cusp.report();
     }
 
     @Test
     @DisplayName("аспекты суток: состав, орбис, интервал вход-точно-выход и порядок")
     void aspects() {
-        Dev pos = new Dev("позиции планет в аспекте"), posMoon = new Dev("позиция Луны в аспекте");
-        Dev orbDev = new Dev("орбис");
+        Dev pos = new Dev("позиции в аспекте"), orbDev = new Dev("орбис");
         Dev time = new Dev("моменты, мс");
         int n = 0;
         for (JsonNode c : Golden.cases("aspects")) {
             Instant day = Instant.parse(c.get("day").asText() + "T00:00:00Z");
             Aspects.DayAspects got = Aspects.aspectsOn(eph, day);
-            n += compare(c.get("slow"), got.slow(), "slow " + c.get("day").asText(), pos, posMoon, orbDev, time);
-            n += compare(c.get("fast"), got.fast(), "fast " + c.get("day").asText(), pos, posMoon, orbDev, time);
-            n += compare(c.get("moon"), got.moon(), "moon " + c.get("day").asText(), pos, posMoon, orbDev, time);
+            n += compare(c.get("slow"), got.slow(), "slow " + c.get("day").asText(), pos, orbDev, time);
+            n += compare(c.get("fast"), got.fast(), "fast " + c.get("day").asText(), pos, orbDev, time);
+            n += compare(c.get("moon"), got.moon(), "moon " + c.get("day").asText(), pos, orbDev, time);
         }
         System.out.println("  аспектов сверено: " + n);
-        pos.report(LON_TOL);
-        posMoon.report(MOON_TOL);
-        // 0,05° — не «чтобы прошло»: орбис считается из тех же долгот, а у Луны
-        // они сдвинуты разницей ΔT; для планет расхождение остаётся в сотых
-        orbDev.report(0.05);
-        time.report(TIME_TOL_MS);
+        pos.report();
+        orbDev.report();
+        time.report();
     }
 
     private int compare(JsonNode want, List<Aspects.AspectRecord> got, String where,
-                        Dev pos, Dev posMoon, Dev orbDev, Dev time) {
+                        Dev pos, Dev orbDev, Dev time) {
         // состав и порядок обязаны совпадать точно: порядок — требование астролога
         assertEquals(want.size(), got.size(), "число аспектов, " + where);
         for (int i = 0; i < want.size(); i++) {
@@ -185,12 +216,12 @@ class EngineGoldenTest {
             assertEquals(w.get("p2").asText(), a.p2(), "второй объект пары, " + who);
             assertEquals(w.get("aspect").asText(), a.aspect(), "аспект, " + who);
             assertEquals(w.get("applying").asBoolean(), a.applying(), "сходится/расходится, " + who);
-            orbDev.put(w.get("exactOrb").asDouble(), a.exactOrb(), who);
+            // орбис считается из тех же долгот: его допуск — сумма допусков пары
+            orbDev.put(w.get("exactOrb").asDouble(), a.exactOrb(),
+                    tolFor(a.p1()) + tolFor(a.p2()) + 0.011, who);
             // позиция Луны сверяется своим допуском — причина та же, ΔT
-            Dev p1dev = Constants.MOON.equals(a.p1()) ? posMoon : pos;
-            Dev p2dev = Constants.MOON.equals(a.p2()) ? posMoon : pos;
-            p1dev.put(w.get("pos1").asDouble(), a.pos1(), who);
-            p2dev.put(w.get("pos2").asDouble(), a.pos2(), who);
+            pos.put(w.get("pos1").asDouble(), a.pos1(), tolFor(a.p1()), who);
+            pos.put(w.get("pos2").asDouble(), a.pos2(), tolFor(a.p2()), who);
             putTime(time, w.get("exactTime"), a.exactTime(), "точный момент, " + who);
             putTime(time, w.get("beginTime"), a.beginTime(), "вход в орбис, " + who);
             putTime(time, w.get("endTime"), a.endTime(), "выход из орбиса, " + who);
@@ -204,6 +235,6 @@ class EngineGoldenTest {
             return;
         }
         assertNotNull(got, what + " — в эталоне есть, у нас нет");
-        dev.put(Instant.parse(want.asText()).toEpochMilli(), got.toEpochMilli(), what);
+        dev.put(Instant.parse(want.asText()).toEpochMilli(), got.toEpochMilli(), TIME_TOL_MS, what);
     }
 }

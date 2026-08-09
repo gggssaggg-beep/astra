@@ -1,6 +1,7 @@
 package ru.svcode.astra;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
@@ -54,15 +55,13 @@ public final class SwissEphemeris implements Ephemeris, AutoCloseable {
     @Override
     public Instant fromJD(double jd) {
         SweDate d = new SweDate(jd, SweDate.SE_GREG_CAL);
-        double h = d.getHour();
-        int hh = (int) Math.floor(h);
-        int mm = (int) Math.floor((h - hh) * 60);
-        double secF = ((h - hh) * 60 - mm) * 60;
-        int ss = (int) Math.floor(secF);
-        int ms = (int) Math.round((secF - ss) * 1000);
-        if (ms == 1000) { ms = 0; ss++; }   // округление секунд не должно давать 1000 мс
-        return ZonedDateTime.of(d.getYear(), d.getMonth(), d.getDay(), hh, mm, ss,
-                ms * 1_000_000, ZoneOffset.UTC).toInstant();
+        // Часы прибавляем длительностью к полуночи даты, а НЕ раскладываем на
+        // поля часы/минуты/секунды: при округлении 59,9995 с получалось «60»,
+        // и java.time отвергал такое время. Перенос через Duration невозможен
+        // в принципе — он сам переливается в минуты, часы и сутки.
+        long millis = Math.round(d.getHour() * 3_600_000.0);
+        return LocalDate.of(d.getYear(), d.getMonth(), d.getDay())
+                .atStartOfDay(ZoneOffset.UTC).toInstant().plusMillis(millis);
     }
 
     /** Долгота объекта. Кету — узел плюс 180°, как во всём проекте. */

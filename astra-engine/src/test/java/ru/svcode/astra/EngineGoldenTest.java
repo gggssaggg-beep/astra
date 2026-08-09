@@ -254,8 +254,12 @@ class EngineGoldenTest {
             // позиция Луны сверяется своим допуском — причина та же, ΔT
             pos.put(w.get("pos1").asDouble(), a.pos1(), tolFor(a.p1()), who);
             pos.put(w.get("pos2").asDouble(), a.pos2(), tolFor(a.p2()), who);
-            long edgeTol = "SLOW".equals(w.get("bucket").asText().toUpperCase())
-                    ? EDGE_SLOW_TOL_MS : EDGE_FAST_TOL_MS;
+            // Обусловленность границы определяется РЕАЛЬНОЙ скоростью пары, а не
+            // корзиной показа: в корзинах Кету не считается медленным (его нет в
+            // списке SLOW у движка), хотя движется он медленнее всех. Пара
+            // Нептун ☌ Кету на этом и попалась.
+            double fastest = Math.max(maxSpeed(a.p1()), maxSpeed(a.p2()));
+            long edgeTol = fastest < 1.0 ? EDGE_SLOW_TOL_MS : EDGE_FAST_TOL_MS;
             putTime(exact, w.get("exactTime"), a.exactTime(), EXACT_TOL_MS, "точный момент, " + who);
             putTime(edge, w.get("beginTime"), a.beginTime(), edgeTol, "вход в орбис, " + who);
             putTime(edge, w.get("endTime"), a.endTime(), edgeTol, "выход из орбиса, " + who);

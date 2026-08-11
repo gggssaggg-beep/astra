@@ -17,7 +17,7 @@ import { Browser } from '@capacitor/browser';
 // НЕ секрет, данные защищает RLS на сервере) ===
 export const SUPABASE_URL = 'https://vbaysgzdvdyljlwlnivq.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_rYe1PJ0juzDec87oK7QC6Q_iSufPThD';
-// deep link возврата из Google-входа (intent-filter в AndroidManifest)
+// deep link возврата из письма со ссылкой входа (intent-filter в AndroidManifest)
 const NATIVE_REDIRECT = 'astra://auth';
 // веб: возврат на ТЕКУЩУЮ страницу приложения (origin + путь), НЕ на голый домен.
 // На GitHub Pages приложение живёт в подпапке /astra/, а не в корне; голый
@@ -67,7 +67,7 @@ export function sb(): SupabaseClient {
 
 let deepLinkReady = false;
 /** Подписка на изменения auth + один раз deep link `astra://auth?code=…`
- *  (возврат из Google). Возвращает cleanup-функцию: без снятия подписки
+ *  (возврат по ссылке из письма). Возвращает cleanup-функцию: без снятия подписки
  *  слушатели копились при каждом открытии шторки Сообщества. */
 export function initCommunityAuth(onChange: (s: Session | null) => void): (() => void) | undefined {
   if (!configured()) return undefined;
@@ -85,28 +85,12 @@ export function initCommunityAuth(onChange: (s: Session | null) => void): (() =>
   return () => sub.subscription.unsubscribe();
 }
 
-export async function signInGoogle(): Promise<void> {
-  if (NATIVE) {
-    // WebView Google не пускает (disallowed_useragent) → системный браузер + deep link
-    const { data, error } = await sb().auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
-    });
-    if (error) throw error;
-    if (data.url) await Browser.open({ url: data.url });
-  } else {
-    const { error } = await sb().auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: webRedirect() },
-    });
-    if (error) throw error;
-  }
-}
-
-/** Вход по ссылке на почту — БЕЗ Google (обход «Доступ заблокирован»,
- *  2026-07-03: redirect_uri_mismatch в Google-клиенте). Supabase шлёт письмо,
- *  тап по ссылке возвращает в приложение тем же deep link astra://auth
- *  (email-провайдер в проекте включён — проверено по /auth/v1/settings). */
+/** Вход по ссылке на почту — ЕДИНСТВЕННАЯ дверь. Вход через Google убран
+ *  2026-08-07 (решение владелицы при переезде на российский хостинг: сторонний
+ *  вход не используем). Supabase шлёт письмо, тап по ссылке возвращает в
+ *  приложение deep link'ом astra://auth (email-провайдер в проекте включён —
+ *  проверено по /auth/v1/settings). Google-провайдера в панели Supabase тоже
+ *  надо выключить — кода тут для него больше нет. */
 export async function signInEmail(email: string): Promise<void> {
   const { error } = await sb().auth.signInWithOtp({
     email,
@@ -117,7 +101,8 @@ export async function signInEmail(email: string): Promise<void> {
 
 export async function signOut(): Promise<void> { await sb().auth.signOut(); }
 
-/** Профиль: завести/обновить своё имя (после первого входа — из Google). */
+/** Профиль: завести/обновить своё имя (при входе по почте — часть адреса до @;
+ *  ник можно поменять вручную, он не затирается). */
 export async function ensureProfile(session: Session): Promise<void> {
   const meta = session.user.user_metadata as Record<string, unknown>;
   const name = String(meta.full_name ?? meta.name ?? session.user.email?.split('@')[0] ?? 'астролог');

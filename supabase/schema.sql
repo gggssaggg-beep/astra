@@ -338,3 +338,40 @@ create policy "client_charts: правит астролог" on public.client_ch
 drop policy if exists "client_charts: удаляет астролог" on public.client_charts;
 create policy "client_charts: удаляет астролог" on public.client_charts
   for delete to authenticated using (public.has_role('astrologer'));
+
+-- ============================================================================
+-- ПРАВА ЧЕЛОВЕКА НА СВОИ ДАННЫЕ (152-ФЗ)
+-- ============================================================================
+
+-- Ст. 14: прекратить обработку человек должен уметь сам, не письмом админу.
+-- Одной строки хватает: от auth.users каскад идёт в profiles, а от него — в
+-- темы, комментарии, лайки, подписки, уведомления и токены устройств.
+-- security definer: право удалять из auth.users есть только у владельца функции.
+create or replace function public.delete_my_account() returns void
+language plpgsql security definer set search_path = public, auth as $$
+declare me uuid := auth.uid();
+begin
+  if me is null then
+    raise exception 'Нужен вход' using errcode = '42501';
+  end if;
+  delete from auth.users where id = me;
+end $$;
+revoke all on function public.delete_my_account() from public, anon;
+grant execute on function public.delete_my_account() to authenticated;
+
+-- Ст. 5 ч. 5: чужие данные рождения нельзя хранить дольше, чем нужно по цели.
+-- Удаляем ТОЛЬКО разобранные (read) карты старше срока: непрочитанное не
+-- исчезает само, иначе астролог потеряет то, до чего не дошли руки.
+-- Запускается таймером systemd (astra-purge-charts.timer) раз в сутки.
+create or replace function public.purge_old_client_charts(older_than interval default '90 days')
+returns integer language plpgsql security definer set search_path = public as $$
+declare n integer;
+begin
+  delete from public.client_charts where read and created_at < now() - older_than;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.purge_old_client_charts(interval) from public, anon, authenticated;
+
+-- ПОСЛЕ добавления функций PostgREST не увидит их до перечитывания схемы:
+--   notify pgrst, 'reload schema';

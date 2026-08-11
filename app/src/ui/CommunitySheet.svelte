@@ -6,7 +6,7 @@
   import {
     configured, initCommunityAuth, signInEmail, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
-    removeDiscussion, removeComment, isAdmin,
+    removeDiscussion, removeComment, isAdmin, deleteMyAccount,
     follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
     listNotifications, unreadCount, markNotificationsRead,
     type Discussion, type CommunityComment, type ProfileCard, type CommunityNotif,
@@ -245,6 +245,19 @@
     confirmOut = false;
     void signOut();
   }
+
+  // удаление аккаунта — отдельным блоком с явным предупреждением, а не второй
+  // «опасной» кнопкой в шапке: действие необратимое, тапнуть мимо нельзя
+  let confirmDel = $state(false);
+  let delBusy = $state(false);
+  async function doDeleteAccount(): Promise<void> {
+    delBusy = true; err = '';
+    try {
+      await deleteMyAccount();
+      confirmDel = false;
+      feed = []; notifs = []; unread = 0;
+    } catch (e) { err = (e as Error).message; } finally { delBusy = false; }
+  }
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={handleClose} role="presentation"></div>
@@ -403,6 +416,24 @@
           {signature ? 'Этот аспект ещё не обсуждали — начни первой ✧' : 'Лента пуста — начни первое обсуждение ✧'}</div>
       {/if}
     {/each}
+
+    {#if session}
+      <!-- Право стереть себя (152-ФЗ ст. 14): без письма администратору. -->
+      <div class="account">
+        {#if !confirmDel}
+          <button class="link quiet" onclick={() => (confirmDel = true)}>Удалить аккаунт</button>
+        {:else}
+          <p>Удалятся имя, все твои обсуждения, комментарии, лайки и подписки.
+            Отменить нельзя. Записи на телефоне — журнал, карты, настройки — останутся:
+            они и не уезжали на сервер.</p>
+          <div class="row">
+            <button class="btn" onclick={() => (confirmDel = false)}>Оставить</button>
+            <button class="btn warn" disabled={delBusy} onclick={doDeleteAccount}>
+              {delBusy ? 'Удаляю…' : 'Удалить навсегда'}</button>
+          </div>
+        {/if}
+      </div>
+    {/if}
   {/if}
 
   {#if err}<div class="err">⚠ {err}</div>{/if}
@@ -539,4 +570,12 @@
     color: var(--ink-faint); font-size: 0.8rem; }
   .ustats b { color: var(--ink); font-size: 0.95rem; }
   .follow.following { background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-dim); }
+
+  /* удаление аккаунта: внизу ленты, тихой ссылкой — не соблазняет тапнуть,
+     но и не спрятано так, что человек его не найдёт */
+  .account { margin: 22px 0 4px; padding-top: 14px; border-top: 1px solid var(--glass-brd); }
+  .account p { color: var(--ink-faint); font-size: 0.82rem; line-height: 1.5; margin: 0 0 10px; }
+  .link.quiet { background: none; border: 0; color: var(--ink-faint); font-size: 0.82rem;
+    text-decoration: underline; padding: 0; }
+  .btn.warn { color: var(--rose); border-color: var(--rose); }
 </style>

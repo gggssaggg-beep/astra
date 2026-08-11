@@ -113,6 +113,19 @@ export async function signInEmail(email: string): Promise<void> {
 
 export async function signOut(): Promise<void> { await sb().auth.signOut(); }
 
+/** Удалить аккаунт и ВСЕ свои данные на сервере (152-ФЗ ст. 14: обработка
+ *  прекращается по требованию человека, а не по письму администратору).
+ *  Серверная delete_my_account() удаляет строку в auth.users, а каскад уносит
+ *  профиль, темы, комментарии, лайки, подписки, уведомления и токены устройств
+ *  (см. supabase/schema.sql). Отменить нельзя.
+ *  Данные на устройстве — журнал, карты, настройки — здесь ни при чём: они
+ *  никогда не уезжали на сервер, их чистит «Данные» в настройках. */
+export async function deleteMyAccount(): Promise<void> {
+  const { error } = await sb().rpc('delete_my_account');
+  if (error) throw new Error(error.message);
+  await sb().auth.signOut();
+}
+
 /** Профиль: завести/обновить своё имя (при входе по почте — часть адреса до @;
  *  ник можно поменять вручную, он не затирается). */
 export async function ensureProfile(session: Session): Promise<void> {

@@ -41,13 +41,28 @@ create policy "discussions: писать своё" on public.discussions
 drop policy if exists "discussions: править своё" on public.discussions;
 create policy "discussions: править своё" on public.discussions
   for update to authenticated using (auth.uid() = author_id);
--- Удалять тему может АВТОР или АДМИН (владелица проекта — по email).
+-- ============================================================================
+-- РОЛИ. Админ сообщества и астролог опознаются по app_metadata пользователя, а
+-- НЕ по почтовому адресу в коде: репозиторий публичный, и живой адрес человека
+-- лежал и здесь, и в клиентском бандле. Роль приезжает в самом токене, поэтому
+-- политике не нужен запрос в таблицу. Выдать роль (только на сервере):
+--   update auth.users set raw_app_meta_data = coalesce(raw_app_meta_data,'{}'::jsonb)
+--     || '{"roles":["astrologer"]}'::jsonb where email = '…';
+-- Роль попадает в токен при входе — после смены человек должен перезайти.
+-- ============================================================================
+create or replace function public.has_role(want text) returns boolean
+language sql stable as $$
+  select coalesce(auth.jwt() -> 'app_metadata' -> 'roles' ? want, false)
+$$;
+grant execute on function public.has_role(text) to anon, authenticated, service_role;
+
+-- Удалять тему может АВТОР или АДМИН (роль admin в app_metadata).
 -- drop+create делает повторный прогон схемы идемпотентным.
 drop policy if exists "discussions: удалять своё" on public.discussions;
 drop policy if exists "discussions: удалять своё или админом" on public.discussions;
 create policy "discussions: удалять своё или админом" on public.discussions
   for delete to authenticated
-  using (auth.uid() = author_id or (auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+  using (auth.uid() = author_id or public.has_role('admin'));
 
 -- Комментарии
 create table if not exists public.comments (
@@ -65,12 +80,12 @@ create policy "comments: читают вошедшие" on public.comments
 drop policy if exists "comments: писать своё" on public.comments;
 create policy "comments: писать своё" on public.comments
   for insert to authenticated with check (auth.uid() = author_id);
--- Удалять комментарий может АВТОР или АДМИН (владелица — по email).
+-- Удалять комментарий может АВТОР или АДМИН (роль admin в app_metadata).
 drop policy if exists "comments: удалять своё" on public.comments;
 drop policy if exists "comments: удалять своё или админом" on public.comments;
 create policy "comments: удалять своё или админом" on public.comments
   for delete to authenticated
-  using (auth.uid() = author_id or (auth.jwt() ->> 'email') = 'ggg.ssa.ggg@gmail.com');
+  using (auth.uid() = author_id or public.has_role('admin'));
 
 -- Лайки (полиморфные: обсуждение или комментарий; один лайк на пользователя)
 create table if not exists public.likes (
@@ -285,7 +300,7 @@ create trigger trg_call_push after insert on public.notifications
 -- КАРТЫ КЛИЕНТОВ АСТРОЛОГУ (2026-07-07). Клиент из приложения отправляет свою
 -- натальную карту астрологу («написать астрологу → отправить данные»). Таблица
 -- ТОЛЬКО НА ЗАПИСЬ для всех (в т.ч. без входа); читает/правит/удаляет ТОЛЬКО
--- астролог по email (совпадает с ASTROLOGER_EMAIL в lib/community.ts). Дату
+-- тот, у кого роль astrologer в app_metadata (см. has_role выше). Дату
 -- отправки астролог видит в СВОЁМ часовом поясе (форматирование в UI).
 -- ============================================================================
 create table if not exists public.client_charts (
@@ -308,18 +323,18 @@ drop policy if exists "client_charts: отправка всем" on public.clien
 create policy "client_charts: отправка всем" on public.client_charts
   for insert to anon, authenticated with check (true);
 
--- читать входящие — только астролог (по email из JWT)
+-- читать входящие — только астролог (роль из токена)
 drop policy if exists "client_charts: читает астролог" on public.client_charts;
 create policy "client_charts: читает астролог" on public.client_charts
-  for select to authenticated using ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com');
+  for select to authenticated using (public.has_role('astrologer'));
 
 -- пометить прочтённой — только астролог
 drop policy if exists "client_charts: правит астролог" on public.client_charts;
 create policy "client_charts: правит астролог" on public.client_charts
-  for update to authenticated using ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com')
-  with check ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com');
+  for update to authenticated using (public.has_role('astrologer'))
+  with check (public.has_role('astrologer'));
 
 -- удалить входящую — только астролог
 drop policy if exists "client_charts: удаляет астролог" on public.client_charts;
 create policy "client_charts: удаляет астролог" on public.client_charts
-  for delete to authenticated using ((auth.jwt() ->> 'email') = 'k.naritsa@gmail.com');
+  for delete to authenticated using (public.has_role('astrologer'));

@@ -13,34 +13,46 @@ import { Preferences } from '@capacitor/preferences';
 import { App as CapApp } from '@capacitor/app';
 import { Browser } from '@capacitor/browser';
 
-// === КОНФИГ проекта Supabase (создан владелицей 2026-07-02; ключ publishable —
-// НЕ секрет, данные защищает RLS на сервере) ===
-export const SUPABASE_URL = 'https://vbaysgzdvdyljlwlnivq.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_rYe1PJ0juzDec87oK7QC6Q_iSufPThD';
+// === КОНФИГ своей базы (переезд 12.08.2026 с облачного Supabase в Лондоне на
+// свой сервер в РФ: 152-ФЗ ст. 18 ч. 5 требует, чтобы данные граждан РФ писались
+// в базу на территории России). Postgres + GoTrue + PostgREST на svcode.ru.
+// API живёт на ТОМ ЖЕ хосте, что и приложение: /auth/v1 → вход, /rest/v1 →
+// данные. Отсюда у веб-версии вообще нет CORS; в APK страница на https://localhost,
+// там кросс-домен, и заголовки выдаёт nginx.
+// Ключ anon публичен по устройству (это JWT с ролью anon) — данные защищает RLS. ===
+export const SUPABASE_URL = 'https://astra.svcode.ru';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6ImFzdHJhIiwiaWF0IjoxNzg2NDcwMjYxLCJleHAiOjIxMDE4MzAyNjF9.OLFsqlwktXCD4uqUg39zSsfakLNIGvWET4IetmUhS8w';
 // deep link возврата из письма со ссылкой входа (intent-filter в AndroidManifest)
 const NATIVE_REDIRECT = 'astra://auth';
 // веб: возврат на ТЕКУЩУЮ страницу приложения (origin + путь), НЕ на голый домен.
-// На GitHub Pages приложение живёт в подпапке /astra/, а не в корне; голый
-// window.location.origin не совпадал с Redirect URLs в Supabase → тот падал на
-// дефолтный Site URL (localhost:3000) с flow_state_already_used. origin+pathname
-// = https://gggssaggg-beep.github.io/astra/ (локально — http://localhost:5173/).
+// Осталось с Pages, где приложение жило в подпапке /astra/: голый origin не
+// совпадал со списком разрешённых адресов и вход падал в flow_state_already_used.
+// Сейчас это https://astra.svcode.ru/ (локально — http://localhost:5173/);
+// список разрешённых адресов — GOTRUE_URI_ALLOW_LIST на сервере.
 const webRedirect = (): string => window.location.origin + window.location.pathname;
 
 export const configured = (): boolean => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 const NATIVE = Capacitor.isNativePlatform();
 
-// Админ сообщества (владелица) — по email. Совпадает с RLS-политикой удаления в
-// supabase/schema.sql: админ может удалять любые темы/комментарии, автор — свои.
-const ADMIN_EMAIL = 'ggg.ssa.ggg@gmail.com';
-export const isAdmin = (session: Session | null): boolean =>
-  !!session && (session.user.email ?? '').toLowerCase() === ADMIN_EMAIL;
+// Роли выдаёт СЕРВЕР: они лежат в app_metadata пользователя и приезжают прямо в
+// токене, поэтому и клиенту, и RLS-политикам (public.has_role в schema.sql)
+// видны без единого лишнего запроса. Раньше здесь стояли живые почтовые адреса
+// владелицы и астролога — репозиторий публичный, и адрес постороннего человека
+// лежал в открытом коде и уезжал в бандл каждому. Сменить исполнителя роли —
+// теперь операция на сервере, правка кода не нужна:
+//   update auth.users set raw_app_meta_data = raw_app_meta_data
+//     || '{"roles":["astrologer"]}'::jsonb where email = '…';
+// Роль попадает в токен при входе: после смены человек должен перезайти.
+const hasRole = (s: Session | null, role: string): boolean => {
+  const roles = (s?.user.app_metadata as { roles?: unknown } | undefined)?.roles;
+  return Array.isArray(roles) && roles.includes(role);
+};
 
-// Астролог — Кира Нарица. Получает карты клиентов, но НЕ админ сообщества (прав
-// модерации у неё нет). «Входящие» client_charts видит ТОЛЬКО этот email (RLS в
-// schema.sql). Поменять астролога — здесь И в schema.sql (client_charts политики).
-export const ASTROLOGER_EMAIL = 'k.naritsa@gmail.com';
-export const isAstrologer = (session: Session | null): boolean =>
-  !!session && (session.user.email ?? '').toLowerCase() === ASTROLOGER_EMAIL;
+/** Админ сообщества: может удалять любые темы и комментарии (автор — свои). */
+export const isAdmin = (session: Session | null): boolean => hasRole(session, 'admin');
+
+/** Астролог: видит «Входящие» с картами клиентов. Модерации у неё нет. */
+export const isAstrologer = (session: Session | null): boolean => hasRole(session, 'astrologer');
 
 // сессия Supabase должна переживать перезапуск → Preferences (localStorage ненадёжен)
 const prefStorage = {

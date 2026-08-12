@@ -78,6 +78,17 @@
   let cityQuery = $state(p0?.place?.name ?? '');
   let citySug = $state<City[]>([]);
   let manualPlace = $state(p0 ? (!p0.place?.name && p0.place != null) : false);
+  /* Города в списке нет — предлагаем координаты. Список городов НЕ пополняем
+     (решение владелицы 12.08.2026 в ответ на просьбу астролога добавить
+     Запорожье, Пологи и прочее): вместо тысяч строк в приложении — честный
+     ручной ввод.
+     Раньше подсказка пряталась, если координаты уже были заполнены, — то есть
+     ровно у того, кто СМЕНИЛ город на неизвестный: он видел пустой список и
+     ничего больше. Теперь смотрим не на координаты, а на то, совпадает ли
+     набранное с уже выбранным местом. */
+  const showNotFound = $derived(
+    !manualPlace && cityQuery.trim().length >= 3 && !citySug.length
+    && cityQuery.trim().toLowerCase() !== fPlaceName.trim().toLowerCase());
   let confirmDel = $state(false);
   // каким способом задаётся пояс вручную: городом (IANA) или числом (GMT±ч)
   let tzMode = $state<'city' | 'gmt'>(fixedTzMinutes(untrack(() => p0?.birthTz ?? dtz)) != null ? 'gmt' : 'city');
@@ -233,7 +244,7 @@
 <!-- Города в списке нет — не молчим, а сразу показываем выход (жалоба астролога
      2026-07-29: «по городу и стране не находит, и я не знаю, куда тыкать»).
      Кнопка раскрывает блок ручного ввода — там координаты и пояс числом. -->
-{#if !manualPlace && cityQuery.trim().length >= 3 && !citySug.length && fLat == null}
+{#if showNotFound}
   <button type="button" class="notfound" onclick={() => (manualPlace = true)}>
     Не нашёл такой город. Впиши координаты и часовой пояс вручную →
   </button>

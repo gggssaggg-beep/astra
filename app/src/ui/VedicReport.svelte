@@ -21,6 +21,7 @@
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
   import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
+  import { padaText } from '../lib/arudhaLore.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import VedicDates from './VedicDates.svelte';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
@@ -41,6 +42,7 @@
   // строится на лету, поэтому раскрыта всегда только одна ветка
   let openAntar = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
+  let openPada = $state<string | null>(null);   // раскрытая трактовка арудхи
 
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
@@ -478,13 +480,21 @@
   <div class="card glass table reveal" use:reveal>
     <div class="row th ar"><span>Пада</span><span>Дом</span><span>Управитель</span><span>Знак пады</span></div>
     {#each padas as p}
-      <div class="row ar" class:key={p.special}>
+      <!-- строка-кнопка: касание раскрывает трактовку пады (просьба астролога
+           12.08.2026 — «арудха есть, но без объяснения») -->
+      <button type="button" class="row ar tap" class:key={p.special}
+        class:open={openPada === p.code}
+        onclick={() => (openPada = openPada === p.code ? null : p.code)}>
         <span class="un">{p.code}{#if p.special} · {p.special}{/if}</span>
         <span class="num">{p.house}-й</span>
         <span class="uv">{p.lord}{#if p.lordSign !== null} · {p.distance}-й{/if}</span>
         <span class="uv">{#if p.lordSign === null}—{:else}<span class="glyph">{SIGN_GLYPH[p.sign]}</span>
           {ZODIAC[p.sign]} <span class="dim">({padaHouse(p, natal.chart.lagnaSign)}-й)</span>{#if p.shifted}<span class="mark" title="пада схлопнулась — взят десятый знак">*</span>{/if}{/if}</span>
-      </div>
+      </button>
+      {#if openPada === p.code}
+        <div class="padalore">{padaText(p.code, p.lordSign === null ? null : p.sign,
+          p.lordSign === null ? null : padaHouse(p, natal.chart.lagnaSign))}</div>
+      {/if}
     {/each}
   </div>
   <div class="note">Пада — отражение дома: не то, чем дом является, а то, каким он выглядит
@@ -751,6 +761,12 @@
   .mbsrc { color: var(--ink-faint); font-size: 0.72rem; line-height: 1.4; padding: 0 6px 6px; }
   .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
   .row.ar.key .un { color: var(--ink); }
+  /* строка-кнопка: сбрасываем кнопочные умолчания, чтобы сетка осталась сеткой */
+  .row.ar.tap { width: 100%; background: transparent; border: none; border-radius: 0;
+    text-align: left; font: inherit; color: var(--ink); }
+  .row.ar.tap.open .un { color: var(--gold); }
+  .padalore { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.55;
+    padding: 2px 6px 8px; }
   .dim { color: var(--ink-faint); }
   .mark { color: var(--gold); }
   .pn { display: flex; align-items: center; gap: 6px; }

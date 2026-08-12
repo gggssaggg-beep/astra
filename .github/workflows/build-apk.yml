@@ -72,7 +72,17 @@ jobs:
         working-directory: app/android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon
+          # Раннер регулярно обрывает скачивание дистрибутива Gradle
+          # («Unexpected end of file from server» из gradle-wrapper) — это сеть,
+          # а не сборка: дважды подряд 13.08.2026 сразу после влития PR #28.
+          # Пробуем трижды с паузой, прежде чем валить весь прогон.
+          for i in 1 2 3; do
+            ./gradlew assembleDebug --no-daemon && exit 0
+            echo "::warning::попытка $i не удалась, жду 30 с и пробую снова"
+            sleep 30
+          done
+          echo "::error::Gradle не собрался после трёх попыток"
+          exit 1
 
       - name: Выложить APK как артефакт
         uses: actions/upload-artifact@v4

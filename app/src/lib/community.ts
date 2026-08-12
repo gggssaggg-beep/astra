@@ -100,6 +100,13 @@ export async function signUpPassword(email: string, password: string): Promise<v
   if (!data.session) throw new Error('Проверь почту — вход нужно подтвердить.');
 }
 
+/** Сменить свой пароль. Нужна, пока нет письма «забыл пароль»: первый пароль
+ *  старым пользователям заводит администратор, дальше человек меняет его сам. */
+export async function changePassword(password: string): Promise<void> {
+  const { error } = await sb().auth.updateUser({ password });
+  if (error) throw error;
+}
+
 export async function signOut(): Promise<void> { await sb().auth.signOut(); }
 
 /** Удалить аккаунт и ВСЕ свои данные на сервере (152-ФЗ ст. 14: обработка

@@ -4,7 +4,7 @@
    *  вход по ссылке на почту; вошли → лента / тред. `signature` фильтрует по аспекту. */
   import type { Session } from '@supabase/supabase-js';
   import {
-    configured, initCommunityAuth, signInPassword, signUpPassword, signOut, ensureProfile,
+    configured, initCommunityAuth, signInPassword, signUpPassword, changePassword, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     removeDiscussion, removeComment, isAdmin, deleteMyAccount,
     follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
@@ -264,6 +264,17 @@
   // «опасной» кнопкой в шапке: действие необратимое, тапнуть мимо нельзя
   let confirmDel = $state(false);
   let delBusy = $state(false);
+  // смена пароля: письма «забыл пароль» пока нет, менять можно только изнутри
+  let pwOpen = $state(false);
+  let pw1 = $state('');
+  let pwBusy = $state(false);
+  let pwOk = $state(false);
+  async function doChangePassword(): Promise<void> {
+    if (pw1.length < 8 || pwBusy) return;
+    pwBusy = true; err = null; pwOk = false;
+    try { await changePassword(pw1); pw1 = ''; pwOk = true; }
+    catch (e) { err = loginErr(e); } finally { pwBusy = false; }
+  }
   async function doDeleteAccount(): Promise<void> {
     delBusy = true; err = '';
     try {
@@ -432,8 +443,20 @@
     {#if session}
       <!-- Право стереть себя (152-ФЗ ст. 14): без письма администратору. -->
       <div class="account">
-        {#if !confirmDel}
+        {#if !confirmDel && !pwOpen}
+          <button class="link quiet" onclick={() => (pwOpen = true)}>Сменить пароль</button>
           <button class="link quiet" onclick={() => (confirmDel = true)}>Удалить аккаунт</button>
+        {:else if pwOpen}
+          <div class="mailrow">
+            <input type="password" autocomplete="new-password" bind:value={pw1}
+              placeholder="новый пароль (от 8 знаков)" />
+            <div class="row">
+              <button class="btn" onclick={() => { pwOpen = false; pw1 = ''; pwOk = false; }}>Отмена</button>
+              <button class="btn primary" disabled={pw1.length < 8 || pwBusy} onclick={doChangePassword}>
+                {pwBusy ? '…' : 'Сохранить'}</button>
+            </div>
+            {#if pwOk}<p>Пароль сменён ✓</p>{/if}
+          </div>
         {:else}
           <p>Удалятся имя, все твои обсуждения, комментарии, лайки и подписки.
             Отменить нельзя. Записи на телефоне — журнал, карты, настройки — останутся:

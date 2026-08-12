@@ -56,6 +56,7 @@
   import VedicReport from './VedicReport.svelte';
   import VedicDates from './VedicDates.svelte';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
+  import { gocharaDrishtiText } from '../lib/drishtiLore.ts';
   import { vedicNatal, vargaCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
   import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
   import { drishtiSigns } from '../lib/drishti.ts';
@@ -239,6 +240,18 @@
   // Важные даты в ГОЧАРЕ (просьба астролога 12.08.2026: таблица была только в
   // кундали). Считает та же функция, рисует тот же компонент — ленты в двух
   // местах обязаны совпадать.
+  // Какие грахи ведут период ПРЯМО СЕЙЧАС (маха + антар): астролог просил
+  // учитывать это во взгляде гочары — идущий период делает взгляд «горячим».
+  const dashaNow = $derived.by(() => {
+    if (!vedicA) return [] as string[];
+    const now = new Date();
+    const maha = vedicA.dashas.find((m) => m.from <= now && now < m.to);
+    if (!maha) return [];
+    const antar = (maha.sub ?? []).find((s) => s.from <= now && now < s.to);
+    return antar ? [maha.lord, antar.lord] : [maha.lord];
+  });
+  let openTD = $state<string | null>(null);
+
   const gocharaDates = $derived.by(() => {
     if (!vedicA || mode !== 'transitNatal') return [];
     const rahu = vedicA.chart.planets.find((p) => p.name === 'Раху');
@@ -1163,10 +1176,19 @@
           <div class="hint small">Идущая граха смотрит на граху кундали по целым знакам:
             влияние держится, пока она проходит этот знак, — в градусах и минутах не считается.</div>
           {#each transitDrishti as d (d.from + d.to)}
-            <div class="drow glass">
+            {@const key = d.from + '|' + d.to}
+            <!-- касание раскрывает трактовку: манера взгляда, дружба или вражда,
+                 чем граха управляет в карте и идёт ли её период сейчас
+                 (просьба астролога 12.08.2026) -->
+            <button type="button" class="drow glass tap" class:open={openTD === key}
+              onclick={() => (openTD = openTD === key ? null : key)}>
               <div class="drhead">в гочаре <b>{d.from}</b> ({ZODIAC[d.fromSign]}, {d.fromHouse}-й дом)
                 смотрит на <b>{d.to}</b> в кундали ({ZODIAC[d.toSign]}, {d.toHouse}-й дом)</div>
-            </div>
+            </button>
+            {#if openTD === key && vedicA}
+              <div class="tdlore">{gocharaDrishtiText(d.from, d.to, d.toHouse,
+                d.fromSign, d.toSign, vedicA.chart.lagnaSign, dashaNow)}</div>
+            {/if}
           {/each}
         </details>
       {/if}
@@ -1513,6 +1535,11 @@
   .lgn { color: var(--ink-dim); }
   /* строки дришти (джйотиш-аспекты по знакам) */
   .drow { padding: 9px 12px; margin: 6px 0; border-radius: 12px; }
+  .drow.tap { display: block; width: 100%; text-align: left; border: none; font: inherit;
+    color: inherit; }
+  .drow.tap.open .drhead b { color: var(--gold); }
+  .tdlore { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.55;
+    margin: -2px 4px 8px; padding: 0 8px; }
   .drhead { font-size: 0.84rem; color: var(--ink); line-height: 1.4; }
   .drhead b { font-weight: 600; }
   /* личный день (тарабала + чандра-гочара) */

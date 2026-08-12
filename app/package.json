@@ -22,6 +22,7 @@
     "test:panchanga": "node test/panchanga.mjs",
     "test:kalam": "node test/kalam.mjs",
     "test:arudhalore": "node test/arudhalore.mjs",
+    "test:drishtilore": "node test/drishtilore.mjs",
     "test:static": "node test/static.mjs",
     "test:figures": "node test/figures.mjs",
     "test:dispositors": "node test/dispositors.mjs",

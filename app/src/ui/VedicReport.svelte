@@ -22,6 +22,7 @@
   import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { padaText } from '../lib/arudhaLore.ts';
+  import { drishtiText, distanceOf } from '../lib/drishtiLore.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import VedicDates from './VedicDates.svelte';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
@@ -43,6 +44,7 @@
   let openAntar = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
   let openPada = $state<string | null>(null);   // раскрытая трактовка арудхи
+  let openDrishti = $state<string | null>(null); // раскрытая трактовка дришти
 
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
@@ -87,6 +89,12 @@
 
   // дришти: узлы не аспектируют (школа по умолчанию, см. lib/drishti.ts)
   const drishti = $derived(grahaDrishti(natal.chart.planets, natal.chart.lagnaSign));
+  // знак каждой грахи — нужен трактовкам дришти (отношения считаются по знакам)
+  const grahaSigns = $derived.by(() => {
+    const m: Record<string, number> = {};
+    for (const p of natal.chart.planets) m[p.name] = p.signIndex;
+    return m;
+  });
 
   // мритью бхага: критический градус грахи в её знаке. Проверяем лагну, семь
   // грах, узлы и Манди (у неё в таблице своя строка) — карта чаще всего без
@@ -220,13 +228,27 @@
     <div class="row th"><span>Граха</span><span>Куда смотрит</span></div>
     {#each drishti as d}
       {@const under = d.targets.flatMap((t) => t.hits)}
-      <div class="row">
+      <!-- касание раскрывает трактовку взгляда — по одной на каждый дом-цель
+           (просьба астролога 12.08.2026) -->
+      <button type="button" class="row tap" class:open={openDrishti === d.from}
+        onclick={() => (openDrishti = openDrishti === d.from ? null : d.from)}>
         <span class="pn"><span class="g glyph">{PLANET_GLYPH[d.from] ?? '•'}</span> {d.from}</span>
         <span class="tg">
           <span>из {d.fromHouse}-го дома смотрит в {d.targets.map((t) => `${t.house}-й`).join(', ')}</span>
           {#if under.length}<span class="under">под дришти: {under.join(', ')}</span>{/if}
         </span>
-      </div>
+      </button>
+      {#if openDrishti === d.from}
+        <div class="drlore">
+          {#each d.targets as t (t.sign)}
+            <div class="drone">
+              <b>{t.house}-й дом</b>
+              {drishtiText(d.from, t.house,
+                distanceOf(grahaSigns[d.from] ?? 0, t.sign), t.hits, grahaSigns)}
+            </div>
+          {/each}
+        </div>
+      {/if}
     {/each}
   </div>
   <div class="note">Дришти считаются по целым знакам: граха смотрит из своего знака в знак
@@ -651,6 +673,12 @@
 
   /* дришти: две колонки — кто смотрит и куда, цели с переносом по ширине */
   .drishti .row { grid-template-columns: 6rem 1fr; align-items: start; }
+  .drishti .row.tap { width: 100%; background: transparent; border: none; border-radius: 0;
+    text-align: left; font: inherit; color: var(--ink); }
+  .drishti .row.tap.open .pn { color: var(--gold); }
+  .drlore { display: flex; flex-direction: column; gap: 9px; padding: 2px 6px 10px; }
+  .drone { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.55; }
+  .drone b { color: var(--ink); display: block; margin-bottom: 2px; }
   .drishti .pn { display: flex; align-items: baseline; gap: 6px; color: var(--ink-dim); }
   .drishti .tg { display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
   .drishti .under { color: var(--ink-faint); font-size: 0.76rem; }

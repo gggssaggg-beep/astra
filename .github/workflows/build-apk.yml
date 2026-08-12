@@ -69,6 +69,11 @@ jobs:
           fi
 
       - name: Сборка APK (Gradle)
+        id: gradle
+        # Прогон НЕ валим здесь: OTA-бандл собирается из веб-части и от Gradle
+        # не зависит, а веб-правки едут на телефон именно им. Итог проверяется
+        # последним шагом — красным прогон всё равно станет.
+        continue-on-error: true
         working-directory: app/android
         run: |
           chmod +x ./gradlew
@@ -85,6 +90,7 @@ jobs:
           exit 1
 
       - name: Выложить APK как артефакт
+        if: steps.gradle.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: astra-apk
@@ -137,7 +143,12 @@ jobs:
           # Артефакты — во времянку: дальше жёстко перечитываем свежий main.
           # (Прежний rebase падал на БИНАРНОМ конфликте apk/*, когда две сборки
           # шли подряд — «could not apply … APK+OTA», сборка 2026-07-06.)
-          cp app/android/app/build/outputs/apk/debug/app-debug.apk /tmp/Astra.apk
+          # APK может отсутствовать: Gradle падает от чужих сбоев сети (обрыв
+          # дистрибутива Gradle, 403 от Maven Central — оба 13.08.2026). Тогда
+          # выкладываем ТОЛЬКО OTA: веб-правки доедут, APK останется прежним.
+          APK=app/android/app/build/outputs/apk/debug/app-debug.apk
+          if [ -f "$APK" ]; then cp "$APK" /tmp/Astra.apk; else
+            echo "::warning::APK не собрался — публикуем только OTA-бандл"; fi
           cp apk/bundle.zip /tmp/bundle.zip
           cp apk/latest.json /tmp/latest.json
           rm -rf /tmp/otafiles && cp -r apk/files /tmp/otafiles
@@ -147,7 +158,7 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             mkdir -p apk
-            cp /tmp/Astra.apk apk/Astra.apk
+            [ -f /tmp/Astra.apk ] && cp /tmp/Astra.apk apk/Astra.apk
             cp /tmp/bundle.zip apk/bundle.zip
             cp /tmp/latest.json apk/latest.json
             # старую раскладку сносим ПОЛНОСТЬЮ (хэшированные имена не переживают
@@ -156,9 +167,16 @@ jobs:
             # -f: keystore под *.keystore в .gitignore, но фиксированный ключ нужен в репо
             git add -f app/android/app/astra-debug.keystore
             git add -A apk/files
-            git add apk/Astra.apk apk/bundle.zip apk/latest.json
+            [ -f apk/Astra.apk ] && git add apk/Astra.apk
+            git add apk/bundle.zip apk/latest.json
             git commit -m "APK + OTA авто-сборка [skip ci]" || { echo "без изменений"; exit 0; }
             git push && exit 0
             echo "пуш не прошёл (гонка) — попытка $i, перечитываю main"
           done
           echo "не удалось запушить за 3 попытки" && exit 1
+
+      - name: Итог сборки APK
+        if: steps.gradle.outcome != 'success'
+        run: |
+          echo "::error::APK не собрался (см. шаг «Сборка APK (Gradle)»). "            "OTA-бандл при этом выложен — веб-правки на телефон доедут, "            "а APK в репозитории остался от прошлой сборки."
+          exit 1

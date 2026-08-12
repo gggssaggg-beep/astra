@@ -20,6 +20,7 @@
     "test:arudha": "node test/arudha.mjs",
     "test:mrityu": "node test/mrityu.mjs",
     "test:panchanga": "node test/panchanga.mjs",
+    "test:kalam": "node test/kalam.mjs",
     "test:static": "node test/static.mjs",
     "test:figures": "node test/figures.mjs",
     "test:dispositors": "node test/dispositors.mjs",

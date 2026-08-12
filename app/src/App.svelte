@@ -524,6 +524,17 @@
     try { return vedicNatal(engine, me)?.chart.planets ?? null; } catch { return null; }
   });
 
+  /** Место «моей карты» — нужно каламам и мухуртам на экране дня: они
+   *  отсчитываются от восхода и заката, а те бывают только у точки на земле.
+   *  Своего «места сейчас» в приложении нет, поэтому берём место рождения и
+   *  честно подписываем его на экране: переехавшему видно, что считано не там,
+   *  где он теперь. */
+  const myPlace = $derived.by(() => {
+    if (!isVedic || !settings.transitSelfId) return null;
+    const me = db.people.get(settings.transitSelfId);
+    return me?.place ?? null;
+  });
+
   /** открытая страница грахи (джйотиш): имя грахи или null */
   let showGraha = $state<string | null>(null);
   const mySelfName = $derived(
@@ -688,7 +699,7 @@
       <div class="page" class:from-right={slideDir > 0} class:from-left={slideDir < 0}>
         <DayScreen {engine} date={effectiveDate} snapshot={scrubInstant} {scrubbed} scrubScale={scrubScale}
           vedic={isVedic} vedicLagna={myLagna} vedicMoon={myMoon} vedicDashas={myDashas}
-          vedicNatalGrahas={myNatalGrahas} chartStyle={settings.chartStyle ?? 'north'}
+          vedicNatalGrahas={myNatalGrahas} vedicPlace={myPlace} chartStyle={settings.chartStyle ?? 'north'}
           {orbOf} tz={settings.tz} objects={settings.objects} signStyle={effSignStyle}
           nodalAxisFigures={settings.nodalAxisFigures ?? false}
           selectedSignature={selSig} selectedInfo={wheelInfo}

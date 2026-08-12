@@ -18,6 +18,8 @@
   import type { DashaPeriod } from '../lib/vedic.ts';
   import { ZODIAC as ZODIAC_RU, PLANET_GLYPH } from '../engine/index.ts';
   import { panchangaOf } from '../lib/panchanga.ts';
+  import { kalamsOf, kalamNow, KALAM_LORE } from '../lib/kalam.ts';
+  import { dayFrame } from '../lib/upagraha.ts';
   import { dayHeadline, VARA_LORE, TITHI_LORE, PAKSHA_LORE, tithiGroup, KARANA_LORE,
     NAKSHATRA_LORE, YOGA_LORE } from '../lib/panchangaLore.ts';
   import Hint from './Hint.svelte';
@@ -36,7 +38,7 @@
         vedic = false, vedicLagna = null, vedicMoon = null, vedicDashas = null,
         vedicNatalGrahas = null, chartStyle = 'north',
         orbOf, tz, objects = null, signStyle = 'gold', nodalAxisFigures = false,
-        selectedSignature = null, selectedInfo = null,
+        selectedSignature = null, selectedInfo = null, vedicPlace = null,
         onAspect, oninfo, onscrub, onresetnow, onscale, ongraha }:
     { engine: Engine; date: Date; snapshot: Date; scrubbed?: boolean;
       scrubScale?: 'day' | 'month' | 'year';
@@ -53,6 +55,9 @@
       /** грахи рождения «моей карты» — их можно наложить на гочару одним чертежом;
        *  null = своей карты (или места рождения) нет, показываем только гочару */
       vedicNatalGrahas?: NatalGraha[] | null;
+      /** место «моей карты»: каламы и мухурты считаются от восхода и заката,
+       *  а те бывают только у точки на земле. null — блока не будет */
+      vedicPlace?: { name: string; lat: number; lon: number } | null;
       /** стиль чертежа кундали: 'north' — ромб, 'south' — квадратная сетка */
       chartStyle?: 'north' | 'south';
       orbOf: (name: string) => number; tz: string;
@@ -141,6 +146,26 @@
     { k: 'карана', label: 'Карана', value: panchanga.karana.name,
       text: KARANA_LORE[panchanga.karana.name] ?? '' },
   ] : []);
+
+  // КАЛАМЫ И МУХУРТЫ (просьба астролога 12.08.2026). Отсчитываются от восхода
+  // и заката в МЕСТЕ, поэтому без места «моей карты» блока просто нет.
+  // Кадр суток берём тот же, что и упаграхи (dayFrame): джйотиш-сутки начинаются
+  // с восхода, и полночь тут ни при чём.
+  const kalams = $derived.by(() => {
+    if (!vedic || !vedicPlace) return [];
+    try {
+      const frame = dayFrame(snapshot, {
+        riseAfter: (t) => { const r = engine.sunRiseSet(engine.toJD(t), vedicPlace.lat, vedicPlace.lon, 'rise'); return r == null ? null : engine.fromJD(r); },
+        setAfter: (t) => { const r = engine.sunRiseSet(engine.toJD(t), vedicPlace.lat, vedicPlace.lon, 'set'); return r == null ? null : engine.fromJD(r); },
+        asc: () => 0,   // каламам лагна не нужна
+        weekday: (t) => civilWeekday(t),
+      });
+      return frame ? kalamsOf(frame) : [];
+    } catch { return []; }
+  });
+  const hhmm = (d: Date) => new Intl.DateTimeFormat('ru-RU',
+    { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(d);
+  let openKalam = $state<string | null>(null);
 
   // фаза Луны — из уже посчитанных долгот (элонгация Луна−Солнце), без движка
   const PHASE_EM = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
@@ -386,6 +411,30 @@
         {/if}
       {/each}
     </div>
+
+    <!-- Каламы и мухурты: благоприятные и трудные полосы светового дня
+         (просьба астролога 12.08.2026, образец — Vedic times). Считаются от
+         восхода и заката, поэтому привязаны к месту и подписаны им. -->
+    {#if kalams.length}
+      <h3 class="sec">Каламы и мухурты</h3>
+      <div class="panch glass">
+        {#each kalams as k (k.name)}
+          <button class="prow tap kal {k.kind}" class:open={openKalam === k.name}
+            class:now={isToday && kalamNow(k, snapshot)}
+            onclick={() => (openKalam = openKalam === k.name ? null : k.name)}>
+            <span class="pk kname">{k.name}<em>{k.kind === 'good' ? 'опора дня' : 'не для начинаний'}</em></span>
+            <span class="pv">{hhmm(k.from)} — {hhmm(k.to)}{#if isToday && kalamNow(k, snapshot)}<em class="nowm">идёт сейчас</em>{/if}</span>
+            <span class="parr">{openKalam === k.name ? '▾' : '▸'}</span>
+          </button>
+          {#if openKalam === k.name}
+            <div class="plore">{KALAM_LORE[k.name] ?? ''}</div>
+          {/if}
+        {/each}
+      </div>
+      <div class="kalnote">Полосы отсчитываются от восхода и заката{#if vedicPlace}
+          в месте карты — {vedicPlace.name}{/if}. Летом они шире, зимой уже:
+        доли светового дня, а не часы по календарю.</div>
+    {/if}
   {/if}
 
   {#if day.audit.length}
@@ -630,6 +679,14 @@
   .plore { color: var(--ink-dim); font-size: 0.84rem; line-height: 1.55;
     margin: -2px 0 4px; padding-left: 2px; }
   .pk { flex: none; color: var(--ink-faint); font-size: 0.8rem; }
+  /* Каламы: благоприятность подписана СЛОВОМ, а не цветом — светофор плашек в
+     проекте не используем, серьёзность доносит текст. Золотом отмечена только
+     полоса, которая идёт прямо сейчас: это «где я», а не оценка. */
+  .kname { display: flex; flex-direction: column; gap: 2px; }
+  .kname em { font-style: normal; font-size: 0.68rem; color: var(--ink-faint); opacity: 0.75; }
+  .nowm { display: block; font-style: normal; font-size: 0.68rem; color: var(--gold); }
+  .prow.kal.now .pk { color: var(--ink-dim); }
+  .kalnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45; margin: 2px 4px 0; }
   /* значение прижато вправо и переносится (титхи — длинная строка) */
   .pv { margin-left: auto; text-align: right; color: var(--ink); font-size: 0.9rem;
     line-height: 1.35; min-width: 0; }

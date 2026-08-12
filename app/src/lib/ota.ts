@@ -22,7 +22,14 @@ import { APP_VERSION } from './version.ts';
 import { flushNow } from './db.ts';
 
 const REPO = 'gggssaggg-beep/astra';
-const MANIFEST_URL = `https://raw.githubusercontent.com/${REPO}/main/apk/latest.json`;
+/** Откуда берём обновление. Свой сервер — основной источник (2026-08-07, переезд
+ *  на svcode.ru): он же раздаёт и бандл, и пофайловые куски, адреса внутри
+ *  манифеста указывают на него. Гитхаб оставлен запасным: если свой сервер не
+ *  ответил, обновление всё равно доедет. */
+const MANIFEST_URLS = [
+  'https://svcode.ru/apk/astra/latest.json',
+  `https://raw.githubusercontent.com/${REPO}/main/apk/latest.json`,
+];
 
 /** Пофайловый манифест бандла (SR-2). Capgo умеет ДЕЛЬТА-обновления: получив
  *  список файлов с хэшами, он берёт неизменившиеся из ВСТРОЕННОГО бандла APK и
@@ -131,11 +138,21 @@ export async function checkOtaUpdate(onProgress?: (msg: string) => void): Promis
     // таймаут на манифест: на captive portal / молчащей сети fetch иначе висит вечно
     const ctl = new AbortController();
     const tOut = setTimeout(() => ctl.abort(), 15_000);
-    let res: Response;
-    try { res = await fetch(`${MANIFEST_URL}?t=${Date.now()}`, { cache: 'no-store', signal: ctl.signal }); }
-    finally { clearTimeout(tOut); }
-    if (!res.ok) {
-      status = { ...status, state: 'error', message: `Манифест недоступен (HTTP ${res.status}).` };
+    let res: Response | null = null;
+    let lastCode = 0;
+    try {
+      // свой сервер первым, гитхаб — запасным: один не ответил, берём следующий
+      for (const url of MANIFEST_URLS) {
+        try {
+          const r = await fetch(`${url}?t=${Date.now()}`, { cache: 'no-store', signal: ctl.signal });
+          if (r.ok) { res = r; break; }
+          lastCode = r.status;
+        } catch { /* источник молчит — пробуем следующий */ }
+      }
+    } finally { clearTimeout(tOut); }
+    if (!res) {
+      status = { ...status, state: 'error',
+        message: lastCode ? `Манифест недоступен (HTTP ${lastCode}).` : 'Манифест недоступен.' };
       return getOtaStatus();
     }
     const m: Manifest = await res.json();

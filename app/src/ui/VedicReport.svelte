@@ -21,7 +21,10 @@
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
   import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
+  import { padaText } from '../lib/arudhaLore.ts';
+  import { drishtiText, distanceOf } from '../lib/drishtiLore.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
+  import VedicDates from './VedicDates.svelte';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
   import { grahaSignText } from '../lib/grahaSignLore.ts';
@@ -40,7 +43,8 @@
   // строится на лету, поэтому раскрыта всегда только одна ветка
   let openAntar = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
-  let tlAll = $state(false);                    // лента дат раскрыта целиком
+  let openPada = $state<string | null>(null);   // раскрытая трактовка арудхи
+  let openDrishti = $state<string | null>(null); // раскрытая трактовка дришти
 
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
@@ -85,6 +89,12 @@
 
   // дришти: узлы не аспектируют (школа по умолчанию, см. lib/drishti.ts)
   const drishti = $derived(grahaDrishti(natal.chart.planets, natal.chart.lagnaSign));
+  // знак каждой грахи — нужен трактовкам дришти (отношения считаются по знакам)
+  const grahaSigns = $derived.by(() => {
+    const m: Record<string, number> = {};
+    for (const p of natal.chart.planets) m[p.name] = p.signIndex;
+    return m;
+  });
 
   // мритью бхага: критический градус грахи в её знаке. Проверяем лагну, семь
   // грах, узлы и Манди (у неё в таблице своя строка) — карта чаще всего без
@@ -218,13 +228,27 @@
     <div class="row th"><span>Граха</span><span>Куда смотрит</span></div>
     {#each drishti as d}
       {@const under = d.targets.flatMap((t) => t.hits)}
-      <div class="row">
+      <!-- касание раскрывает трактовку взгляда — по одной на каждый дом-цель
+           (просьба астролога 12.08.2026) -->
+      <button type="button" class="row tap" class:open={openDrishti === d.from}
+        onclick={() => (openDrishti = openDrishti === d.from ? null : d.from)}>
         <span class="pn"><span class="g glyph">{PLANET_GLYPH[d.from] ?? '•'}</span> {d.from}</span>
         <span class="tg">
           <span>из {d.fromHouse}-го дома смотрит в {d.targets.map((t) => `${t.house}-й`).join(', ')}</span>
           {#if under.length}<span class="under">под дришти: {under.join(', ')}</span>{/if}
         </span>
-      </div>
+      </button>
+      {#if openDrishti === d.from}
+        <div class="drlore">
+          {#each d.targets as t (t.sign)}
+            <div class="drone">
+              <b>{t.house}-й дом</b>
+              {drishtiText(d.from, t.house,
+                distanceOf(grahaSigns[d.from] ?? 0, t.sign), t.hits, grahaSigns)}
+            </div>
+          {/each}
+        </div>
+      {/if}
     {/each}
   </div>
   <div class="note">Дришти считаются по целым знакам: граха смотрит из своего знака в знак
@@ -478,13 +502,21 @@
   <div class="card glass table reveal" use:reveal>
     <div class="row th ar"><span>Пада</span><span>Дом</span><span>Управитель</span><span>Знак пады</span></div>
     {#each padas as p}
-      <div class="row ar" class:key={p.special}>
+      <!-- строка-кнопка: касание раскрывает трактовку пады (просьба астролога
+           12.08.2026 — «арудха есть, но без объяснения») -->
+      <button type="button" class="row ar tap" class:key={p.special}
+        class:open={openPada === p.code}
+        onclick={() => (openPada = openPada === p.code ? null : p.code)}>
         <span class="un">{p.code}{#if p.special} · {p.special}{/if}</span>
         <span class="num">{p.house}-й</span>
         <span class="uv">{p.lord}{#if p.lordSign !== null} · {p.distance}-й{/if}</span>
         <span class="uv">{#if p.lordSign === null}—{:else}<span class="glyph">{SIGN_GLYPH[p.sign]}</span>
           {ZODIAC[p.sign]} <span class="dim">({padaHouse(p, natal.chart.lagnaSign)}-й)</span>{#if p.shifted}<span class="mark" title="пада схлопнулась — взят десятый знак">*</span>{/if}{/if}</span>
-      </div>
+      </button>
+      {#if openPada === p.code}
+        <div class="padalore">{padaText(p.code, p.lordSign === null ? null : p.sign,
+          p.lordSign === null ? null : padaHouse(p, natal.chart.lagnaSign))}</div>
+      {/if}
     {/each}
   </div>
   <div class="note">Пада — отражение дома: не то, чем дом является, а то, каким он выглядит
@@ -504,27 +536,9 @@
      похода к ИИ: смены даш, заходы медленных грах, Саде Сати, узловые
      возвращения. Ближайшее сверху. -->
 {#if active === 'dates'}
+<VedicDates events={timeline} {tz} />
 {#if timeline.length}
-  <div class="hdr">Важные даты</div>
-  <div class="card glass reveal" use:reveal>
-    {#each timeline.slice(0, tlAll ? timeline.length : 8) as e (e.at.getTime() + e.title)}
-      <div class="tl w{e.weight}">
-        <div class="tlhead"><span class="tldate">{dt(e.at)}</span><b>{e.title}</b></div>
-        <div class="tldetail">{e.detail}</div>
-      </div>
-    {/each}
-    {#if timeline.length > 8}
-      <button class="lorebtn" onclick={() => (tlAll = !tlAll)}>
-        {tlAll ? 'Свернуть' : `Ещё ${timeline.length - 8}`} {tlAll ? '▴' : '▾'}
-      </button>
-    {/if}
-  </div>
-  <div class="note">Даты рассчитаны движком: смены периодов, заходы Юпитера и Сатурна
-    в новый знак, фазы Саде Сати, узловые возвращения. Быстрые грахи сюда не идут —
-    они на экране дня. Сами периоды и их границы — во вкладке «Даши».</div>
-{:else}
-  <div class="note">На ближайшие три года крупных смен не выпало: ни смены периода, ни
-    захода Юпитера, Сатурна или узлов в новый знак. Это нормально — такие события редкие.</div>
+  <div class="note">Сами периоды и их границы — во вкладке «Даши».</div>
 {/if}
 {/if}
 
@@ -620,12 +634,11 @@
   .hdr { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 1px; margin: 16px 4px 4px; }
 
-  /* Вкладки разделов — в духе переключателя варг, но ряд прокручивается вбок и
-     НЕ переносится: «Аштакаварга» длинная. Кегль и поля подобраны так, чтобы
-     все пять названий влезали в 360 px без прокрутки (мерено браузером). */
-  .tabs { display: flex; gap: 4px; margin: 14px 0 2px; overflow-x: auto;
-    white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
+  /* Вкладки разделов — в духе переключателя варг.
+     Переносим на вторую строку, а не прокручиваем вбок: вкладок стало восемь,
+     хвост («Арудхи», «Даши», «Важные даты») уезжал за край, и о нём просто не
+     догадывались — замечание астролога 12.08.2026. */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 14px 0 2px; }
   .tabs button { flex: 0 0 auto; padding: 8px; border-radius: 10px; font-size: 0.74rem;
     background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-faint); }
   .tabs button.on { color: var(--ink-dim);
@@ -660,6 +673,12 @@
 
   /* дришти: две колонки — кто смотрит и куда, цели с переносом по ширине */
   .drishti .row { grid-template-columns: 6rem 1fr; align-items: start; }
+  .drishti .row.tap { width: 100%; background: transparent; border: none; border-radius: 0;
+    text-align: left; font: inherit; color: var(--ink); }
+  .drishti .row.tap.open .pn { color: var(--gold); }
+  .drlore { display: flex; flex-direction: column; gap: 9px; padding: 2px 6px 10px; }
+  .drone { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.55; }
+  .drone b { color: var(--ink); display: block; margin-bottom: 2px; }
   .drishti .pn { display: flex; align-items: baseline; gap: 6px; color: var(--ink-dim); }
   .drishti .tg { display: flex; flex-direction: column; gap: 3px; line-height: 1.4; }
   .drishti .under { color: var(--ink-faint); font-size: 0.76rem; }
@@ -708,15 +727,6 @@
   .rul { color: var(--ink-faint); font-size: 0.78rem; }
   .ppos { font-size: 0.84rem; color: var(--ink-dim); }
   .psub { color: var(--ink-faint); font-size: 0.78rem; margin-top: 4px; line-height: 1.4; }
-  .tl { padding: 8px 0; }
-  .tl + .tl { border-top: 1px solid var(--glass-brd); }
-  .tl.w0 { opacity: 0.66; }
-  .tlhead { display: flex; gap: 9px; align-items: baseline; font-size: 0.86rem; color: var(--ink); }
-  .tldate { color: var(--ink-faint); font-size: 0.76rem; font-variant-numeric: tabular-nums;
-    min-width: 5.3rem; }
-  .tl.w2 .tlhead b { color: var(--gold); }
-  .tldetail { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45;
-    margin: 3px 0 0 5.3rem; }
   .lorebtn { background: transparent; border: none; padding: 6px 0 2px; text-align: left;
     color: var(--ink-dim); font-size: 0.78rem; }
   .lorebox { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 9px; }
@@ -779,6 +789,12 @@
   .mbsrc { color: var(--ink-faint); font-size: 0.72rem; line-height: 1.4; padding: 0 6px 6px; }
   .row.ar { grid-template-columns: 4.6rem 2.4rem 5.6rem 1fr; align-items: center; }
   .row.ar.key .un { color: var(--ink); }
+  /* строка-кнопка: сбрасываем кнопочные умолчания, чтобы сетка осталась сеткой */
+  .row.ar.tap { width: 100%; background: transparent; border: none; border-radius: 0;
+    text-align: left; font: inherit; color: var(--ink); }
+  .row.ar.tap.open .un { color: var(--gold); }
+  .padalore { color: var(--ink-dim); font-size: 0.82rem; line-height: 1.55;
+    padding: 2px 6px 8px; }
   .dim { color: var(--ink-faint); }
   .mark { color: var(--gold); }
   .pn { display: flex; align-items: center; gap: 6px; }

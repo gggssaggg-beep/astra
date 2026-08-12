@@ -1,12 +1,13 @@
 <script lang="ts">
   /** «Сообщество»: обсуждения аспектов с лайками и комментариями (Supabase).
    *  Три состояния: не подключено (нет ключей) → тёплая заглушка; не вошли →
-   *  вход через Google; вошли → лента / тред. `signature` фильтрует по аспекту. */
+   *  вход по ссылке на почту; вошли → лента / тред. `signature` фильтрует по аспекту. */
   import type { Session } from '@supabase/supabase-js';
   import {
-    configured, initCommunityAuth, signInGoogle, signInEmail, signOut, ensureProfile,
+    configured, initCommunityAuth, signInPassword, signUpPassword, changePassword,
+    requestPasswordCode, resetPasswordByCode, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
-    removeDiscussion, removeComment, isAdmin,
+    removeDiscussion, removeComment, isAdmin, deleteMyAccount,
     follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
     listNotifications, unreadCount, markNotificationsRead,
     type Discussion, type CommunityComment, type ProfileCard, type CommunityNotif,
@@ -80,23 +81,47 @@
     });
   });
 
-  async function login() {
-    err = null;
-    try { await signInGoogle(); }
-    catch (e) { err = human(e); }
-  }
-
-  // вход по почте — запасная дверь, пока Google-клиент не настроен
+  // вход по почте и паролю — единственная дверь (Google убран 2026-08-07,
+  // ссылка из письма — 12.08.2026: письмо несёт КОД, ссылку APK поймать не может)
   let email = $state('');
-  let mailSent = $state(false);
+  let pass = $state('');
+  let code = $state('');
+  let mode = $state<'in' | 'up' | 'forgot'>('in');
+  let codeSent = $state(false);
   let mailBusy = $state(false);
+  const canLogin = $derived(!!email.trim() && pass.length >= 8 && !mailBusy);
+  function setMode(m: typeof mode) { mode = m; err = null; codeSent = false; pass = ''; code = ''; }
+
   async function loginEmail() {
-    const em = email.trim(); if (!em || mailBusy) return;
+    if (!canLogin) return;
     err = null; mailBusy = true;
-    try { await signInEmail(em); mailSent = true; }
-    catch (e) { err = human(e); }
+    try {
+      if (mode === 'up') await signUpPassword(email, pass);
+      else await signInPassword(email, pass);
+      pass = '';
+    } catch (e) { err = loginErr(e); }
     finally { mailBusy = false; }
   }
+  async function sendCode() {
+    if (!email.trim() || mailBusy) return;
+    err = null; mailBusy = true;
+    try { await requestPasswordCode(email); codeSent = true; }
+    catch (e) { err = loginErr(e); } finally { mailBusy = false; }
+  }
+  async function applyCode() {
+    if (!code.trim() || pass.length < 8 || mailBusy) return;
+    err = null; mailBusy = true;
+    try { await resetPasswordByCode(email, code, pass); pass = ''; code = ''; mode = 'in'; }
+    catch (e) { err = loginErr(e); } finally { mailBusy = false; }
+  }
+  /** Ответы GoTrue приходят по-английски — переводим те, что человек реально увидит. */
+  const loginErr = (e: unknown): string => {
+    const m = e instanceof Error ? e.message : String(e);
+    if (/invalid login credentials/i.test(m)) return 'Почта или пароль не подходят.';
+    if (/already registered|already exists/i.test(m)) return 'Такая почта уже есть — войди с паролем.';
+    if (/password.*(6|8|at least)/i.test(m)) return 'Пароль слишком короткий.';
+    return human(e);
+  };
 
   // Закрытие «на пункт выше»: карточка → тред → лента → закрыть шторку. Свайп-вниз
   // и ✕ идут сюда же — «при закрытии ветки возвращать к списку сообщений».
@@ -251,6 +276,30 @@
     confirmOut = false;
     void signOut();
   }
+
+  // удаление аккаунта — отдельным блоком с явным предупреждением, а не второй
+  // «опасной» кнопкой в шапке: действие необратимое, тапнуть мимо нельзя
+  let confirmDel = $state(false);
+  let delBusy = $state(false);
+  // смена пароля: письма «забыл пароль» пока нет, менять можно только изнутри
+  let pwOpen = $state(false);
+  let pw1 = $state('');
+  let pwBusy = $state(false);
+  let pwOk = $state(false);
+  async function doChangePassword(): Promise<void> {
+    if (pw1.length < 8 || pwBusy) return;
+    pwBusy = true; err = null; pwOk = false;
+    try { await changePassword(pw1); pw1 = ''; pwOk = true; }
+    catch (e) { err = loginErr(e); } finally { pwBusy = false; }
+  }
+  async function doDeleteAccount(): Promise<void> {
+    delBusy = true; err = '';
+    try {
+      await deleteMyAccount();
+      confirmDel = false;
+      feed = []; notifs = []; unread = 0;
+    } catch (e) { err = (e as Error).message; } finally { delBusy = false; }
+  }
 </script>
 
 <div class="backdrop sheet-backdrop" onclick={handleClose} role="presentation"></div>
@@ -297,21 +346,42 @@
     <div class="stub">
       <div class="stubstar">✧</div>
       <b>Вход в сообщество</b>
-      <p>Обсуждения видны только вошедшим.</p>
-      <button class="gbtn" onclick={login}>Войти через Google</button>
-      <p class="hint" style="margin:6px 0 0">Откроется системный браузер — войди там,
-        и он сам вернёт в приложение.</p>
-      <div class="or">или по ссылке на почту</div>
-      {#if mailSent}
-        <p class="sentok">Письмо отправлено ✓<br />Открой его на этом телефоне и
-          коснись ссылки — она вернёт в приложение уже с входом.</p>
+      <p>Обсуждения видны только вошедшим. Вход — по почте и паролю.</p>
+      {#if mode === 'forgot'}
+        {#if !codeSent}
+          <div class="mailrow">
+            <input type="email" autocomplete="username" bind:value={email} placeholder="твоя почта…"
+              onkeydown={(e) => e.key === 'Enter' && sendCode()} />
+            <button class="btn primary" disabled={!email.trim() || mailBusy} onclick={sendCode}>
+              {mailBusy ? '…' : 'Прислать код'}</button>
+          </div>
+        {:else}
+          <div class="mailrow">
+            <p>Код ушёл на {email} — он живёт час.</p>
+            <input type="text" inputmode="numeric" autocomplete="one-time-code" bind:value={code}
+              placeholder="код из письма" />
+            <input type="password" autocomplete="new-password" bind:value={pass}
+              placeholder="новый пароль (от 8 знаков)"
+              onkeydown={(e) => e.key === 'Enter' && applyCode()} />
+            <button class="btn primary" disabled={!code.trim() || pass.length < 8 || mailBusy} onclick={applyCode}>
+              {mailBusy ? '…' : 'Сохранить пароль'}</button>
+          </div>
+        {/if}
+        <button class="link quiet" onclick={() => setMode('in')}>Вернуться ко входу</button>
       {:else}
         <div class="mailrow">
-          <input type="email" bind:value={email} placeholder="твоя почта…"
+          <input type="email" autocomplete="username" bind:value={email} placeholder="твоя почта…" />
+          <input type="password" bind:value={pass} placeholder="пароль (от 8 знаков)"
+            autocomplete={mode === 'up' ? 'new-password' : 'current-password'}
             onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
-          <button class="btn primary" disabled={mailBusy || !email.trim()} onclick={loginEmail}>
-            {mailBusy ? '…' : 'Прислать'}</button>
+          <button class="btn primary" disabled={!canLogin} onclick={loginEmail}>
+            {mailBusy ? '…' : mode === 'up' ? 'Завести вход' : 'Войти'}</button>
         </div>
+        <button class="link quiet" onclick={() => setMode(mode === 'up' ? 'in' : 'up')}>
+          {mode === 'up' ? 'У меня уже есть вход' : 'Впервые здесь — завести вход'}</button>
+        {#if mode === 'in'}
+          <button class="link quiet" onclick={() => setMode('forgot')}>Забыл пароль</button>
+        {/if}
       {/if}
     </div>
   {:else if open}
@@ -412,6 +482,36 @@
           {signature ? 'Этот аспект ещё не обсуждали — начни первой ✧' : 'Лента пуста — начни первое обсуждение ✧'}</div>
       {/if}
     {/each}
+
+    {#if session}
+      <!-- Право стереть себя (152-ФЗ ст. 14): без письма администратору. -->
+      <div class="account">
+        {#if !confirmDel && !pwOpen}
+          <button class="link quiet" onclick={() => (pwOpen = true)}>Сменить пароль</button>
+          <button class="link quiet" onclick={() => (confirmDel = true)}>Удалить аккаунт</button>
+        {:else if pwOpen}
+          <div class="mailrow">
+            <input type="password" autocomplete="new-password" bind:value={pw1}
+              placeholder="новый пароль (от 8 знаков)" />
+            <div class="row">
+              <button class="btn" onclick={() => { pwOpen = false; pw1 = ''; pwOk = false; }}>Отмена</button>
+              <button class="btn primary" disabled={pw1.length < 8 || pwBusy} onclick={doChangePassword}>
+                {pwBusy ? '…' : 'Сохранить'}</button>
+            </div>
+            {#if pwOk}<p>Пароль сменён ✓</p>{/if}
+          </div>
+        {:else}
+          <p>Удалятся имя, все твои обсуждения, комментарии, лайки и подписки.
+            Отменить нельзя. Записи на телефоне — журнал, карты, настройки — останутся:
+            они и не уезжали на сервер.</p>
+          <div class="row">
+            <button class="btn" onclick={() => (confirmDel = false)}>Оставить</button>
+            <button class="btn warn" disabled={delBusy} onclick={doDeleteAccount}>
+              {delBusy ? 'Удаляю…' : 'Удалить навсегда'}</button>
+          </div>
+        {/if}
+      </div>
+    {/if}
   {/if}
 
   {#if err}<div class="err">⚠ {err}</div>{/if}
@@ -477,13 +577,10 @@
   .stub { text-align: center; padding: 26px 14px; color: var(--ink-dim); }
   .stubstar { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
   .stub p { font-size: 0.9rem; line-height: 1.55; }
-  .gbtn { margin-top: 10px; background: var(--accent); border: none; color: var(--on-accent);
-    border-radius: 14px; padding: 12px 22px; font-weight: 600; }
-  .or { margin: 14px 0 8px; color: var(--ink-faint); font-size: 0.78rem; }
-  .mailrow { display: flex; gap: 8px; max-width: 360px; margin: 0 auto; }
-  .mailrow input { flex: 1; min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd);
+  /* столбиком: два поля и кнопка в строку на телефоне не помещаются */
+  .mailrow { display: flex; flex-direction: column; gap: 8px; max-width: 360px; margin: 12px auto 0; }
+  .mailrow input { min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd);
     color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }
-  .sentok { color: var(--gold); font-size: 0.88rem; line-height: 1.5; }
 
   .newbtn { width: 100%; margin: 12px 0; }
   .newform { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
@@ -551,4 +648,12 @@
     color: var(--ink-faint); font-size: 0.8rem; }
   .ustats b { color: var(--ink); font-size: 0.95rem; }
   .follow.following { background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-dim); }
+
+  /* удаление аккаунта: внизу ленты, тихой ссылкой — не соблазняет тапнуть,
+     но и не спрятано так, что человек его не найдёт */
+  .account { margin: 22px 0 4px; padding-top: 14px; border-top: 1px solid var(--glass-brd); }
+  .account p { color: var(--ink-faint); font-size: 0.82rem; line-height: 1.5; margin: 0 0 10px; }
+  .link.quiet { background: none; border: 0; color: var(--ink-faint); font-size: 0.82rem;
+    text-decoration: underline; padding: 0; }
+  .btn.warn { color: var(--rose); border-color: var(--rose); }
 </style>

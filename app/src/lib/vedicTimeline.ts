@@ -15,8 +15,9 @@ import type { Engine } from '../engine/index.ts';
 import { ZODIAC, stationsBetween } from '../engine/index.ts';
 import { signIndexOf, saturnPeriods, nodeReturn, BHAVA_THEME } from './vedic.ts';
 import type { DashaPeriod } from './vedic.ts';
+import { mrityuDegree, MRITYU_ORB_MIN_DEFAULT } from './mrityu.ts';
 
-export type TimelineKind = 'dasha' | 'antar' | 'ingress' | 'saturn' | 'node' | 'station';
+export type TimelineKind = 'dasha' | 'antar' | 'ingress' | 'saturn' | 'node' | 'station' | 'mrityu';
 
 export interface TimelineEvent {
   at: Date;
@@ -102,6 +103,39 @@ export function vedicTimeline(
         prevS = s;
       }
       prevJ = j;
+    }
+  }
+
+  // ── проход медленных через мритью бхагу (просьба астролога 12.08.2026) ──
+  // Только медленные, по тому же правилу, что и весь этот файл: Солнце и Марс
+  // проходят свой градус в каждом знаке, то есть по десятку раз в год — лента
+  // превратилась бы в шум. У Юпитера и Сатурна это событие раз в год-два.
+  // Момент — точное попадание в градус; в скобках срок, пока граха в орбисе.
+  for (const name of SLOW) {
+    let prevJ = j0, prevOff = null as number | null;
+    for (let j = j0 + 1; j <= j1; j += 1) {
+      const lon = E.lon(j, name);
+      const sign = signIndexOf(lon);
+      const degree = mrityuDegree(name, sign);
+      const off = degree == null ? null : lon - sign * 30 - degree;
+      // разные знаки → точка пройдена; смена знака рвёт отсчёт (prevOff = null)
+      if (prevOff != null && off != null && Math.sign(off) !== Math.sign(prevOff)
+          && Math.abs(off - prevOff) < 5) {
+        let a = prevJ, b = j;
+        for (let i = 0; i < 20; i++) {
+          const m = (a + b) / 2;
+          const l = E.lon(m, name);
+          const o = l - signIndexOf(l) * 30 - (mrityuDegree(name, signIndexOf(l)) ?? 0);
+          if (Math.sign(o) === Math.sign(prevOff)) a = m; else b = m;
+        }
+        const at = E.fromJD(b);
+        out.push({ at, kind: 'mrityu', weight: 1,
+          title: `${name} в мритью бхаге ${ZODIAC[sign]}`,
+          detail: `${name} проходит критический градус (${degree}° ${ZODIAC[sign]}) — классика `
+            + 'считает граху в нём лишённой сил. Читается не как беда, а как жёсткий урок по её '
+            + `теме; влияние держится, пока граха в пределах ${MRITYU_ORB_MIN_DEFAULT}′ от точки.` });
+      }
+      prevOff = off; prevJ = j;
     }
   }
 

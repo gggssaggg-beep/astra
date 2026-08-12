@@ -10,37 +10,38 @@
 import { createClient, type SupabaseClient, type Session } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
-import { App as CapApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 
-// === КОНФИГ проекта Supabase (создан владелицей 2026-07-02; ключ publishable —
-// НЕ секрет, данные защищает RLS на сервере) ===
-export const SUPABASE_URL = 'https://vbaysgzdvdyljlwlnivq.supabase.co';
-export const SUPABASE_ANON_KEY = 'sb_publishable_rYe1PJ0juzDec87oK7QC6Q_iSufPThD';
-// deep link возврата из Google-входа (intent-filter в AndroidManifest)
-const NATIVE_REDIRECT = 'astra://auth';
-// веб: возврат на ТЕКУЩУЮ страницу приложения (origin + путь), НЕ на голый домен.
-// На GitHub Pages приложение живёт в подпапке /astra/, а не в корне; голый
-// window.location.origin не совпадал с Redirect URLs в Supabase → тот падал на
-// дефолтный Site URL (localhost:3000) с flow_state_already_used. origin+pathname
-// = https://gggssaggg-beep.github.io/astra/ (локально — http://localhost:5173/).
-const webRedirect = (): string => window.location.origin + window.location.pathname;
-
+// === КОНФИГ своей базы (переезд 12.08.2026 с облачного Supabase в Лондоне на
+// свой сервер в РФ: 152-ФЗ ст. 18 ч. 5 требует, чтобы данные граждан РФ писались
+// в базу на территории России). Postgres + GoTrue + PostgREST на svcode.ru.
+// API живёт на ТОМ ЖЕ хосте, что и приложение: /auth/v1 → вход, /rest/v1 →
+// данные. Отсюда у веб-версии вообще нет CORS; в APK страница на https://localhost,
+// там кросс-домен, и заголовки выдаёт nginx.
+// Ключ anon публичен по устройству (это JWT с ролью anon) — данные защищает RLS. ===
+export const SUPABASE_URL = 'https://astra.svcode.ru';
+export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6ImFzdHJhIiwiaWF0IjoxNzg2NDcwMjYxLCJleHAiOjIxMDE4MzAyNjF9.OLFsqlwktXCD4uqUg39zSsfakLNIGvWET4IetmUhS8w';
 export const configured = (): boolean => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 const NATIVE = Capacitor.isNativePlatform();
 
-// Админ сообщества (владелица) — по email. Совпадает с RLS-политикой удаления в
-// supabase/schema.sql: админ может удалять любые темы/комментарии, автор — свои.
-const ADMIN_EMAIL = 'ggg.ssa.ggg@gmail.com';
-export const isAdmin = (session: Session | null): boolean =>
-  !!session && (session.user.email ?? '').toLowerCase() === ADMIN_EMAIL;
+// Роли выдаёт СЕРВЕР: они лежат в app_metadata пользователя и приезжают прямо в
+// токене, поэтому и клиенту, и RLS-политикам (public.has_role в schema.sql)
+// видны без единого лишнего запроса. Раньше здесь стояли живые почтовые адреса
+// владелицы и астролога — репозиторий публичный, и адрес постороннего человека
+// лежал в открытом коде и уезжал в бандл каждому. Сменить исполнителя роли —
+// теперь операция на сервере, правка кода не нужна:
+//   update auth.users set raw_app_meta_data = raw_app_meta_data
+//     || '{"roles":["astrologer"]}'::jsonb where email = '…';
+// Роль попадает в токен при входе: после смены человек должен перезайти.
+const hasRole = (s: Session | null, role: string): boolean => {
+  const roles = (s?.user.app_metadata as { roles?: unknown } | undefined)?.roles;
+  return Array.isArray(roles) && roles.includes(role);
+};
 
-// Астролог — Кира Нарица. Получает карты клиентов, но НЕ админ сообщества (прав
-// модерации у неё нет). «Входящие» client_charts видит ТОЛЬКО этот email (RLS в
-// schema.sql). Поменять астролога — здесь И в schema.sql (client_charts политики).
-export const ASTROLOGER_EMAIL = 'k.naritsa@gmail.com';
-export const isAstrologer = (session: Session | null): boolean =>
-  !!session && (session.user.email ?? '').toLowerCase() === ASTROLOGER_EMAIL;
+/** Админ сообщества: может удалять любые темы и комментарии (автор — свои). */
+export const isAdmin = (session: Session | null): boolean => hasRole(session, 'admin');
+
+/** Астролог: видит «Входящие» с картами клиентов. Модерации у неё нет. */
+export const isAstrologer = (session: Session | null): boolean => hasRole(session, 'astrologer');
 
 // сессия Supabase должна переживать перезапуск → Preferences (localStorage ненадёжен)
 const prefStorage = {
@@ -65,59 +66,79 @@ export function sb(): SupabaseClient {
 
 // --- Вход/выход -------------------------------------------------------------
 
-let deepLinkReady = false;
-/** Подписка на изменения auth + один раз deep link `astra://auth?code=…`
- *  (возврат из Google). Возвращает cleanup-функцию: без снятия подписки
+/** Подписка на изменения auth. Возвращает cleanup-функцию: без снятия подписки
  *  слушатели копились при каждом открытии шторки Сообщества. */
 export function initCommunityAuth(onChange: (s: Session | null) => void): (() => void) | undefined {
   if (!configured()) return undefined;
   const { data: sub } = sb().auth.onAuthStateChange((_e, session) => onChange(session));
   void sb().auth.getSession().then(({ data }) => onChange(data.session));
-  if (NATIVE && !deepLinkReady) {
-    deepLinkReady = true;
-    void CapApp.addListener('appUrlOpen', async ({ url }) => {
-      if (!url.startsWith(NATIVE_REDIRECT)) return;
-      const code = new URL(url.replace('astra://', 'https://x/')).searchParams.get('code');
-      if (code) await sb().auth.exchangeCodeForSession(code).catch(() => { /* покажет signed-out */ });
-      try { await Browser.close(); } catch { /* уже закрыт */ }
-    });
-  }
   return () => sub.subscription.unsubscribe();
 }
 
-export async function signInGoogle(): Promise<void> {
-  if (NATIVE) {
-    // WebView Google не пускает (disallowed_useragent) → системный браузер + deep link
-    const { data, error } = await sb().auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: NATIVE_REDIRECT, skipBrowserRedirect: true },
-    });
-    if (error) throw error;
-    if (data.url) await Browser.open({ url: data.url });
-  } else {
-    const { error } = await sb().auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: webRedirect() },
-    });
-    if (error) throw error;
-  }
+/* === ВХОД: почта + пароль ===================================================
+ * Google убран 2026-08-07 (сторонний вход при переезде на российский хостинг не
+ * используем), вход по ссылке из письма убран 12.08.2026: у своего сервера почты
+ * нет. Хостинг (reg.ru) закрывает исходящие 25/587/465, поэтому ни своего
+ * почтовика, ни обычного релея поднять нельзя, а слать письма через зарубежный
+ * сервис — тот самый трансграничный вывоз адресов, от которого мы и уезжали.
+ * Пароль писем не требует вовсе: GOTRUE_MAILER_AUTOCONFIRM=true подтверждает
+ * адрес сразу, и регистрация возвращает сессию тем же ответом.
+ * Восстановление пароля («забыл») появится, когда будет ящик; пока адрес меняет
+ * администратор. */
+
+/** Войти существующим паролем. */
+export async function signInPassword(email: string, password: string): Promise<void> {
+  const { error } = await sb().auth.signInWithPassword({ email: email.trim(), password });
+  if (error) throw error;
 }
 
-/** Вход по ссылке на почту — БЕЗ Google (обход «Доступ заблокирован»,
- *  2026-07-03: redirect_uri_mismatch в Google-клиенте). Supabase шлёт письмо,
- *  тап по ссылке возвращает в приложение тем же deep link astra://auth
- *  (email-провайдер в проекте включён — проверено по /auth/v1/settings). */
-export async function signInEmail(email: string): Promise<void> {
-  const { error } = await sb().auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: NATIVE ? NATIVE_REDIRECT : webRedirect() },
-  });
+/** Завести вход впервые. Сессия приходит сразу (адрес подтверждать нечем). */
+export async function signUpPassword(email: string, password: string): Promise<void> {
+  const { data, error } = await sb().auth.signUp({ email: email.trim(), password });
+  if (error) throw error;
+  // если на сервере вдруг включат подтверждение почты — сессии не будет
+  if (!data.session) throw new Error('Проверь почту — вход нужно подтвердить.');
+}
+
+/** «Забыл пароль»: попросить код. Сервер отдаёт письмо своему отправщику
+ *  (server/mailhook.py), тот шлёт его российским сервисом по HTTPS — обычный
+ *  SMTP с этого хостинга закрыт. В письме КОД, а не ссылка: приложение на
+ *  телефоне живёт по адресу https://localhost и возврат по ссылке не поймает. */
+export async function requestPasswordCode(email: string): Promise<void> {
+  const { error } = await sb().auth.resetPasswordForEmail(email.trim());
+  if (error) throw error;
+}
+
+/** «Забыл пароль»: код из письма → сразу новый пароль. Код действует час. */
+export async function resetPasswordByCode(email: string, code: string, password: string): Promise<void> {
+  const { error } = await sb().auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'recovery' });
+  if (error) throw error;
+  await changePassword(password);   // код уже дал сессию — меняем пароль ею
+}
+
+/** Сменить свой пароль, уже войдя. */
+export async function changePassword(password: string): Promise<void> {
+  const { error } = await sb().auth.updateUser({ password });
   if (error) throw error;
 }
 
 export async function signOut(): Promise<void> { await sb().auth.signOut(); }
 
-/** Профиль: завести/обновить своё имя (после первого входа — из Google). */
+/** Удалить аккаунт и ВСЕ свои данные на сервере (152-ФЗ ст. 14: обработка
+ *  прекращается по требованию человека, а не по письму администратору).
+ *  Серверная delete_my_account() удаляет строку в auth.users, а каскад уносит
+ *  профиль, темы, комментарии, лайки, подписки, уведомления и токены устройств
+ *  (см. supabase/schema.sql). Отменить нельзя.
+ *  Данные на устройстве — журнал, карты, настройки — здесь ни при чём: они
+ *  никогда не уезжали на сервер, их чистит «Данные» в настройках. */
+export async function deleteMyAccount(): Promise<void> {
+  const { error } = await sb().rpc('delete_my_account');
+  if (error) throw new Error(error.message);
+  await sb().auth.signOut();
+}
+
+/** Профиль: завести/обновить своё имя (при входе по почте — часть адреса до @;
+ *  ник можно поменять вручную, он не затирается). */
 export async function ensureProfile(session: Session): Promise<void> {
   const meta = session.user.user_metadata as Record<string, unknown>;
   const name = String(meta.full_name ?? meta.name ?? session.user.email?.split('@')[0] ?? 'астролог');

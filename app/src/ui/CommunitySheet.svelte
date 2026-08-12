@@ -4,7 +4,7 @@
    *  вход по ссылке на почту; вошли → лента / тред. `signature` фильтрует по аспекту. */
   import type { Session } from '@supabase/supabase-js';
   import {
-    configured, initCommunityAuth, signInEmail, signOut, ensureProfile,
+    configured, initCommunityAuth, signInPassword, signUpPassword, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     removeDiscussion, removeComment, isAdmin, deleteMyAccount,
     follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
@@ -80,17 +80,31 @@
     });
   });
 
-  // вход по почте — единственная дверь (Google убран 2026-08-07)
+  // вход по почте и паролю — единственная дверь (Google убран 2026-08-07,
+  // ссылка из письма — 12.08.2026: своего почтового ящика у сервера нет)
   let email = $state('');
-  let mailSent = $state(false);
+  let pass = $state('');
+  let signUp = $state(false);   // false — «войти», true — «завести вход»
   let mailBusy = $state(false);
+  const canLogin = $derived(!!email.trim() && pass.length >= 8 && !mailBusy);
   async function loginEmail() {
-    const em = email.trim(); if (!em || mailBusy) return;
+    if (!canLogin) return;
     err = null; mailBusy = true;
-    try { await signInEmail(em); mailSent = true; }
-    catch (e) { err = human(e); }
+    try {
+      if (signUp) await signUpPassword(email, pass);
+      else await signInPassword(email, pass);
+      pass = '';
+    } catch (e) { err = loginErr(e); }
     finally { mailBusy = false; }
   }
+  /** Ответы GoTrue приходят по-английски — переводим те, что человек реально увидит. */
+  const loginErr = (e: unknown): string => {
+    const m = e instanceof Error ? e.message : String(e);
+    if (/invalid login credentials/i.test(m)) return 'Почта или пароль не подходят.';
+    if (/already registered|already exists/i.test(m)) return 'Такая почта уже есть — войди с паролем.';
+    if (/password.*(6|8|at least)/i.test(m)) return 'Пароль слишком короткий.';
+    return human(e);
+  };
 
   // Закрытие «на пункт выше»: карточка → тред → лента → закрыть шторку. Свайп-вниз
   // и ✕ идут сюда же — «при закрытии ветки возвращать к списку сообщений».
@@ -304,19 +318,17 @@
     <div class="stub">
       <div class="stubstar">✧</div>
       <b>Вход в сообщество</b>
-      <p>Обсуждения видны только вошедшим. Вход — по ссылке на почту: пароль
-        придумывать не нужно.</p>
-      {#if mailSent}
-        <p class="sentok">Письмо отправлено ✓<br />Открой его на этом телефоне и
-          коснись ссылки — она вернёт в приложение уже с входом.</p>
-      {:else}
-        <div class="mailrow">
-          <input type="email" bind:value={email} placeholder="твоя почта…"
-            onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
-          <button class="btn primary" disabled={mailBusy || !email.trim()} onclick={loginEmail}>
-            {mailBusy ? '…' : 'Прислать'}</button>
-        </div>
-      {/if}
+      <p>Обсуждения видны только вошедшим. Вход — по почте и паролю.</p>
+      <div class="mailrow">
+        <input type="email" autocomplete="username" bind:value={email} placeholder="твоя почта…" />
+        <input type="password" bind:value={pass} placeholder="пароль (от 8 знаков)"
+          autocomplete={signUp ? 'new-password' : 'current-password'}
+          onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
+        <button class="btn primary" disabled={!canLogin} onclick={loginEmail}>
+          {mailBusy ? '…' : signUp ? 'Завести вход' : 'Войти'}</button>
+      </div>
+      <button class="link quiet" onclick={() => { signUp = !signUp; err = null; }}>
+        {signUp ? 'У меня уже есть вход' : 'Впервые здесь — завести вход'}</button>
     </div>
   {:else if open}
     <!-- ТРЕД -->
@@ -499,10 +511,10 @@
   .stub { text-align: center; padding: 26px 14px; color: var(--ink-dim); }
   .stubstar { font-size: 2rem; color: var(--accent); margin-bottom: 8px; }
   .stub p { font-size: 0.9rem; line-height: 1.55; }
-  .mailrow { display: flex; gap: 8px; max-width: 360px; margin: 10px auto 0; }
-  .mailrow input { flex: 1; min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd);
+  /* столбиком: два поля и кнопка в строку на телефоне не помещаются */
+  .mailrow { display: flex; flex-direction: column; gap: 8px; max-width: 360px; margin: 12px auto 0; }
+  .mailrow input { min-width: 0; background: #ffffff10; border: 1px solid var(--glass-brd);
     color: var(--ink); border-radius: 12px; padding: 10px 12px; font: inherit; }
-  .sentok { color: var(--gold); font-size: 0.88rem; line-height: 1.5; }
 
   .newbtn { width: 100%; margin: 12px 0; }
   .newform { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }

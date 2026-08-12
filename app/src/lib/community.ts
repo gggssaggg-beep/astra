@@ -10,8 +10,6 @@
 import { createClient, type SupabaseClient, type Session } from '@supabase/supabase-js';
 import { Capacitor } from '@capacitor/core';
 import { Preferences } from '@capacitor/preferences';
-import { App as CapApp } from '@capacitor/app';
-import { Browser } from '@capacitor/browser';
 
 // === КОНФИГ своей базы (переезд 12.08.2026 с облачного Supabase в Лондоне на
 // свой сервер в РФ: 152-ФЗ ст. 18 ч. 5 требует, чтобы данные граждан РФ писались
@@ -22,15 +20,6 @@ import { Browser } from '@capacitor/browser';
 // Ключ anon публичен по устройству (это JWT с ролью anon) — данные защищает RLS. ===
 export const SUPABASE_URL = 'https://astra.svcode.ru';
 export const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6ImFzdHJhIiwiaWF0IjoxNzg2NDcwMjYxLCJleHAiOjIxMDE4MzAyNjF9.OLFsqlwktXCD4uqUg39zSsfakLNIGvWET4IetmUhS8w';
-// deep link возврата из письма со ссылкой входа (intent-filter в AndroidManifest)
-const NATIVE_REDIRECT = 'astra://auth';
-// веб: возврат на ТЕКУЩУЮ страницу приложения (origin + путь), НЕ на голый домен.
-// Осталось с Pages, где приложение жило в подпапке /astra/: голый origin не
-// совпадал со списком разрешённых адресов и вход падал в flow_state_already_used.
-// Сейчас это https://astra.svcode.ru/ (локально — http://localhost:5173/);
-// список разрешённых адресов — GOTRUE_URI_ALLOW_LIST на сервере.
-const webRedirect = (): string => window.location.origin + window.location.pathname;
-
 export const configured = (): boolean => !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 const NATIVE = Capacitor.isNativePlatform();
 
@@ -77,38 +66,38 @@ export function sb(): SupabaseClient {
 
 // --- Вход/выход -------------------------------------------------------------
 
-let deepLinkReady = false;
-/** Подписка на изменения auth + один раз deep link `astra://auth?code=…`
- *  (возврат по ссылке из письма). Возвращает cleanup-функцию: без снятия подписки
+/** Подписка на изменения auth. Возвращает cleanup-функцию: без снятия подписки
  *  слушатели копились при каждом открытии шторки Сообщества. */
 export function initCommunityAuth(onChange: (s: Session | null) => void): (() => void) | undefined {
   if (!configured()) return undefined;
   const { data: sub } = sb().auth.onAuthStateChange((_e, session) => onChange(session));
   void sb().auth.getSession().then(({ data }) => onChange(data.session));
-  if (NATIVE && !deepLinkReady) {
-    deepLinkReady = true;
-    void CapApp.addListener('appUrlOpen', async ({ url }) => {
-      if (!url.startsWith(NATIVE_REDIRECT)) return;
-      const code = new URL(url.replace('astra://', 'https://x/')).searchParams.get('code');
-      if (code) await sb().auth.exchangeCodeForSession(code).catch(() => { /* покажет signed-out */ });
-      try { await Browser.close(); } catch { /* уже закрыт */ }
-    });
-  }
   return () => sub.subscription.unsubscribe();
 }
 
-/** Вход по ссылке на почту — ЕДИНСТВЕННАЯ дверь. Вход через Google убран
- *  2026-08-07 (решение владелицы при переезде на российский хостинг: сторонний
- *  вход не используем). Supabase шлёт письмо, тап по ссылке возвращает в
- *  приложение deep link'ом astra://auth (email-провайдер в проекте включён —
- *  проверено по /auth/v1/settings). Google-провайдера в панели Supabase тоже
- *  надо выключить — кода тут для него больше нет. */
-export async function signInEmail(email: string): Promise<void> {
-  const { error } = await sb().auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: NATIVE ? NATIVE_REDIRECT : webRedirect() },
-  });
+/* === ВХОД: почта + пароль ===================================================
+ * Google убран 2026-08-07 (сторонний вход при переезде на российский хостинг не
+ * используем), вход по ссылке из письма убран 12.08.2026: у своего сервера почты
+ * нет. Хостинг (reg.ru) закрывает исходящие 25/587/465, поэтому ни своего
+ * почтовика, ни обычного релея поднять нельзя, а слать письма через зарубежный
+ * сервис — тот самый трансграничный вывоз адресов, от которого мы и уезжали.
+ * Пароль писем не требует вовсе: GOTRUE_MAILER_AUTOCONFIRM=true подтверждает
+ * адрес сразу, и регистрация возвращает сессию тем же ответом.
+ * Восстановление пароля («забыл») появится, когда будет ящик; пока адрес меняет
+ * администратор. */
+
+/** Войти существующим паролем. */
+export async function signInPassword(email: string, password: string): Promise<void> {
+  const { error } = await sb().auth.signInWithPassword({ email: email.trim(), password });
   if (error) throw error;
+}
+
+/** Завести вход впервые. Сессия приходит сразу (адрес подтверждать нечем). */
+export async function signUpPassword(email: string, password: string): Promise<void> {
+  const { data, error } = await sb().auth.signUp({ email: email.trim(), password });
+  if (error) throw error;
+  // если на сервере вдруг включат подтверждение почты — сессии не будет
+  if (!data.session) throw new Error('Проверь почту — вход нужно подтвердить.');
 }
 
 export async function signOut(): Promise<void> { await sb().auth.signOut(); }

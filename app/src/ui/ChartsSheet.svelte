@@ -54,6 +54,8 @@
   import PeopleList from './charts/PeopleList.svelte';
   import VedicChart from './VedicChart.svelte';
   import VedicReport from './VedicReport.svelte';
+  import VedicDates from './VedicDates.svelte';
+  import { vedicTimeline } from '../lib/vedicTimeline.ts';
   import { vedicNatal, vargaCells, gocharaCells, degMin } from '../lib/vedicChart.ts';
   import { VARGA_LIST, vargaInfo, type VargaId } from '../lib/vargas.ts';
   import { drishtiSigns } from '../lib/drishti.ts';
@@ -233,6 +235,20 @@
 
   // дришти натальной карты рисует сам разбор (VedicReport) — здесь дублировать
   // не надо: карта человека и её разбор теперь один экран.
+
+  // Важные даты в ГОЧАРЕ (просьба астролога 12.08.2026: таблица была только в
+  // кундали). Считает та же функция, рисует тот же компонент — ленты в двух
+  // местах обязаны совпадать.
+  const gocharaDates = $derived.by(() => {
+    if (!vedicA || mode !== 'transitNatal') return [];
+    const rahu = vedicA.chart.planets.find((p) => p.name === 'Раху');
+    try {
+      return vedicTimeline(engine, vedicA.dashas, {
+        lagnaSign: vedicA.chart.lagnaSign, moonSign: vedicA.chart.moonSign,
+        rahuSign: rahu?.signIndex ?? 0,
+      }, new Date(), 3);
+    } catch { return []; }
+  });
 
   // «Я не астролог» из настроек: разбор прячет специальные слои (навамша,
   // отношения грах, дришти, аштакаварга, варги). Тумблер был в настройках, но
@@ -1152,6 +1168,15 @@
                 смотрит на <b>{d.to}</b> в кундали ({ZODIAC[d.toSign]}, {d.toHouse}-й дом)</div>
             </div>
           {/each}
+        </details>
+      {/if}
+
+      <!-- та же лента важных дат, что и в кундали: гочара — про сроки, и
+           смотреть их логично здесь же (просьба астролога 12.08.2026) -->
+      {#if vedicA && mode === 'transitNatal'}
+        <details class="fold">
+          <summary class="grp">🗓 Важные даты · {gocharaDates.length}</summary>
+          <VedicDates events={gocharaDates} {tz} title="" />
         </details>
       {/if}
     {:else}

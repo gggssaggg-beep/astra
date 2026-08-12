@@ -22,6 +22,7 @@
   import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { vedicTimeline } from '../lib/vedicTimeline.ts';
+  import VedicDates from './VedicDates.svelte';
   import { grahaHouseText } from '../lib/grahaHouseLore.ts';
   import { mahaDashaText, antarDashaText } from '../lib/dashaLore.ts';
   import { grahaSignText } from '../lib/grahaSignLore.ts';
@@ -40,7 +41,6 @@
   // строится на лету, поэтому раскрыта всегда только одна ветка
   let openAntar = $state<string | null>(null);
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
-  let tlAll = $state(false);                    // лента дат раскрыта целиком
 
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
@@ -504,27 +504,9 @@
      похода к ИИ: смены даш, заходы медленных грах, Саде Сати, узловые
      возвращения. Ближайшее сверху. -->
 {#if active === 'dates'}
+<VedicDates events={timeline} {tz} />
 {#if timeline.length}
-  <div class="hdr">Важные даты</div>
-  <div class="card glass reveal" use:reveal>
-    {#each timeline.slice(0, tlAll ? timeline.length : 8) as e (e.at.getTime() + e.title)}
-      <div class="tl w{e.weight}">
-        <div class="tlhead"><span class="tldate">{dt(e.at)}</span><b>{e.title}</b></div>
-        <div class="tldetail">{e.detail}</div>
-      </div>
-    {/each}
-    {#if timeline.length > 8}
-      <button class="lorebtn" onclick={() => (tlAll = !tlAll)}>
-        {tlAll ? 'Свернуть' : `Ещё ${timeline.length - 8}`} {tlAll ? '▴' : '▾'}
-      </button>
-    {/if}
-  </div>
-  <div class="note">Даты рассчитаны движком: смены периодов, заходы Юпитера и Сатурна
-    в новый знак, фазы Саде Сати, узловые возвращения. Быстрые грахи сюда не идут —
-    они на экране дня. Сами периоды и их границы — во вкладке «Даши».</div>
-{:else}
-  <div class="note">На ближайшие три года крупных смен не выпало: ни смены периода, ни
-    захода Юпитера, Сатурна или узлов в новый знак. Это нормально — такие события редкие.</div>
+  <div class="note">Сами периоды и их границы — во вкладке «Даши».</div>
 {/if}
 {/if}
 
@@ -620,12 +602,11 @@
   .hdr { color: var(--ink-faint); font-size: 0.7rem; text-transform: uppercase;
     letter-spacing: 1px; margin: 16px 4px 4px; }
 
-  /* Вкладки разделов — в духе переключателя варг, но ряд прокручивается вбок и
-     НЕ переносится: «Аштакаварга» длинная. Кегль и поля подобраны так, чтобы
-     все пять названий влезали в 360 px без прокрутки (мерено браузером). */
-  .tabs { display: flex; gap: 4px; margin: 14px 0 2px; overflow-x: auto;
-    white-space: nowrap; padding-bottom: 2px; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
+  /* Вкладки разделов — в духе переключателя варг.
+     Переносим на вторую строку, а не прокручиваем вбок: вкладок стало восемь,
+     хвост («Арудхи», «Даши», «Важные даты») уезжал за край, и о нём просто не
+     догадывались — замечание астролога 12.08.2026. */
+  .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin: 14px 0 2px; }
   .tabs button { flex: 0 0 auto; padding: 8px; border-radius: 10px; font-size: 0.74rem;
     background: transparent; border: 1px solid var(--glass-brd); color: var(--ink-faint); }
   .tabs button.on { color: var(--ink-dim);
@@ -708,15 +689,6 @@
   .rul { color: var(--ink-faint); font-size: 0.78rem; }
   .ppos { font-size: 0.84rem; color: var(--ink-dim); }
   .psub { color: var(--ink-faint); font-size: 0.78rem; margin-top: 4px; line-height: 1.4; }
-  .tl { padding: 8px 0; }
-  .tl + .tl { border-top: 1px solid var(--glass-brd); }
-  .tl.w0 { opacity: 0.66; }
-  .tlhead { display: flex; gap: 9px; align-items: baseline; font-size: 0.86rem; color: var(--ink); }
-  .tldate { color: var(--ink-faint); font-size: 0.76rem; font-variant-numeric: tabular-nums;
-    min-width: 5.3rem; }
-  .tl.w2 .tlhead b { color: var(--gold); }
-  .tldetail { color: var(--ink-faint); font-size: 0.78rem; line-height: 1.45;
-    margin: 3px 0 0 5.3rem; }
   .lorebtn { background: transparent; border: none; padding: 6px 0 2px; text-align: left;
     color: var(--ink-dim); font-size: 0.78rem; }
   .lorebox { margin: 4px 0 2px; display: flex; flex-direction: column; gap: 9px; }

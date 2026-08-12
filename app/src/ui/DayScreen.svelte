@@ -20,6 +20,8 @@
   import { panchangaOf } from '../lib/panchanga.ts';
   import { kalamsOf, kalamNow, KALAM_LORE } from '../lib/kalam.ts';
   import { dayFrame } from '../lib/upagraha.ts';
+  import { auspiciousCurve, pointAt } from '../lib/auspicious.ts';
+  import AuspiciousChart from './AuspiciousChart.svelte';
   import { dayHeadline, VARA_LORE, TITHI_LORE, PAKSHA_LORE, tithiGroup, KARANA_LORE,
     NAKSHATRA_LORE, YOGA_LORE } from '../lib/panchangaLore.ts';
   import Hint from './Hint.svelte';
@@ -166,6 +168,31 @@
   const hhmm = (d: Date) => new Intl.DateTimeFormat('ru-RU',
     { timeZone: tz, hour: '2-digit', minute: '2-digit' }).format(d);
   let openKalam = $state<string | null>(null);
+
+  // КРИВАЯ БЛАГОПРИЯТНОСТИ СУТОК (просьба астролога 12.08.2026, образец —
+  // Vedic times). Считается на сутки от восхода: полосы дня, йога панчанги, а
+  // при известной Луне рождения ещё тарабала и чандра-гочара. Веса —
+  // предварительные, см. lib/auspicious.ts.
+  const auspicious = $derived.by(() => {
+    if (!vedic || !kalams.length) return [];
+    const frame0 = kalams[0];
+    const from = new Date(frame0.from.getTime() - 6 * 3600_000);
+    try {
+      return auspiciousCurve({
+        windows: kalams,
+        from,
+        to: new Date(from.getTime() + 24 * 3600_000),
+        natalMoonLon: vedicMoon?.unknownTime ? null : vedicMoon?.lon ?? null,
+        sample: (t) => {
+          const pos = engine.positions(t, ['Солнце', 'Луна']);
+          const sn = pos.find((p) => p.name === 'Солнце');
+          const mn = pos.find((p) => p.name === 'Луна');
+          return sn && mn ? { sunLon: sn.lon, moonLon: mn.lon } : null;
+        },
+      });
+    } catch { return []; }
+  });
+  const auspiciousNow = $derived(isToday ? pointAt(auspicious, snapshot) : null);
 
   // фаза Луны — из уже посчитанных долгот (элонгация Луна−Солнце), без движка
   const PHASE_EM = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
@@ -431,6 +458,25 @@
           {/if}
         {/each}
       </div>
+      {#if auspicious.length > 1}
+        <h3 class="sec">Благоприятность суток</h3>
+        <div class="panch glass">
+          <AuspiciousChart curve={auspicious} now={isToday ? snapshot : null} {tz} />
+          {#if auspiciousNow}
+            <div class="ausnow"><b>{auspiciousNow.score}%</b> сейчас</div>
+            <ul class="auswhy">
+              {#each auspiciousNow.reasons as r}<li>{r}</li>{/each}
+              {#if !auspiciousNow.reasons.length}<li>ничего заметного — ровный отрезок</li>{/if}
+            </ul>
+          {/if}
+          <div class="kalnote">Складываются полосы суток, йога панчанги{#if vedicMoon && !vedicMoon.unknownTime},
+              тарабала и чандра-гочара от Луны рождения{:else} (личные слои включатся, когда
+              у карты появится точное время рождения){/if}. Числовой шкалы классика не даёт —
+            веса подобраны и ждут правки астролога, поэтому под графиком и написано,
+            из чего он сложился.</div>
+        </div>
+      {/if}
+
       <div class="kalnote">Полосы отсчитываются от восхода и заката{#if vedicPlace}
           в месте карты — {vedicPlace.name}{/if}. Летом они шире, зимой уже:
         доли светового дня, а не часы по календарю.</div>
@@ -687,6 +733,10 @@
   .nowm { display: block; font-style: normal; font-size: 0.68rem; color: var(--gold); }
   .prow.kal.now .pk { color: var(--ink-dim); }
   .kalnote { color: var(--ink-faint); font-size: 0.74rem; line-height: 1.45; margin: 2px 4px 0; }
+  .ausnow { font-size: 0.86rem; color: var(--ink); margin-top: 2px; }
+  .ausnow b { color: var(--gold); font-size: 1.05rem; }
+  .auswhy { margin: 4px 0 6px; padding-left: 18px; color: var(--ink-dim);
+    font-size: 0.78rem; line-height: 1.5; }
   /* значение прижато вправо и переносится (титхи — длинная строка) */
   .pv { margin-left: auto; text-align: right; color: var(--ink); font-size: 0.9rem;
     line-height: 1.35; min-width: 0; }

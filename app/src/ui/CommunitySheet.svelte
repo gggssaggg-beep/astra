@@ -4,7 +4,8 @@
    *  вход по ссылке на почту; вошли → лента / тред. `signature` фильтрует по аспекту. */
   import type { Session } from '@supabase/supabase-js';
   import {
-    configured, initCommunityAuth, signInPassword, signUpPassword, changePassword, signOut, ensureProfile,
+    configured, initCommunityAuth, signInPassword, signUpPassword, changePassword,
+    requestPasswordCode, resetPasswordByCode, signOut, ensureProfile,
     listDiscussions, listComments, createDiscussion, addComment, toggleLike,
     removeDiscussion, removeComment, isAdmin, deleteMyAccount,
     follow, getProfileCard, subscribeThread, isSubscribed, listByAuthor, getDiscussion,
@@ -81,21 +82,37 @@
   });
 
   // вход по почте и паролю — единственная дверь (Google убран 2026-08-07,
-  // ссылка из письма — 12.08.2026: своего почтового ящика у сервера нет)
+  // ссылка из письма — 12.08.2026: письмо несёт КОД, ссылку APK поймать не может)
   let email = $state('');
   let pass = $state('');
-  let signUp = $state(false);   // false — «войти», true — «завести вход»
+  let code = $state('');
+  let mode = $state<'in' | 'up' | 'forgot'>('in');
+  let codeSent = $state(false);
   let mailBusy = $state(false);
   const canLogin = $derived(!!email.trim() && pass.length >= 8 && !mailBusy);
+  function setMode(m: typeof mode) { mode = m; err = null; codeSent = false; pass = ''; code = ''; }
+
   async function loginEmail() {
     if (!canLogin) return;
     err = null; mailBusy = true;
     try {
-      if (signUp) await signUpPassword(email, pass);
+      if (mode === 'up') await signUpPassword(email, pass);
       else await signInPassword(email, pass);
       pass = '';
     } catch (e) { err = loginErr(e); }
     finally { mailBusy = false; }
+  }
+  async function sendCode() {
+    if (!email.trim() || mailBusy) return;
+    err = null; mailBusy = true;
+    try { await requestPasswordCode(email); codeSent = true; }
+    catch (e) { err = loginErr(e); } finally { mailBusy = false; }
+  }
+  async function applyCode() {
+    if (!code.trim() || pass.length < 8 || mailBusy) return;
+    err = null; mailBusy = true;
+    try { await resetPasswordByCode(email, code, pass); pass = ''; code = ''; mode = 'in'; }
+    catch (e) { err = loginErr(e); } finally { mailBusy = false; }
   }
   /** Ответы GoTrue приходят по-английски — переводим те, что человек реально увидит. */
   const loginErr = (e: unknown): string => {
@@ -330,16 +347,42 @@
       <div class="stubstar">✧</div>
       <b>Вход в сообщество</b>
       <p>Обсуждения видны только вошедшим. Вход — по почте и паролю.</p>
-      <div class="mailrow">
-        <input type="email" autocomplete="username" bind:value={email} placeholder="твоя почта…" />
-        <input type="password" bind:value={pass} placeholder="пароль (от 8 знаков)"
-          autocomplete={signUp ? 'new-password' : 'current-password'}
-          onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
-        <button class="btn primary" disabled={!canLogin} onclick={loginEmail}>
-          {mailBusy ? '…' : signUp ? 'Завести вход' : 'Войти'}</button>
-      </div>
-      <button class="link quiet" onclick={() => { signUp = !signUp; err = null; }}>
-        {signUp ? 'У меня уже есть вход' : 'Впервые здесь — завести вход'}</button>
+      {#if mode === 'forgot'}
+        {#if !codeSent}
+          <div class="mailrow">
+            <input type="email" autocomplete="username" bind:value={email} placeholder="твоя почта…"
+              onkeydown={(e) => e.key === 'Enter' && sendCode()} />
+            <button class="btn primary" disabled={!email.trim() || mailBusy} onclick={sendCode}>
+              {mailBusy ? '…' : 'Прислать код'}</button>
+          </div>
+        {:else}
+          <div class="mailrow">
+            <p>Код ушёл на {email} — он живёт час.</p>
+            <input type="text" inputmode="numeric" autocomplete="one-time-code" bind:value={code}
+              placeholder="код из письма" />
+            <input type="password" autocomplete="new-password" bind:value={pass}
+              placeholder="новый пароль (от 8 знаков)"
+              onkeydown={(e) => e.key === 'Enter' && applyCode()} />
+            <button class="btn primary" disabled={!code.trim() || pass.length < 8 || mailBusy} onclick={applyCode}>
+              {mailBusy ? '…' : 'Сохранить пароль'}</button>
+          </div>
+        {/if}
+        <button class="link quiet" onclick={() => setMode('in')}>Вернуться ко входу</button>
+      {:else}
+        <div class="mailrow">
+          <input type="email" autocomplete="username" bind:value={email} placeholder="твоя почта…" />
+          <input type="password" bind:value={pass} placeholder="пароль (от 8 знаков)"
+            autocomplete={mode === 'up' ? 'new-password' : 'current-password'}
+            onkeydown={(e) => e.key === 'Enter' && loginEmail()} />
+          <button class="btn primary" disabled={!canLogin} onclick={loginEmail}>
+            {mailBusy ? '…' : mode === 'up' ? 'Завести вход' : 'Войти'}</button>
+        </div>
+        <button class="link quiet" onclick={() => setMode(mode === 'up' ? 'in' : 'up')}>
+          {mode === 'up' ? 'У меня уже есть вход' : 'Впервые здесь — завести вход'}</button>
+        {#if mode === 'in'}
+          <button class="link quiet" onclick={() => setMode('forgot')}>Забыл пароль</button>
+        {/if}
+      {/if}
     </div>
   {:else if open}
     <!-- ТРЕД -->

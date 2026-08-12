@@ -100,8 +100,23 @@ export async function signUpPassword(email: string, password: string): Promise<v
   if (!data.session) throw new Error('Проверь почту — вход нужно подтвердить.');
 }
 
-/** Сменить свой пароль. Нужна, пока нет письма «забыл пароль»: первый пароль
- *  старым пользователям заводит администратор, дальше человек меняет его сам. */
+/** «Забыл пароль»: попросить код. Сервер отдаёт письмо своему отправщику
+ *  (server/mailhook.py), тот шлёт его российским сервисом по HTTPS — обычный
+ *  SMTP с этого хостинга закрыт. В письме КОД, а не ссылка: приложение на
+ *  телефоне живёт по адресу https://localhost и возврат по ссылке не поймает. */
+export async function requestPasswordCode(email: string): Promise<void> {
+  const { error } = await sb().auth.resetPasswordForEmail(email.trim());
+  if (error) throw error;
+}
+
+/** «Забыл пароль»: код из письма → сразу новый пароль. Код действует час. */
+export async function resetPasswordByCode(email: string, code: string, password: string): Promise<void> {
+  const { error } = await sb().auth.verifyOtp({ email: email.trim(), token: code.trim(), type: 'recovery' });
+  if (error) throw error;
+  await changePassword(password);   // код уже дал сессию — меняем пароль ею
+}
+
+/** Сменить свой пароль, уже войдя. */
 export async function changePassword(password: string): Promise<void> {
   const { error } = await sb().auth.updateUser({ password });
   if (error) throw error;

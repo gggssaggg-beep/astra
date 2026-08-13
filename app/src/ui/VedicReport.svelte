@@ -22,6 +22,7 @@
   import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
   import { YUDDHA_KIND_LABEL, YUDDHA_KIND_LORE, YUDDHA_APASAVYA_LORE,
     YUDDHA_HURT, YUDDHA_GENERAL, YUDDHA_DISPUTE } from '../lib/yuddha.ts';
+  import { functionalNature, FUNCTIONAL_SCHOOL, FUNCTIONAL_NOTE } from '../lib/functional.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { padaText } from '../lib/arudhaLore.ts';
   import { drishtiText, distanceOf } from '../lib/drishtiLore.ts';
@@ -118,6 +119,11 @@
 
   // короткое имя карты — {@const} на верхнем уровне разметки Svelte не разрешён
   const c = $derived(natal.chart);
+
+  // функциональная природа грахи ПО ЛАГНЕ (классика Парашары — школа названа).
+  // Луна в кришна-пакше считается вредителем: от этого зависит кендрадхипатья.
+  const moonBenefic = $derived(c.tithi.paksha === 'шукла');
+  const funcOf = $derived((name: string) => functionalNature(name, c.lagnaSign, moonBenefic));
 
   // --- исходные данные даш (сверка с чужой программой, раунд 2 §2) ---
   const moonLon = $derived(natal.chart.planets.find((p) => p.name === 'Луна')?.lon ?? 0);
@@ -503,14 +509,26 @@
         {/if}
       {/if}
     {/if}
+    <!-- функциональная природа по лагне: специальный слой, в «я не астролог»
+         его нет. Школа подписана в самом объяснении, а не подразумевается. -->
+    {#if !simple}
+      {@const fn = funcOf(p.name)}
+      {#if fn}
+        <div class="psub fnline">Для этой лагны — <b>{fn.label}</b> ({FUNCTIONAL_SCHOOL}):
+          {fn.reasons.join('; ')}.</div>
+      {/if}
+    {/if}
     <div class="tags">
       {#if p.dignity.kind}<span class="tag {p.dignity.kind}">{p.dignity.label}</span>{/if}
+      {#if !simple && funcOf(p.name)?.kind === 'yogakaraka'}<span class="tag yk">йогакарака</span>{/if}
+      {#if !simple && funcOf(p.name)?.maraka}<span class="tag mk">марака</span>{/if}
       {#if mrityu[p.name]}<span class="tag mbt">мритью бхага {mrityu[p.name].degree}°</span>{/if}
       {#if p.karaka}<span class="tag k">{p.karaka} · {karakaName(p.karaka)}</span>{/if}
       {#if NATURAL_KARAKAS[p.name]}<span class="nat">{NATURAL_KARAKAS[p.name]}</span>{/if}
     </div>
   </div>
 {/each}
+{#if !simple}<div class="note">{FUNCTIONAL_NOTE}</div>{/if}
 {/if}
 
 {#if active === 'upa' && !simple}
@@ -820,6 +838,11 @@
   .tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
   .tag { font-size: 0.7rem; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--glass-brd);
     color: var(--ink-dim); white-space: nowrap; }
+  /* функциональная природа: строка под грахой и две пометки. Цветом ничего не
+     «оценивается» — смысл несёт слово, краска только выделяет йогакараку */
+  .fnline { margin-top: 6px; }
+  .tag.yk { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--glass-brd)); }
+  .tag.mk { color: var(--ink-dim); }
   .tag.exalted { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 45%, var(--glass-brd)); }
   .tag.debilitated { color: var(--rose); border-color: color-mix(in srgb, var(--rose) 45%, var(--glass-brd)); }
   .tag.k { color: var(--neon-cyan); border-color: color-mix(in srgb, var(--neon-cyan) 40%, var(--glass-brd)); }

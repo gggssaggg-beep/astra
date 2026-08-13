@@ -16,6 +16,7 @@ import type { VedicNatal } from './vedicChart.ts';
 import { degMin, SHORT } from './vedicChart.ts';
 import { GRAHA_NAMES } from './vedicLore.ts';
 import { YUDDHA_KIND_LABEL } from './yuddha.ts';
+import { functionalNature, FUNCTIONAL_SCHOOL } from './functional.ts';
 import {
   signIndexOf, RELATION_LABEL, CHARA_KARAKAS, VEDIC_ORDER_SET,
   houseFromMoon, gocharaGood, saturnPeriods, nodeReturn, BHAVA_THEME,
@@ -140,6 +141,25 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
     L.push('Война повреждает каракатвы проигравшей грахи, дом, где случилась, и дома, '
       + 'которыми проигравшая управляет. Если победитель выше НЕ назван — так и разбирай: '
       + 'мнения школ расходятся, своего победителя не назначай.');
+  }
+
+  // ── функциональная природа по лагне ──
+  // Школа названа прямо в тексте промпта: ИИ не должна выдавать её за
+  // единственно возможную (астролог правило не назвал, выбор наш и подписан).
+  {
+    const lines = c.planets
+      .map((p) => functionalNature(p.name, c.lagnaSign, c.tithi.paksha === 'шукла'))
+      .filter((f): f is NonNullable<typeof f> => !!f);
+    if (lines.length) {
+      L.push(`\n### Функциональная природа грах для этой лагны (${FUNCTIONAL_SCHOOL})`);
+      for (const p of c.planets) {
+        const f = functionalNature(p.name, c.lagnaSign, c.tithi.paksha === 'шукла');
+        if (f) L.push(`${p.name}: ${f.label} — ${f.reasons.join('; ')}.`);
+      }
+      L.push('Раху и Кету своих знаков не имеют — функциональной природы у них нет, '
+        + 'они работают через хозяина знака, в котором стоят. Счёт выше сделан по классике '
+        + 'Парашары; если разбираешь по другой школе — скажи об этом прямо, а не молча.');
+    }
   }
 
   // ── лорды домов ──

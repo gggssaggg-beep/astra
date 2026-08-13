@@ -15,6 +15,7 @@ import { tzLabel } from './format.ts';
 import type { VedicNatal } from './vedicChart.ts';
 import { degMin, SHORT } from './vedicChart.ts';
 import { GRAHA_NAMES } from './vedicLore.ts';
+import { YUDDHA_KIND_LABEL } from './yuddha.ts';
 import {
   signIndexOf, RELATION_LABEL, CHARA_KARAKAS, VEDIC_ORDER_SET,
   houseFromMoon, gocharaGood, saturnPeriods, nodeReturn, BHAVA_THEME,
@@ -117,6 +118,29 @@ export function buildVedicPrompt(inp: VedicPromptInput): string {
       + (p.rules.length ? ` · управляет домами ${p.rules.join(', ')}` : ''));
   }
   L.push(`Навамша (D9): ${c.planets.map((p) => `${SHORT[p.name] ?? p.name} — ${ZODIAC[p.navamsha]}`).join('; ')}.`);
+
+  // ── граха-юддха ──
+  // Раздел появляется только при войне. Вердикт отдаём ровно такой, какой
+  // посчитан: сошлись признаки — имя победителя, разошлись — все три признака
+  // и прямой запрет решать за астролога (правило: ИИ не досочиняет школу).
+  if (natal.yuddha.length) {
+    L.push('\n### Граха-юддха (планетная война)');
+    for (const w of natal.yuddha) {
+      const house = c.planets.find((p) => p.name === w.a.name)?.house;
+      const who = w.winner
+        ? `побеждает ${w.winner}, слабее выходит ${w.loser} (все признаки сошлись)`
+        : `единого победителя нет — признаки расходятся: по силе и сиянию ${w.byBala}`
+          + (w.byLatitude ? `, севернее ${w.byLatitude}` : '')
+          + `, на меньшем градусе ${w.byDegree}`;
+      L.push(`${w.a.name} ${D(w.a.degInSign)} и ${w.b.name} ${D(w.b.degInSign)} в знаке ${w.sign}`
+        + (house ? `, ${house}-й дом` : '') + `; расстояние ${D(w.gap)}`
+        + `; вид — ${YUDDHA_KIND_LABEL[w.kind]}${w.apasavya ? ', апасавья (есть попятная)' : ''}`
+        + `; ${who}.`);
+    }
+    L.push('Война повреждает каракатвы проигравшей грахи, дом, где случилась, и дома, '
+      + 'которыми проигравшая управляет. Если победитель выше НЕ назван — так и разбирай: '
+      + 'мнения школ расходятся, своего победителя не назначай.');
+  }
 
   // ── лорды домов ──
   L.push('\n### Лорды домов (дом · знак · лорд · где стоит)');

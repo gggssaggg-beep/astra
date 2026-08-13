@@ -16,6 +16,7 @@ import { buildVedicChart, vimshottari, currentDasha,
 import { vargaSignAt, type VargaId } from './vargas.ts';
 import { upagrahas, type SkyForUpagraha, type UpagrahaResult } from './upagraha.ts';
 import { mrityuCheck } from './mrityu.ts';
+import { grahaYuddha, type Yuddha } from './yuddha.ts';
 
 /** Сокращения планет для клеток диаграммы (в ромб длинные имена не влезают). */
 /** Латиница — международный стандарт джйотиш-программ; выбор владелицы
@@ -34,6 +35,9 @@ export interface VedicNatal {
   dashaDaysPerMinute: number;
   /** упаграхи: пять от Солнца всегда, шесть суточных — если есть восход/закат */
   upagrahas: UpagrahaResult;
+  /** граха-юддха: тара-грахи, сошедшиеся в одном знаке ближе градуса. Пусто —
+   *  войн в карте нет (обычное дело: сближения такой тесноты редки). */
+  yuddha: Yuddha[];
   /** пояс МЕСТА рождения: границы частей суток лежат в нём, не в поясе показа */
   birthTz: string;
   /** Исходные данные расчёта — их и сверяют построчно с другой программой,
@@ -86,7 +90,9 @@ export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNa
   const jd = E.toJD(when);
   const h = E.houses(jd, p.place.lat, p.place.lon, 'wholeSign');
   if (!h) return null;
-  const { lons, retro } = lonMap(E.positions(when, [...VEDIC_ORDER]));
+  // позиции держим целиком: граха-юддхе нужна ещё и широта, а lonMap её теряет
+  const pos = E.positions(when, [...VEDIC_ORDER]);
+  const { lons, retro } = lonMap(pos);
   const chart = buildVedicChart(lons, retro, h.asc);
   const dashas = vimshottari(lons['Луна'], when);
   const first = VIMSHOTTARI.find((v) => v.lord === dashas[0]?.lord)?.years ?? 20;
@@ -95,6 +101,7 @@ export function vedicNatal(E: Engine, p: Person, at: Date = new Date()): VedicNa
   return { chart, dashas, now: currentDasha(dashas, at),
     dashaDaysPerMinute: dashaSensitivity(moonSpeed, first),
     upagrahas: upagrahas(when, lons['Солнце'], sky), birthTz: p.birthTz,
+    yuddha: grahaYuddha(pos.map((x) => ({ name: x.name, lon: x.lon, retro: x.retro, lat: x.lat }))),
     birthUTC: when, place: { lat: p.place.lat, lon: p.place.lon }, ayanamsa: E.ayanamsa(jd) };
 }
 

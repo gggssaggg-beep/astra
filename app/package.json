@@ -21,6 +21,7 @@
     "test:mrityu": "node test/mrityu.mjs",
     "test:panchanga": "node test/panchanga.mjs",
     "test:kalam": "node test/kalam.mjs",
+    "test:yuddha": "node test/yuddha.mjs",
     "test:arudhalore": "node test/arudhalore.mjs",
     "test:drishtilore": "node test/drishtilore.mjs",
     "test:auspicious": "node test/auspicious.mjs",

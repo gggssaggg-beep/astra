@@ -22,6 +22,10 @@ export interface BodyPosition {
   degInSign: number;    // 0..30
   speed: number;        // °/сут
   retro: boolean;
+  /** Эклиптическая ШИРОТА, ° (плюс — к северу от эклиптики). Нужна граха-юддхе:
+   *  при равной силе побеждает та граха, что севернее. Необязательна: позиции,
+   *  собранные не из эфемерид (средние точки композита), широты не имеют. */
+  lat?: number;
 }
 
 export type AspectBucket = 'slow' | 'fast' | 'moon';

@@ -108,9 +108,9 @@ export async function createEngine(
     return new Date(Date.UTC(y, mo - 1, d, hh, mm, Math.round(ss)));
   };
 
-  const calc = (jd: number, code: number): { lon: number; speed: number } => {
+  const calc = (jd: number, code: number): { lon: number; lat: number; speed: number } => {
     const xx = swe.calc_ut(jd, code, flag);   // Float64Array[6]
-    return { lon: xx[0], speed: xx[3] };
+    return { lon: xx[0], lat: xx[1], speed: xx[3] };
   };
 
   // Узлы считаем выбранным кодом (mean/true), остальные объекты — как обычно.
@@ -132,12 +132,15 @@ export async function createEngine(
     const list = names ?? [MOON, ...Object.keys(BODIES), 'Кету'];
     const jd = toJD(utc);
     return list.map((name) => {
-      const [l, speed] = lonSpeed(jd, name);
+      const r = calc(jd, codeOf(name));
+      const l = name === 'Кету' ? (r.lon + 180) % 360 : r.lon;
+      // у Кету широта зеркальна узлу: точки лежат по разные стороны эклиптики
+      const lat = name === 'Кету' ? -r.lat : r.lat;
       const s = signOf(l);
       return {
         name, glyph: PLANET_GLYPH[name] ?? '•', lon: l,
         sign: s.sign, signGlyph: s.glyph, degInSign: s.deg,
-        speed, retro: speed < 0,
+        speed: r.speed, retro: r.speed < 0, lat,
       };
     });
   };

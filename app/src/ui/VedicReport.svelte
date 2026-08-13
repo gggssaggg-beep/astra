@@ -20,6 +20,8 @@
   import { ashtakavarga, BAV_TOTALS } from '../lib/ashtakavarga.ts';
   import { WEEKDAY_RU } from '../lib/upagraha.ts';
   import { mrityuCheck, mrityuLabel, mrityuForce, MRITYU_SOURCE, type MrityuHit } from '../lib/mrityu.ts';
+  import { YUDDHA_KIND_LABEL, YUDDHA_KIND_LORE, YUDDHA_APASAVYA_LORE,
+    YUDDHA_HURT, YUDDHA_GENERAL, YUDDHA_DISPUTE } from '../lib/yuddha.ts';
   import { arudhaPadas, padaHouse } from '../lib/arudha.ts';
   import { padaText } from '../lib/arudhaLore.ts';
   import { drishtiText, distanceOf } from '../lib/drishtiLore.ts';
@@ -45,6 +47,7 @@
   let openLore = $state<string | null>(null);   // раскрытая трактовка грахи
   let openPada = $state<string | null>(null);   // раскрытая трактовка арудхи
   let openDrishti = $state<string | null>(null); // раскрытая трактовка дришти
+  let openYuddha = $state<string | null>(null);  // раскрытый разбор планетной войны
 
   // Разделы разбора — вкладками (правка астролога 2026-07-29): одна простыня из
   // домов, дришти, аштакаварги, грах и даш перегружала экран. Сводка о карте
@@ -405,6 +408,72 @@
     а те, что ближе половины орбиса, — ещё и жирные. Метод спорный — астролог сам это отметил;
     смотреть его стоит вместе с остальной картой, а не отдельно.</div>
 {/if}
+<!-- ГРАХА-ЮДДХА. Блок появляется ТОЛЬКО при сближении: войн в карте обычно нет,
+     и пустой раздел «войн нет» читался бы как «расчёт не сработал».
+     Вердикт даётся, лишь когда все признаки сошлись, — по слову астролога
+     13.08.2026: мнения школ о победителе расходятся, и тогда честнее показать
+     факт войны и разбор признаков, чем выбрать за него. -->
+{#if natal.yuddha.length}
+  <div class="hdr">Граха-юддха · планетная война</div>
+  {#each natal.yuddha as w}
+    {@const house = c.planets.find((p) => p.name === w.a.name)?.house ?? 0}
+    <div class="card glass ycard reveal" use:reveal>
+      <div class="yline">
+        <span class="g glyph">{PLANET_GLYPH[w.a.name] ?? '•'}</span>
+        <span class="yvs">×</span>
+        <span class="g glyph">{PLANET_GLYPH[w.b.name] ?? '•'}</span>
+        <span class="ynames">{w.a.name} и {w.b.name}</span>
+        <span class="ygap">{degMin(w.gap)}</span>
+      </div>
+      <div class="psub">{w.sign}{#if house}, {ORD[house]} дом{/if} ·
+        {w.a.name} {degMin(w.a.degInSign)}{w.a.retro ? ' R' : ''},
+        {w.b.name} {degMin(w.b.degInSign)}{w.b.retro ? ' R' : ''}</div>
+      <div class="ykind">{YUDDHA_KIND_LABEL[w.kind]}{#if w.apasavya} · апасавья (есть попятная){/if}</div>
+
+      {#if w.winner}
+        <div class="ywin">Побеждает {w.winner} — сошлись все признаки.
+          Слабее выходит {w.loser}.</div>
+      {:else}
+        <div class="ydisput">Признаки расходятся — единого победителя классика здесь не даёт.</div>
+      {/if}
+      <div class="ycrit">
+        <div class="ycrow"><span class="ycl">сила и сияние</span><span class="ycv">{w.byBala}</span></div>
+        {#if w.byLatitude}
+          <div class="ycrow"><span class="ycl">севернее по широте</span><span class="ycv">{w.byLatitude}</span></div>
+        {:else}
+          <div class="ycrow"><span class="ycl">широта</span><span class="ycv dim">одинаковая — признак молчит</span></div>
+        {/if}
+        <div class="ycrow"><span class="ycl">меньший градус (догоняет)</span><span class="ycv">{w.byDegree}</span></div>
+      </div>
+
+      <button class="lorebtn" onclick={() => (openYuddha = openYuddha === w.a.name + w.b.name ? null : w.a.name + w.b.name)}>
+        {openYuddha === w.a.name + w.b.name ? 'Свернуть' : 'Что это значит'}
+        {openYuddha === w.a.name + w.b.name ? '▴' : '▾'}
+      </button>
+      {#if openYuddha === w.a.name + w.b.name}
+        <div class="lorebox">
+          <div class="loreone"><span class="lorelbl">вид войны</span>{YUDDHA_KIND_LORE[w.kind]}</div>
+          {#if w.apasavya}
+            <div class="loreone"><span class="lorelbl">апасавья</span>{YUDDHA_APASAVYA_LORE}</div>
+          {/if}
+          <div class="loreone"><span class="lorelbl">что задето</span>{YUDDHA_GENERAL}</div>
+          {#if w.loser && YUDDHA_HURT[w.loser]}
+            <div class="loreone"><span class="lorelbl">темы {w.loser}</span>{YUDDHA_HURT[w.loser]} — именно
+              они звучат приглушённо.</div>
+          {:else}
+            <div class="loreone"><span class="lorelbl">чьи темы под ударом</span>
+              {w.a.name}: {YUDDHA_HURT[w.a.name]}. {w.b.name}: {YUDDHA_HURT[w.b.name]}.
+              Что из этого просядет, зависит от того, кого считать проигравшим.</div>
+          {/if}
+          <div class="loreone"><span class="lorelbl">почему без вердикта</span>{YUDDHA_DISPUTE}</div>
+        </div>
+      {/if}
+    </div>
+  {/each}
+  <div class="note">Воюют только пять тара-грах: Мангала, Будха, Гуру, Шукра и Шани. Сурья не
+    воюет — он жжёт (астангата), у Чандры своего света нет, а Раху и Кету — тени. Война считается
+    при сближении не больше градуса в одном знаке.</div>
+{/if}
 {#each c.planets as p}
   <div class="card glass pcard reveal" use:reveal>
     <div class="pline">
@@ -733,6 +802,21 @@
   .loreone { font-size: 0.84rem; line-height: 1.5; color: var(--ink-dim); }
   .lorelbl { display: block; color: var(--ink-faint); font-size: 0.72rem;
     text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 2px; }
+  /* граха-юддха: карточка войны. Красок «кто прав» здесь нет — победитель
+     называется словом, а не цветом (правило: смысл несёт текст) */
+  .ycard { padding: 10px 12px; }
+  .yline { display: flex; align-items: baseline; gap: 6px; }
+  .yvs { color: var(--ink-faint); font-size: 0.8rem; }
+  .ynames { flex: 1; font-size: 0.92rem; color: var(--ink); margin-left: 2px; }
+  .ygap { font-size: 0.84rem; color: var(--ink-dim); }
+  .ykind { margin-top: 6px; font-size: 0.78rem; color: var(--ink-faint); }
+  .ywin { margin-top: 6px; font-size: 0.86rem; line-height: 1.45; color: var(--ink); }
+  .ydisput { margin-top: 6px; font-size: 0.86rem; line-height: 1.45; color: var(--ink-dim); }
+  .ycrit { margin-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+  .ycrow { display: flex; gap: 8px; align-items: baseline; font-size: 0.78rem; }
+  .ycl { flex: 1; color: var(--ink-faint); }
+  .ycv { color: var(--ink-dim); }
+  .ycv.dim { color: var(--ink-faint); }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
   .tag { font-size: 0.7rem; border-radius: 999px; padding: 2px 9px; border: 1px solid var(--glass-brd);
     color: var(--ink-dim); white-space: nowrap; }

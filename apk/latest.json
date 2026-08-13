@@ -1,7 +1,7 @@
 {
-  "version": "0.1.0.720",
+  "version": "0.1.0.723",
   "url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/bundle.zip",
-  "notes": "build 0.1.0.720 (462de2d)",
+  "notes": "build 0.1.0.723 (1cf8f5e)",
   "files": [
     {
       "file_name": "icon.svg",
@@ -10,7 +10,7 @@
     },
     {
       "file_name": "index.html",
-      "file_hash": "c0eccca419017a043b2a511f92b1c081ebf3f4ee35b97dc416997d10c6d38625",
+      "file_hash": "92a6123c911546bd8b8779797671d95827ddff6501d45b11ffd5c7ae00d1a8ec",
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/index.html"
     },
     {
@@ -25,7 +25,7 @@
     },
     {
       "file_name": "sw.js",
-      "file_hash": "e594f016024097d877048603643f040db5328b95600430aa70f84891ced54ec7",
+      "file_hash": "f8b24f7cfda09f56ddd8f470e2bfccebf132a5a20c34eef252da5adf8ee841b2",
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/sw.js"
     },
     {
@@ -69,14 +69,14 @@
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/golos-text-latin-wght-normal-BS5oQT7X.woff2"
     },
     {
-      "file_name": "assets/index-DVAPz61V.css",
-      "file_hash": "2db437ec6d9cdc631a9bda4fb855d618acec16134481ea0d5afa20e141d05045",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-DVAPz61V.css"
+      "file_name": "assets/index-XSdz4PD3.css",
+      "file_hash": "38d2e0d485e20f3bbb11f4bdb47334a4b493f6126314fada1d9cfcad14055bc5",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-XSdz4PD3.css"
     },
     {
-      "file_name": "assets/index-Dy_k791k.js",
-      "file_hash": "9e4d1f35470de81a0ba5544117af789496418d662e36bcde09b8f730c7887971",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-Dy_k791k.js"
+      "file_name": "assets/index-pyrunK51.js",
+      "file_hash": "440e1b4027056a140af76ee6344d48ef8a617c29498593b01a0b5a175e8de7ca",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/index-pyrunK51.js"
     },
     {
       "file_name": "assets/jetbrains-mono-cyrillic-400-normal-BEIGL1Tu.woff2",
@@ -504,39 +504,39 @@
       "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/unbounded-vietnamese-700-normal-CjKRcRIV.woff2"
     },
     {
-      "file_name": "assets/web-B-wrvFax.js",
-      "file_hash": "6038532bb152c9247121554c82798a7dd1a815ca664268ed74a377ecc376dfb0",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-B-wrvFax.js"
+      "file_name": "assets/web-B6AqnDaU.js",
+      "file_hash": "c3a18ed78659da542007e98864c251f2e99203ad560858b5ff4f7365a01a36d4",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-B6AqnDaU.js"
     },
     {
-      "file_name": "assets/web-BaZaIIK6.js",
-      "file_hash": "53e94018ed9439bad37b65860878e33d54337a400f04b609e23975c838625139",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-BaZaIIK6.js"
+      "file_name": "assets/web-BDaPyyad.js",
+      "file_hash": "9bfdb14e895590f7c87350e6fda6a75cdef9b5221f80117ff824a0915fcc9a5c",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-BDaPyyad.js"
     },
     {
-      "file_name": "assets/web-CUZLGr4M.js",
-      "file_hash": "896beeee40a05c2ffd487c61b04e05bff6590c7f7115ea599751430a6a40a809",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-CUZLGr4M.js"
+      "file_name": "assets/web-CEcpXXXL.js",
+      "file_hash": "541bbcd1af1dbd859ee7b13cb521d4c1f97189409ebccab4ad2ac791663944f0",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-CEcpXXXL.js"
     },
     {
-      "file_name": "assets/web-Cnxk5iuc.js",
-      "file_hash": "9484a57e88cbfdca3b7f7fd93766e35ebaf60396504171a833bb9cf770f0e95c",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-Cnxk5iuc.js"
+      "file_name": "assets/web-CvcoxSh9.js",
+      "file_hash": "1062077cba1c58263f1faa829bd086b8ee62b3275d6530fcde17553200d5cee6",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-CvcoxSh9.js"
     },
     {
-      "file_name": "assets/web-DIiTGxoE.js",
-      "file_hash": "53b3eac6b73983315fb405b7591cd9b957b91aab8789487841e28d5e8012f596",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-DIiTGxoE.js"
+      "file_name": "assets/web-CzJ_dpPH.js",
+      "file_hash": "0187b1eaef61f1b36b6a4c38756b21e8840a07064117be35da6c660bea66ad3a",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-CzJ_dpPH.js"
     },
     {
-      "file_name": "assets/web-bciJYL8S.js",
-      "file_hash": "c4f53df8db6b867dfc4b4428b9f7c14ccd93dde50a07844d6ecbd7bc1a62aedd",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-bciJYL8S.js"
+      "file_name": "assets/web-DSd_Ego_.js",
+      "file_hash": "1c4406faf3bd7ac2b11da687c663281e0582916a507f8476546e43d8f4bfc708",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-DSd_Ego_.js"
     },
     {
-      "file_name": "assets/web-rTBVhitW.js",
-      "file_hash": "58144294a224f60006768fa43b7b6c9a8700e8497936e1cf185657036a8a17d3",
-      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-rTBVhitW.js"
+      "file_name": "assets/web-Dus41lNI.js",
+      "file_hash": "3295ab5a8e68e99d2033ccdc36e2a658749db2e7aa0adf9ea612a89d26724e09",
+      "download_url": "https://raw.githubusercontent.com/gggssaggg-beep/astra/main/apk/files/assets/web-Dus41lNI.js"
     }
   ]
 }

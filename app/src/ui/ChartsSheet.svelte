@@ -35,7 +35,8 @@
   import { HOUSE_SYSTEMS } from '../lib/models.ts';
   import { buildAstroPrompt, type PromptPerson } from '../lib/aiPrompt.ts';
   import { fmtPos, fmtPosRx, tzLabel } from '../lib/format.ts';
-  import { forecastTransits, transitWindow, type TransitHit, type TransitWindow } from '../lib/forecast.ts';
+  import { forecastTransits, transitWindow, FORECAST_MAX,
+    type TransitHit, type TransitWindow } from '../lib/forecast.ts';
   import type { BodyPosition } from '../engine/index.ts';
   import Wheel from './Wheel.svelte';
   import { chartFigures } from '../lib/chartFigures.ts';
@@ -734,14 +735,27 @@
   // Прогноз считается по требованию и НЕ сбрасывается при смене людей/режима —
   // поэтому фильтруем по владельцам текущей карты и метим момент, от которого
   // он считался (после скраба он уже не «от сейчас»).
+  // 2026-08-13: список БОЛЬШЕ НЕ РЕЖЕТСЯ (был slice(0,14) — сортировка по дате,
+  // значит на окне 180 дн. в промпт уходил только первый месяц, а подпись
+  // обещала все 180; ИИ считала список полным). Отдаём всё, что посчитано, и
+  // прямо говорим, упёрся ли счёт в потолок FORECAST_MAX.
   const forecastForPrompt = $derived.by(() => {
     if (!forecastRan || mode === 'synastry') return undefined;
     const owners = new Set([personA?.name, personB?.name].filter(Boolean) as string[]);
     if (mode === 'composite') owners.add('композит');   // владелец целей прогноза композита
-    const items = forecastList.filter((h) => owners.has(h.owner)).slice(0, 14)
+    const items = forecastList.filter((h) => owners.has(h.owner))
       .map((h) => `${h.tName} (небо) ${h.aspect} ${h.nName} (${h.owner}) — ${fmtHit(h.when)}`);
     if (!items.length) return undefined;
-    return { span: `${forecastDays} дн. от ${fmtHit(forecastAt ?? transitAt)}`, items };
+    // потолок берётся по ВСЕМУ посчитанному списку (до фильтра владельцев):
+    // именно в него упирается расчёт
+    const capped = forecastList.length >= FORECAST_MAX;
+    const tail = capped
+      ? ' — счёт остановлен на потолке, к концу окна события могут быть не все'
+      : ' — весь список за окно';
+    return {
+      span: `${forecastDays} дн. от ${fmtHit(forecastAt ?? transitAt)}, событий ${items.length}${tail}`,
+      items,
+    };
   });
   const housesLine = (): string | undefined =>
     houseInfoA ? houseInfoA.map((h) => `${['I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII'][h.house - 1]} ${h.sign} (упр. ${h.rulers.join(', ')})`).join('; ') : undefined;

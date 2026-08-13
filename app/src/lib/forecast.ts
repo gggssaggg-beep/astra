@@ -77,12 +77,17 @@ export function transitWindow(
   return { begin: E.fromJD(edge(-1)), exact: E.fromJD(exactJd), end: E.fromJD(edge(1)) };
 }
 
+/** Потолок числа найденных попаданий: защита от долгого счёта на больших окнах
+ *  (180 дн. по Меркурию — тысячи вызовов движка). Экспортируется, чтобы промпт
+ *  для ИИ мог честно сказать, что список упёрся в потолок, а не кончился. */
+export const FORECAST_MAX = 100;
+
 /** targets — по человеку: { owner: имя, pos: натальные позиции }. Возвращает
  *  ближайшие точные транзиты в [from, from+days], отсортированные по дате. */
 export async function forecastTransits(
   E: Engine,
   targets: { owner: string; pos: BodyPosition[] }[],
-  from: Date, days: number, objects?: string[], maxResults = 100,
+  from: Date, days: number, objects?: string[], maxResults = FORECAST_MAX,
 ): Promise<TransitHit[]> {
   // транзитные тела — все базовые, КРОМЕ Луны (слишком часто); учитываем тумблеры
   let tBodies = [...Object.keys(BODIES), 'Кету'];
